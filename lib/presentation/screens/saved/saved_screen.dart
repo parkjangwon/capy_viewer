@@ -1,0 +1,23 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../data/models/manga_title.dart';
+import '../../widgets/manga/manga_list_screen.dart';
+import '../../viewmodels/saved_provider.dart';
+
+class SavedScreen extends ConsumerWidget {
+  const SavedScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final savedManga = ref.watch(savedProvider);
+
+    return MangaListScreen(
+      title: '',
+      items: savedManga.value ?? [],
+      isLoading: savedManga.isLoading,
+      errorMessage: savedManga.hasError ? savedManga.error.toString() : null,
+      emptyIcon: Icons.bookmark_outline,
+      emptyMessage: '저장한 작품이 없습니다.',
+    );
+  }
+} 
