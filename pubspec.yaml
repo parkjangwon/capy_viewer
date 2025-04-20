@@ -39,6 +39,18 @@ dev_dependencies:
   mockito: ^5.4.4
   analyzer: ^5.13.0
   dart_style: ^2.3.2
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
+
+flutter_icons:
+  image_path: "assets/images/logo.png"
+  android: true
+  ios: true
+  macos:
+    generate: true
+  windows:
+    generate: true
+  web:
+    generate: true
