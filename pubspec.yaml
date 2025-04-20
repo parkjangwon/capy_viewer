@@ -39,23 +39,18 @@ dev_dependencies:
   flutter_lints: ^3.0.1
   build_runner: ^2.4.7
   freezed: ^2.4.7
+  flutter_launcher_icons: ^0.13.1
   json_serializable: ^6.7.1
   riverpod_generator: ^2.3.5
   mockito: ^5.4.4
   analyzer: ^5.13.0
   dart_style: ^2.3.2
-  flutter_launcher_icons: ^0.13.1
+
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/logo.png"
 
 flutter:
   uses-material-design: true
 
-flutter_icons:
-  image_path: "assets/images/logo.png"
-  android: true
-  ios: true
-  macos:
-    generate: true
-  windows:
-    generate: true
-  web:
-    generate: true

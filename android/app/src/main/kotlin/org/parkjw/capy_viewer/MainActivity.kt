@@ -1,4 +1,4 @@
-package com.example.manga_view_flutter
+package org.parkjw.capy_viewer
 
 import io.flutter.embedding.android.FlutterActivity
 

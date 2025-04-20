@@ -163,6 +163,7 @@ class ApiService extends _$ApiService {
     String path, {
     Map<String, dynamic>? queryParameters,
     Options? options,
+    bool bypassCaptchaOnBlocked = false,
   }) async {
     final baseUrl = ref.read(siteUrlServiceProvider);
     
@@ -209,17 +210,28 @@ class ApiService extends _$ApiService {
       if (e.response?.statusCode == 403 || 
           (e.response?.data as String?)?.contains('captcha-bypass') == true ||
           (e.response?.data as String?)?.contains('_cf_chl_opt') == true) {
-        _logger.w('[REQUEST] 캡차 감지됨, 우회 시도');
-        final success = await bypassCaptcha(e.requestOptions.uri.toString());
-        if (success) {
-          _logger.i('[REQUEST] 캡차 우회 성공, 재시도');
-          return _request(path, queryParameters: queryParameters, options: options);
+        _logger.w('[REQUEST] 캡차 감지됨');
+        if (bypassCaptchaOnBlocked) {
+          _logger.w('[REQUEST] 캡차 우회 시도');
+          final success = await bypassCaptcha(e.requestOptions.uri.toString());
+          if (success) {
+            _logger.i('[REQUEST] 캡차 우회 성공, 재시도');
+            return _request(path, queryParameters: queryParameters, options: options, bypassCaptchaOnBlocked: bypassCaptchaOnBlocked);
+          } else {
+            _logger.e('[REQUEST] 캡차 우회 실패, 요청 중단');
+            throw DioException(
+              requestOptions: e.requestOptions,
+              response: e.response,
+              error: '캡차 우회 실패',
+              type: DioExceptionType.badResponse
+            );
+          }
         } else {
-          _logger.e('[REQUEST] 캡차 우회 실패, 요청 중단');
+          _logger.w('[REQUEST] 캡차 우회 시도하지 않음 (자동 요청)');
           throw DioException(
             requestOptions: e.requestOptions,
             response: e.response,
-            error: '캡차 우회 실패',
+            error: '자동 요청 중 캡차 감지됨',
             type: DioExceptionType.badResponse
           );
         }
@@ -306,6 +318,7 @@ class ApiService extends _$ApiService {
         queryParameters: {
           'page': (offset ~/ 20 + 1).toString(),
         },
+        bypassCaptchaOnBlocked: false, // 홈화면 자동 요청에서는 캡차 우회 시도 금지
       );
       
       if (response.data == null || response.data!.isEmpty) {
@@ -363,6 +376,7 @@ class ApiService extends _$ApiService {
         queryParameters: {
           'page': (offset ~/ 20 + 1).toString(),
         },
+        bypassCaptchaOnBlocked: false, // 홈화면 자동 요청에서는 캡차 우회 시도 금지
       );
       
       if (response.data == null || response.data!.isEmpty) {
