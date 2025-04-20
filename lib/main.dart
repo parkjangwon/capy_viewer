@@ -7,6 +7,7 @@ import 'presentation/screens/recent/recent_screen.dart';
 import 'presentation/screens/favorites/favorites_screen.dart';
 import 'presentation/screens/saved/saved_screen.dart';
 import 'presentation/screens/settings/settings_screen.dart';
+import 'presentation/screens/test/test_screen.dart';
 import 'presentation/viewmodels/theme_provider.dart';
 import 'presentation/viewmodels/navigator_provider.dart';
 
@@ -105,6 +106,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       const FavoritesScreen(),
       const SavedScreen(),
       const SettingsScreen(),
+      // 테스트 메뉴
+      const TestScreen(),
     ];
 
     return Scaffold(
@@ -142,6 +145,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             icon: Icon(Icons.settings_outlined),
             selectedIcon: Icon(Icons.settings),
             label: '설정',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.bug_report_outlined),
+            selectedIcon: Icon(Icons.bug_report),
+            label: '테스트',
           ),
         ],
       ),
