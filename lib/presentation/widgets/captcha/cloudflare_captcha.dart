@@ -19,16 +19,8 @@ class _CloudflareCaptchaWidgetState extends State<CloudflareCaptchaWidget> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('🤖 CAPTCHA'),
-        leading: IconButton(
-          icon: const Icon(Icons.close),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
-      body: Stack(
-        children: [
+    return Stack(
+      children: [
           InAppWebView(
             initialUrlRequest: URLRequest(url: WebUri(widget.url)),
             initialSettings: InAppWebViewSettings(
@@ -88,24 +80,9 @@ class _CloudflareCaptchaWidgetState extends State<CloudflareCaptchaWidget> {
             },
             onReceivedHttpError: (controller, request, response) {
               debugPrint('[CAPTCHA][HTTP ERROR] $request, statusCode: ${response.statusCode}');
-              setState(() {
-                _isLoading = false;
-                _errorMsg = '[onReceivedHttpError] status: ${response.statusCode}';
-              });
             },
           ),
-          if (_isLoading)
-            const Center(child: CircularProgressIndicator()),
-          if (_errorMsg != null)
-            Center(
-              child: Container(
-                color: Colors.white,
-                padding: const EdgeInsets.all(16),
-                child: Text(_errorMsg!, style: const TextStyle(color: Colors.red)),
-              ),
-            ),
-        ],
-      ),
+      ],
     );
   }
 }

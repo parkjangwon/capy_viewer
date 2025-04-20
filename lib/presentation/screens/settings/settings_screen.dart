@@ -293,28 +293,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            if (_packageInfo != null)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        '앱 정보',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text('버전: ${_packageInfo!.version}'),
-                      Text('빌드 번호: ${_packageInfo!.buildNumber}'),
-                    ],
-                  ),
-                ),
-              ),
           ],
         ),
       ),
