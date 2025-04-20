@@ -8,19 +8,23 @@ import 'presentation/screens/favorites/favorites_screen.dart';
 import 'presentation/screens/saved/saved_screen.dart';
 import 'presentation/screens/settings/settings_screen.dart';
 import 'presentation/viewmodels/theme_provider.dart';
+import 'presentation/viewmodels/navigator_provider.dart';
 
 void main() {
   runApp(const ProviderScope(child: MyApp()));
-}
+} // 아래에서 MyApp에 navigatorKey를 전달하도록 수정 예정
 
 class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final navKey = ref.watch(navigatorKeyProvider);
+
     final themeMode = ref.watch(themeProvider);
     
     return MaterialApp(
+      navigatorKey: navKey,
       title: 'MangaView',
       debugShowCheckedModeBanner: false,
       themeMode: themeMode,

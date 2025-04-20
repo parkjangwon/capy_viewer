@@ -4,12 +4,10 @@ import '../widgets/captcha/cloudflare_captcha.dart';
 
 class CaptchaScreen extends StatefulWidget {
   final String url;
-  final Function(String) onHtmlReceived;
 
   const CaptchaScreen({
     super.key,
     required this.url,
-    required this.onHtmlReceived,
   });
 
   @override
@@ -30,9 +28,6 @@ class _CaptchaScreenState extends State<CaptchaScreen> {
         children: [
           CloudflareCaptchaWidget(
             url: widget.url,
-            onCaptchaSolved: (html) {
-              widget.onHtmlReceived(html);
-            },
           ),
           if (_isLoading)
             const Center(

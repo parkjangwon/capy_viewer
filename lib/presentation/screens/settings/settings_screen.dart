@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../data/datasources/site_url_service.dart';
+import '../../../data/datasources/api_service.dart';
 import '../../viewmodels/theme_provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -247,6 +248,52 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 16),
+            if (_packageInfo != null)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '앱 정보',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text('버전: ${_packageInfo!.version}'),
+                      Text('빌드 번호: ${_packageInfo!.buildNumber}'),
+                    ],
+                  ),
+                ),
+              ),
+            const SizedBox(height: 32),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.delete_forever),
+                    label: const Text('쿠키 삭제'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.error,
+                      foregroundColor: Theme.of(context).colorScheme.onError,
+                    ),
+                    onPressed: () async {
+                      final apiService = ref.read(apiServiceProvider.notifier);
+                      await apiService.clearCache();
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('쿠키가 삭제되었습니다..'), duration: Duration(seconds: 2)),
+                        );
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
             if (_packageInfo != null)
               Card(
                 child: Padding(

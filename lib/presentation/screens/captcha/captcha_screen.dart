@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import '../widgets/captcha/cloudflare_captcha.dart';
 
 class CaptchaScreen extends StatelessWidget {
   final String url;
-  final Function(String) onHtmlReceived;
 
   const CaptchaScreen({
     super.key,
     required this.url,
-    required this.onHtmlReceived,
   });
 
   @override
@@ -16,11 +15,10 @@ class CaptchaScreen extends StatelessWidget {
     return Scaffold(
       body: CloudflareCaptchaWidget(
         url: url,
-        onCaptchaSolved: (html) {
-          onHtmlReceived(html);
-          Navigator.of(context).pop(html);
+        onCaptchaSolved: (String html, List<Cookie> cookies) {
+          Navigator.of(context).pop({'html': html, 'cookies': cookies});
         },
       ),
     );
   }
-} 
+}

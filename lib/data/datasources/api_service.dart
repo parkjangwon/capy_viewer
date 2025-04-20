@@ -1,9 +1,11 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' as io;
+import '../../core/typedefs.dart';
 import 'dart:math';
 import 'package:html/parser.dart' as html_parser;
 import '../models/manga_title.dart';
@@ -13,8 +15,9 @@ import '../../core/errors/exceptions.dart';
 import '../../core/errors/failures.dart';
 import '../../presentation/widgets/captcha/cloudflare_captcha.dart';
 import 'package:cookie_jar/cookie_jar.dart';
-import 'package:dio_cookie_manager/dio_cookie_manager.dart';
+import 'package:dio_cookie_manager/dio_cookie_manager.dart' as dio_cookie;
 import 'package:dio/io.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart' as inappwebview;
 import 'site_url_service.dart';
 import '../../presentation/screens/captcha_screen.dart';
 import '../../presentation/viewmodels/navigator_provider.dart';
@@ -23,23 +26,45 @@ part 'api_service.g.dart';
 
 @Riverpod(keepAlive: true)
 class ApiService extends _$ApiService {
+  /// 앱 내 쿠키 삭제
+  Future<void> clearCookies() async {
+    try {
+      await _cookieJar.deleteAll();
+      _logger.i('[SETTINGS] 모든 쿠키 삭제 완료');
+    } catch (e, stack) {
+      _logger.e('[SETTINGS] 쿠키 삭제 중 오류', error: e, stackTrace: stack);
+    }
+  }
+
+  /// 웹뷰 캐시/쿠키 삭제 (SharedPreferences는 삭제하지 않음)
+  Future<void> clearCache() async {
+    try {
+      await inappwebview.CookieManager.instance().deleteAllCookies();
+      await InAppWebViewController.clearAllCache();
+      _logger.i('[SETTINGS] 웹뷰 쿠키/캐시 전체 삭제 완료');
+    } catch (e, stack) {
+      _logger.e('[SETTINGS] 웹뷰 캐시 삭제 중 오류', error: e, stackTrace: stack);
+    }
+  }
   final _logger = Logger();
   late final Dio _dio;
   late final CookieJar _cookieJar;
   DateTime? _lastCaptchaSolvedTime;
   static const _captchaCheckInterval = Duration(minutes: 10);
   String? _sessionId;
-  final String baseUrl = 'https://manatoki468.net';
-  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+  
+  late final GlobalKey<NavigatorState> _navigatorKey;
 
   @override
   ApiService build() {
+    _navigatorKey = ref.watch(navigatorKeyProvider);
+
     _dio = Dio();
     _cookieJar = CookieJar();
-    _dio.interceptors.add(CookieManager(_cookieJar));
+    _dio.interceptors.add(dio_cookie.CookieManager(_cookieJar));
     
     (_dio.httpClientAdapter as IOHttpClientAdapter).createHttpClient = () {
-      final client = HttpClient();
+      final client = io.HttpClient();
       client.badCertificateCallback = (cert, host, port) => true;
       client.connectionTimeout = const Duration(seconds: 20);
       client.idleTimeout = const Duration(seconds: 20);
@@ -73,11 +98,12 @@ class ApiService extends _$ApiService {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          if (!options.path.startsWith(baseUrl)) {
-            options.path = '$baseUrl${options.path}';
+          final siteUrl = ref.read(siteUrlServiceProvider);
+          if (!options.path.startsWith(siteUrl)) {
+            options.path = '$siteUrl${options.path}';
           }
           
-          final cookies = await _cookieJar.loadForRequest(Uri.parse(baseUrl));
+          final cookies = await _cookieJar.loadForRequest(Uri.parse(siteUrl));
           if (cookies.isNotEmpty) {
             options.headers['Cookie'] = cookies
                 .map((cookie) => '${cookie.name}=${cookie.value}')
@@ -124,7 +150,8 @@ class ApiService extends _$ApiService {
     final baseUrl = ref.read(siteUrlServiceProvider);
     
     try {
-      var url = '$baseUrl$path';
+      final siteUrl = ref.read(siteUrlServiceProvider);
+      var url = '$siteUrl$path';
       if (queryParameters != null && queryParameters.isNotEmpty) {
         final query = queryParameters.entries
             .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value.toString())}')
@@ -319,58 +346,127 @@ class ApiService extends _$ApiService {
   }
 
   Future<List<MangaTitle>> search(String query, {int offset = 0}) async {
-    final page = (offset ~/ 10) + 1;
-    final searchUrl = '$baseUrl/bbs/search.php?sfl=wr_subject&stx=${Uri.encodeComponent(query)}&sop=and&where=all&onetable=&page=$page';
-    
-    try {
-      final response = await _dio.get(
-        searchUrl,
-        options: Options(
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
-          },
-        ),
-      );
+  _logger.i('[SEARCH][FLOW] 검색 진입: query="$query", offset=$offset');
+  final page = (offset ~/ 10) + 1;
+  final baseUrl = ref.read(siteUrlServiceProvider);
+  final searchUrl = '$baseUrl/bbs/search.php?sfl=wr_subject&stx=${Uri.encodeComponent(query)}&sop=and&where=all&onetable=&page=$page';
 
-      if (response.statusCode == 200) {
-        final html = response.data as String;
-        if (!html.contains('cf-browser-verification') && 
-            !html.contains('cf-challenge') &&
-            !html.contains('_cf_chl_opt')) {
-          return _parseMangaTitles(html);
+  _logger.i('[SEARCH] 요청 URL: $searchUrl');
+  try {
+    _logger.i('[SEARCH][FLOW] Dio 요청 시작: url=$searchUrl, UA=${_dio.options.headers['User-Agent']}');
+    final response = await _dio.get(
+      searchUrl,
+      options: Options(
+        headers: {
+          'User-Agent': _dio.options.headers['User-Agent'] ?? 'N/A',
+        },
+      ),
+    );
+    _logger.i('[SEARCH] 응답 코드: ${response.statusCode}');
+    _logger.i('[SEARCH][FLOW] Dio 응답 수신: statusCode=${response.statusCode}');
+    if (response.statusCode == 200) {
+      final html = response.data as String;
+      _logger.i('[SEARCH] 응답 본문 일부: ${html.substring(0, html.length > 300 ? 300 : html.length)}');
+      _logger.i('[SEARCH][FLOW] HTML 길이: ${html.length}');
+      if (!html.contains('captcha-bypass') && !html.contains('_cf_chl_opt')) {
+        _logger.i('[SEARCH][FLOW] 파싱 시작');
+        final result = _parseMangaTitles(html);
+        if (result.isEmpty) {
+          _logger.w('[SEARCH][FLOW] 파싱 결과 없음. HTML 일부: ${html.substring(0, html.length > 2000 ? 2000 : html.length)}');
+        } else {
+          _logger.i('[SEARCH][FLOW] 파싱 성공: 결과 ${result.length}건');
         }
+        return result;
+      } else {
+        _logger.w('[SEARCH][FLOW] Cloudflare 캡차 감지됨. 캡차 위젯 진입');
       }
-    } catch (e) {
-      _logger.e('Direct HTTP request failed', error: e);
-    }
-
-    final navigatorState = _navigatorKey.currentState;
-    if (navigatorState != null) {
-      final html = await navigatorState.push<String>(
-        MaterialPageRoute(
-          builder: (context) => CaptchaScreen(
-            url: searchUrl,
-            onHtmlReceived: (html) {
-              navigatorState.pop(html);
-            },
+    } else if (response.statusCode == 302) {
+      _logger.w('[SEARCH][FLOW] 302 리다이렉트 감지, 강제 캡차 우회 시도. 캡차 위젯 진입');
+      final navigatorState = _navigatorKey.currentState;
+      if (navigatorState != null) {
+        _logger.i('[SEARCH][FLOW] 캡차 위젯 진입');
+        final Map<String, dynamic>? resultTuple = await navigatorState.push(
+          MaterialPageRoute<Map<String, dynamic>>(
+            builder: (context) => CaptchaScreen(
+              url: searchUrl,
+            ),
           ),
-        ),
-      );
+        );
 
-      if (html != null) {
-        return _parseMangaTitles(html);
+        String? html;
+        List<Cookie>? cookies;
+        if (resultTuple != null) {
+          html = resultTuple['html'] as String?;
+          final inappCookies = resultTuple['cookies'] as List?;
+          List<io.Cookie>? dartCookies;
+          if (inappCookies != null && inappCookies.isNotEmpty) {
+            try {
+              dartCookies = inappCookies.map((c) {
+                if (c is io.Cookie) {
+                  return c;
+                } else if (c is Map) {
+                  // flutter_inappwebview Cookie 객체는 Map으로 전달될 수 있음
+                  final name = c['name']?.toString() ?? '';
+                  final value = c['value']?.toString() ?? '';
+                  final domain = c['domain']?.toString();
+                  final path = c['path']?.toString();
+                  final expires = c['expires'] is DateTime ? c['expires'] : null;
+                  final isHttpOnly = c['isHttpOnly'] == true;
+                  final isSecure = c['isSecure'] == true;
+                  return io.Cookie(name, value)
+                    ..domain = domain
+                    ..path = path
+                    ..expires = expires
+                    ..httpOnly = isHttpOnly
+                    ..secure = isSecure;
+                } else {
+                  throw Exception('Unknown cookie type: "+c.runtimeType.toString()+"');
+                }
+              }).toList();
+              final siteUrl = ref.read(siteUrlServiceProvider);
+              await _cookieJar.saveFromResponse(Uri.parse(siteUrl), dartCookies);
+              _logger.i('[SEARCH][FLOW] 캡차 쿠키 동기화 완료');
+            } catch (e, stack) {
+              _logger.e('[SEARCH][FLOW] 쿠키 변환 오류', error: e, stackTrace: stack);
+            }
+          }
+          _logger.i('[SEARCH][FLOW] 캡차 위젯 종료: html 길이=${html?.length ?? 0}, 쿠키=${dartCookies?.map((c) => c.name + '=' + c.value).join('; ') ?? '없음'}');
+        }
+
+        if (html != null) {
+          _logger.i('[SEARCH][FLOW] 캡차 우회 후 HTML 일부: ${html.substring(0, html.length > 300 ? 300 : html.length)}');
+          _logger.i('[SEARCH][FLOW] 캡차 우회 후 파싱 시작');
+          final result = _parseMangaTitles(html);
+          if (result.isEmpty) {
+            _logger.w('[SEARCH][FLOW] 캡차 우회 후 파싱 결과 없음. HTML 일부: ${html.substring(0, html.length > 2000 ? 2000 : html.length)}');
+          } else {
+            _logger.i('[SEARCH][FLOW] 캡차 우회 후 파싱 성공: 결과 ${result.length}건');
+          }
+          return result;
+        } else {
+          _logger.e('[SEARCH][FLOW] 캡차 우회 실패 또는 HTML 미수신');
+        }
+      } else {
+        _logger.e('[SEARCH] navigatorState 없음, 캡차 우회 불가');
       }
     }
-
-    return [];
+  } catch (e, stack) {
+    _logger.e('[SEARCH] HTTP 요청 실패', error: e, stackTrace: stack);
   }
+  return [];
+} 
+
+
 
   List<MangaTitle> _parseMangaTitles(String html) {
     final document = html_parser.parse(html);
     final titles = <MangaTitle>[];
 
     final table = document.querySelector('#fboardlist');
-    if (table == null) return titles;
+    if (table == null) {
+      _logger.w('[PARSE] #fboardlist 테이블 없음. HTML 일부: ${html.substring(0, html.length > 2000 ? 2000 : html.length)}');
+      return titles;
+    }
 
     final rows = table.querySelectorAll('tr[class^="board_list"]');
     for (final row in rows) {
@@ -387,19 +483,24 @@ class ApiService extends _$ApiService {
           final date = dateElement?.text.trim() ?? '';
           final thumbnail = thumbnailElement?.attributes['src'] ?? '';
 
-          titles.add(MangaTitle(
-            title: title,
-            id: _extractIdFromUrl(href),
-            thumbnailUrl: thumbnail.startsWith('http') ? thumbnail : '$baseUrl/$thumbnail',
-            author: author,
-            release: date,
-          ));
+          final siteUrl = ref.read(siteUrlServiceProvider);
+titles.add(MangaTitle(
+  title: title,
+  id: _extractIdFromUrl(href),
+  thumbnailUrl: thumbnail.startsWith('http') ? thumbnail : '$siteUrl/$thumbnail',
+  author: author,
+  release: date,
+));
         }
-      } catch (e) {
-        _logger.e('Error parsing manga title', error: e);
+      } catch (e, stack) {
+        _logger.e('[PARSE] 만화 타이틀 파싱 실패', error: e, stackTrace: stack);
+        _logger.w('[PARSE] 파싱 실패한 row HTML: ${row.outerHtml.substring(0, row.outerHtml.length > 500 ? 500 : row.outerHtml.length)}');
       }
     }
 
+    if (titles.isEmpty) {
+      _logger.w('[PARSE] 최종적으로 파싱된 타이틀 없음. 전체 HTML 일부: ${html.substring(0, html.length > 2000 ? 2000 : html.length)}');
+    }
     return titles;
   }
 
