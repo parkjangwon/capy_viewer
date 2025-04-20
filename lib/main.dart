@@ -86,6 +86,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         return 4;
       case 'settings':
         return 5;
+      case 'test':
+        return 6;
       default:
         return 0;
     }
@@ -106,7 +108,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       const FavoritesScreen(),
       const SavedScreen(),
       const SettingsScreen(),
-      // 테스트 메뉴
       const TestScreen(),
     ];
 

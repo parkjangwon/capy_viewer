@@ -209,6 +209,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           value: 'settings',
                           child: Text('설정'),
                         ),
+                        DropdownMenuItem(
+                          value: 'test',
+                          child: Text('테스트'),
+                        ),
                       ],
                       onChanged: (value) {
                         if (value != null) {
