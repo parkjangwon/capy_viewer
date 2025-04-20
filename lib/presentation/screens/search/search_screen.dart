@@ -10,6 +10,9 @@ import '../../widgets/manga/manga_grid.dart';
 import '../../widgets/manga/manga_list_item.dart';
 import '../../widgets/search/search_bar.dart';
 import '../../widgets/search/search_filters.dart';
+import '../../widgets/captcha/cloudflare_captcha.dart';
+import '../../screens/captcha/captcha_screen.dart';
+import '../../../data/datasources/site_url_service.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -46,6 +49,24 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       return;
     }
 
+    // 1. 캡차 인증 유효성 검사
+    final isCaptchaValid = await CloudflareCaptcha.isCaptchaValid();
+    if (!isCaptchaValid) {
+      // 캡차 인증 필요: 인증 성공 시 검색 재시작
+      final result = await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => CaptchaScreen(url: ref.read(siteUrlServiceProvider)),
+        ),
+      );
+      // 인증 성공 후 재시도
+      if (result != null && mounted) {
+        await _fetchPage(pageKey);
+      } else if (mounted) {
+        _pagingController.error = '캡차 인증이 필요합니다.';
+      }
+      return;
+    }
+
     try {
       final apiService = ref.read(apiServiceProvider);
       final newItems = await apiService.search(_currentQuery, offset: pageKey);
@@ -63,13 +84,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   void _onSearch(String query) {
-    _debounceTimer?.cancel();
-    _debounceTimer = Timer(const Duration(milliseconds: 500), () {
-      setState(() {
-        _currentQuery = query;
-      });
-      _pagingController.refresh();
+    setState(() {
+      _currentQuery = query;
     });
+    _pagingController.refresh();
   }
 
   void _clearSearch() {
@@ -178,23 +196,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   fillColor: theme.colorScheme.surface,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: theme.colorScheme.outline.withOpacity(0.5),
-                    ),
+                    borderSide: BorderSide.none,
                   ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: theme.colorScheme.outline.withOpacity(0.5),
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   prefixIcon: const Icon(Icons.search),
                   suffixIcon: _searchController.text.isNotEmpty
                       ? IconButton(
@@ -203,7 +206,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         )
                       : null,
                 ),
-                onChanged: _onSearch,
                 onSubmitted: _onSearch,
               ),
             ),

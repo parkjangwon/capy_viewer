@@ -1,86 +1,138 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'dart:io'; // Cookie 타입 명확화
-import '../../../core/typedefs.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
+import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
+import '../../../core/logger.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-typedef OnCaptchaSolved = void Function(String html, List<Cookie> cookies);
+typedef OnVerifiedCallback = void Function(String html, List<String> cookies);
+typedef OnErrorCallback = void Function(dynamic error);
 
-class CloudflareCaptchaWidget extends StatefulWidget {
+class CloudflareCaptcha extends StatefulWidget {
   final String url;
-  final OnCaptchaSolved? onCaptchaSolved;
-  const CloudflareCaptchaWidget({super.key, required this.url, this.onCaptchaSolved});
+  final OnVerifiedCallback onVerified;
+  final OnErrorCallback onError;
+  static const String _captchaVerifiedKey = 'captcha_verified_at';
+  static const Duration _captchaValidDuration = Duration(hours: 1);
+  static final _logger = Logger();
+
+  const CloudflareCaptcha({
+    super.key,
+    required this.url,
+    required this.onVerified,
+    required this.onError,
+  });
+
+  /// 캡차 인증이 유효한지 확인
+  static Future<bool> isCaptchaValid() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastVerified = prefs.getInt(_captchaVerifiedKey);
+      if (lastVerified == null) return false;
+      
+      final now = DateTime.now().millisecondsSinceEpoch;
+      return now - lastVerified <= _captchaValidDuration.inMilliseconds;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// 캡차 인증 시간 저장
+  static Future<void> saveCaptchaVerifiedTime() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_captchaVerifiedKey, DateTime.now().millisecondsSinceEpoch);
+    } catch (e) {
+      // 저장 실패는 무시
+    }
+  }
+
   @override
-  State<CloudflareCaptchaWidget> createState() => _CloudflareCaptchaWidgetState();
+  State<CloudflareCaptcha> createState() => _CloudflareCaptchaState();
 }
 
-class _CloudflareCaptchaWidgetState extends State<CloudflareCaptchaWidget> {
+class _CloudflareCaptchaState extends State<CloudflareCaptcha> {
+  late final WebViewController _controller;
   bool _isLoading = true;
-  String? _errorMsg;
+  final _logger = Logger();
+
+  @override
+  void initState() {
+    super.initState();
+    _initWebView();
+  }
+
+  void _initWebView() {
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(Colors.white)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (String url) {
+            if (!mounted) return;
+            setState(() => _isLoading = true);
+            _logger.i('[CAPTCHA] 페이지 로드 시작: $url');
+          },
+          onPageFinished: (String url) {
+            if (!mounted) return;
+            setState(() => _isLoading = false);
+            _logger.i('[CAPTCHA] 페이지 로드 완료: $url');
+            
+            if (url.startsWith('blob:') || url.contains('challenges.cloudflare.com')) {
+              _checkCaptchaStatus();
+            }
+          },
+          onNavigationRequest: (NavigationRequest request) {
+            _logger.i('[CAPTCHA] 네비게이션 요청: ${request.url}');
+            return NavigationDecision.navigate;
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse(widget.url));
+
+    if (_controller.platform is AndroidWebViewController) {
+      AndroidWebViewController.enableDebugging(true);
+      (_controller.platform as AndroidWebViewController)
+        ..setMediaPlaybackRequiresUserGesture(false);
+    }
+  }
+
+  Future<void> _checkCaptchaStatus() async {
+    try {
+      final result = await _controller.runJavaScriptReturningResult('''
+        document.documentElement.outerHTML;
+      ''');
+
+      if (result != null && result.toString().contains('cf-browser-verification')) {
+        _logger.i('[CAPTCHA] 캡차 검증 중...');
+        return;
+      }
+
+      final cookies = await _controller.runJavaScriptReturningResult('''
+        document.cookie;
+      ''');
+
+      if (!mounted) return;
+      
+      widget.onVerified(
+        result.toString(),
+        cookies.toString().split(';').map((c) => c.trim()).toList(),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      _logger.e('[CAPTCHA] 캡차 상태 확인 실패', error: e);
+      widget.onError(e);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
-          InAppWebView(
-            initialUrlRequest: URLRequest(url: WebUri(widget.url)),
-            initialSettings: InAppWebViewSettings(
-              userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
-              javaScriptEnabled: true,
-              useOnDownloadStart: true,
-              clearCache: true,
-              sharedCookiesEnabled: true,
-              allowsInlineMediaPlayback: true,
-              allowsBackForwardNavigationGestures: true,
-              allowsLinkPreview: true,
-              mediaPlaybackRequiresUserGesture: false,
-              isFraudulentWebsiteWarningEnabled: false,
-              suppressesIncrementalRendering: false,
-            ),
-            onLoadStart: (controller, url) {
-              debugPrint('[CAPTCHA][LOAD_START] url: "+${url?.toString() ?? 'null'}"');
-              setState(() {
-                _isLoading = true;
-                _errorMsg = null;
-              });
-            },
-            onLoadStop: (controller, url) async {
-              setState(() => _isLoading = false);
-              if (url != null) {
-                debugPrint('[CAPTCHA][LOAD_STOP] url: ${url.toString()}');
-                try {
-                  final html = await controller.evaluateJavascript(source: "document.documentElement.outerHTML");
-                  final cookies = await CookieManager.instance().getCookies(url: url);
-                  debugPrint('[CAPTCHA][LOAD_STOP] HTML length: "+${html?.length ?? 0}", cookies: ${cookies.map((c) => c.name + '=' + c.value).join('; ')}');
-                  if (html != null && html.isNotEmpty && !html.contains('cf-browser-verification') && !html.contains('cf-challenge') && !html.contains('_cf_chl_opt')) {
-                    if (widget.onCaptchaSolved != null) {
-                      widget.onCaptchaSolved!(html, cookies);
-                    }
-                    if (mounted) Navigator.of(context).pop();
-                  }
-                } catch (e) {
-                  debugPrint('[CAPTCHA][EXTRACT ERROR] $e');
-                  setState(() => _errorMsg = '[CAPTCHA][EXTRACT ERROR] $e');
-                }
-              }
-            },
-            onLoadError: (controller, url, code, message) {
-              debugPrint('[CAPTCHA][ERROR] onLoadError: $url, code: $code, message: $message');
-              setState(() {
-                _isLoading = false;
-                _errorMsg = '[onLoadError] code: $code, message: $message';
-              });
-            },
-            onReceivedError: (controller, request, error) async {
-              final cookies = await CookieManager.instance().getCookies(url: request.url);
-              debugPrint('[CAPTCHA][ERROR] onReceivedError: $request, error: $error, cookies: ${cookies.map((c) => c.name + '=' + c.value).join('; ')}');
-              setState(() {
-                _isLoading = false;
-                _errorMsg = '[onReceivedError] $error';
-              });
-            },
-            onReceivedHttpError: (controller, request, response) {
-              debugPrint('[CAPTCHA][HTTP ERROR] $request, statusCode: ${response.statusCode}');
-            },
+        WebViewWidget(controller: _controller),
+        if (_isLoading)
+          const Center(
+            child: CircularProgressIndicator(),
           ),
       ],
     );
