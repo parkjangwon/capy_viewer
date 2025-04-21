@@ -12,8 +12,8 @@ class SearchWebViewController {
     _isInitialized = true;
   }
 
-  Future<void> loadSearch(String query) async {
-    final url = 'https://manatoki468.net/bbs/search.php?sfl=wr_subject&stx=${Uri.encodeComponent(query)}&sop=and&where=all&onetable=&page=1';
+  Future<void> loadSearch(String baseUrl, String query) async {
+    final url = '$baseUrl/bbs/search.php?sfl=wr_subject&stx=${Uri.encodeComponent(query)}&sop=and&where=all&onetable=&page=1';
     await controller.loadRequest(Uri.parse(url));
   }
 

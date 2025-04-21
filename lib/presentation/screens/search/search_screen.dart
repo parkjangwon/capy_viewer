@@ -63,7 +63,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     // 기존 캡차 및 apiService.search 로직 제거, WebView+HTML 파싱 방식으로 대체
     try {
-      await _webViewHelper.loadSearch(_currentQuery);
+      final baseUrl = ref.read(siteUrlServiceProvider);
+      await _webViewHelper.loadSearch(baseUrl, _currentQuery);
       final html = await _webViewHelper.getHtml();
       // 캡차 페이지 감지
       final captchaKeywords = [
