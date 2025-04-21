@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'recent_added_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   final VoidCallback? onRecentTap;
@@ -13,8 +14,14 @@ class HomeScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _SectionTitleWithAction(
-              title: '최근 추가된 작품',
-              onAction: () {},
+              title: '최근 추가된 만화',
+              onAction: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const RecentAddedScreen(),
+                  ),
+                );
+              },
             ),
             _HorizontalCardList(placeholderCount: 6),
             const SizedBox(height: 16),
