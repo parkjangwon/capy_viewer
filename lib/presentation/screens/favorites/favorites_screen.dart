@@ -7,11 +7,13 @@ class FavoritesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return const MangaListScreen(
-      title: '',
-      items: [],
-      emptyIcon: Icons.favorite_outline,
-      emptyMessage: '좋아요 한 작품이 없습니다.',
+    return SafeArea(
+      child: const MangaListScreen(
+        title: '',
+        items: [],
+        emptyIcon: Icons.favorite_outline,
+        emptyMessage: '좋아요 한 작품이 없습니다.',
+      ),
     );
   }
-} 
+}

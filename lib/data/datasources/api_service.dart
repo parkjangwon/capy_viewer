@@ -17,6 +17,7 @@ import '../../presentation/screens/captcha_screen.dart';
 import '../../presentation/viewmodels/navigator_provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../presentation/viewmodels/global_cookie_provider.dart';
 part 'api_service.g.dart';
 
 // 모든 요청에 사용할 User-Agent (WebView & Dio 공용)
@@ -42,7 +43,7 @@ class ApiService extends _$ApiService {
     final currentUrl = ref.read(siteUrlServiceProvider);
 
     _dio = Dio();
-    _cookieJar = CookieJar(); // 메모리 기반 쿠키 저장소로 시작
+    _cookieJar = ref.read(globalCookieJarProvider);
     _dio.interceptors.add(dio_cookie.CookieManager(_cookieJar));
 
     _dio.options = BaseOptions(

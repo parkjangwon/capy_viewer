@@ -1,10 +1,16 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../data/datasources/site_url_service.dart';
 import '../../../data/datasources/api_service.dart';
 import '../../viewmodels/theme_provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../viewmodels/global_cookie_provider.dart';
+import '../../viewmodels/cookie_sync_utils.dart';
+import '../../../data/providers/site_url_provider.dart';
+import '../../../utils/html_manga_parser.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -209,10 +215,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           value: 'settings',
                           child: Text('설정'),
                         ),
-                        DropdownMenuItem(
-                          value: 'test',
-                          child: Text('테스트'),
-                        ),
                       ],
                       onChanged: (value) {
                         if (value != null) {
@@ -246,6 +248,79 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ref.read(themeProvider.notifier).setTheme(value);
                         }
                       },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('테스트', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () async {
+                        final siteUrl = ref.read(siteUrlServiceProvider);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => CaptchaWebViewPage(url: siteUrl, onCookiesExtracted: (cookies) {}),
+                          ),
+                        );
+                      },
+                      child: const Text('캡차 인증하기'),
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton(
+                      onPressed: () async {
+                        final jar = ref.read(globalCookieJarProvider);
+                        final prefs = await SharedPreferences.getInstance();
+                        final baseUrl = prefs.getString('site_base_url') ?? 'https://manatoki468.net';
+                        final targetUrl = baseUrl + '/comic?stx=%EB%B2%A0%EB%A5%B4%EC%84%B8%EB%A5%B4%ED%81%AC';
+                        final controller = WebViewController()
+                          ..setJavaScriptMode(JavaScriptMode.unrestricted);
+                        await syncDioCookiesToWebView(targetUrl, jar); // 쿠키 동기화
+                        await controller.loadRequest(Uri.parse(targetUrl));
+                        await Future.delayed(const Duration(seconds: 3));
+                        final html = await controller.runJavaScriptReturningResult('document.documentElement.outerHTML');
+                        final parsed = parseMangaListFromHtml(html.toString());
+                        if (context.mounted) {
+                          showDialog(
+                            context: context,
+                            builder: (_) => AlertDialog(
+                              title: const Text('HTML 결과 (작품 리스트)'),
+                              content: parsed.isEmpty
+                                  ? const Text('작품 없음')
+                                  : SizedBox(
+                                      width: 320,
+                                      height: 400,
+                                      child: ListView.builder(
+                                        itemCount: parsed.length,
+                                        itemBuilder: (context, idx) {
+                                          final item = parsed[idx];
+                                          return ListTile(
+                                            title: Text(item.title),
+                                            subtitle: Text(item.href, style: const TextStyle(fontSize: 11)),
+                                            onTap: () async {
+                                              final uri = Uri.parse(item.href);
+                                              if (await canLaunchUrl(uri)) {
+                                                launchUrl(uri, mode: LaunchMode.externalApplication);
+                                              }
+                                            },
+                                          );
+                                        },
+                                      ),
+                                    ),
+                              actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('닫기'))],
+                            ),
+                          );
+                        }
+                      },
+                      child: const Text('HTML 가져오기(WebView)'),
                     ),
                   ],
                 ),
@@ -302,4 +377,58 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     );
   }
-} 
+}
+
+// === CaptchaWebViewPage: 캡차 인증용 웹뷰 ===
+
+class CaptchaWebViewPage extends StatefulWidget {
+  final String url;
+  final ValueChanged<String> onCookiesExtracted;
+  const CaptchaWebViewPage({super.key, required this.url, required this.onCookiesExtracted});
+
+  @override
+  State<CaptchaWebViewPage> createState() => _CaptchaWebViewPageState();
+}
+
+class _CaptchaWebViewPageState extends State<CaptchaWebViewPage> {
+  late final WebViewController _controller;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (url) {
+            setState(() => _isLoading = true);
+          },
+          onPageFinished: (url) async {
+            setState(() => _isLoading = false);
+            final cookies = await _controller.runJavaScriptReturningResult('document.cookie');
+            if (cookies.toString().isNotEmpty) {
+              widget.onCookiesExtracted(cookies.toString());
+            }
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse(widget.url));
+    if (!Platform.isMacOS) {
+      _controller.setBackgroundColor(Colors.white);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('캡차 인증')),
+      body: Stack(
+        children: [
+          WebViewWidget(controller: _controller),
+          if (_isLoading) const Center(child: CircularProgressIndicator()),
+        ],
+      ),
+    );
+  }
+}

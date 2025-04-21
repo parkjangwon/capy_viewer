@@ -3,65 +3,86 @@ import 'recent_added_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/models/recent_added_model.dart';
 import '../../viewmodels/recent_added_provider.dart';
+import '../../viewmodels/global_cookie_provider.dart';
+import '../../viewmodels/cookie_sync_utils.dart';
+import '../../../data/providers/site_url_provider.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   final VoidCallback? onRecentTap;
   const HomeScreen({Key? key, this.onRecentTap}) : super(key: key);
 
   @override
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // WebView 쿠키 → Dio 쿠키 동기화 (최초 진입 시)
+    Future.microtask(() async {
+      final jar = ref.read(globalCookieJarProvider);
+      final url = ref.read(siteUrlServiceProvider);
+      await syncWebViewCookiesToDio(url, jar);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _SectionTitleWithAction(
-              title: '최근 추가된 작품',
-              onAction: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const RecentAddedScreen(),
-                  ),
-                );
-              },
-            ),
-            Consumer(
-              builder: (context, ref, _) {
-                final asyncValue = ref.watch(recentAddedPreviewProvider);
-                return asyncValue.when(
-                  data: (items) => _HorizontalCardList(
-                    items: items,
-                    placeholderCount: 6,
-                  ),
-                  loading: () => _HorizontalCardList(placeholderCount: 6),
-                  error: (e, st) => Center(child: Text('불러오기 실패')),
-                );
-              },
-            ),
-            const SizedBox(height: 16),
-            _SectionTitleWithAction(
-              title: '최근에 본 작품',
-              onAction: onRecentTap,
-            ),
-            _HorizontalCardList(placeholderCount: 6, emptyText: '결과 없음'),
-            const SizedBox(height: 16),
-            _SectionTitle('주간 베스트'),
-            _VerticalList(placeholderCount: 10),
-            const SizedBox(height: 16),
-            _SectionTitle('일본만화 베스트'),
-            _VerticalList(placeholderCount: 6),
-            const SizedBox(height: 16),
-            _SectionTitle('이름'),
-            _NameSelector(),
-            const SizedBox(height: 16),
-            _SectionTitle('장르'),
-            _GenreSelector(),
-            const SizedBox(height: 16),
-            _SectionTitle('발행'),
-            _PublishSelector(),
-            const SizedBox(height: 24),
-          ],
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionTitleWithAction(
+                title: '최근 추가된 작품',
+                onAction: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const RecentAddedScreen(),
+                    ),
+                  );
+                },
+              ),
+              Consumer(
+                builder: (context, ref, _) {
+                  final asyncValue = ref.watch(recentAddedPreviewProvider);
+                  return asyncValue.when(
+                    data: (items) => _HorizontalCardList(
+                      items: items,
+                      placeholderCount: 6,
+                    ),
+                    loading: () => _HorizontalCardList(placeholderCount: 6),
+                    error: (e, st) => Center(child: Text('불러오기 실패')),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+              _SectionTitleWithAction(
+                title: '최근에 본 작품',
+                onAction: widget.onRecentTap,
+              ),
+              _HorizontalCardList(placeholderCount: 6, emptyText: '결과 없음'),
+              const SizedBox(height: 16),
+              _SectionTitle('주간 베스트'),
+              _VerticalList(placeholderCount: 10),
+              const SizedBox(height: 16),
+              _SectionTitle('일본만화 베스트'),
+              _VerticalList(placeholderCount: 6),
+              const SizedBox(height: 16),
+              _SectionTitle('이름'),
+              _NameSelector(),
+              const SizedBox(height: 16),
+              _SectionTitle('장르'),
+              _GenreSelector(),
+              const SizedBox(height: 16),
+              _SectionTitle('발행'),
+              _PublishSelector(),
+              const SizedBox(height: 24),
+            ],
+          ),
         ),
       ),
       // bottomNavigationBar 제거 (실제 네비게이션은 부모에서 관리)

@@ -7,11 +7,13 @@ class RecentScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return const MangaListScreen(
-      title: '',
-      items: [],
-      emptyIcon: Icons.history_outlined,
-      emptyMessage: '최근에 본 작품이 없습니다.',
+    return SafeArea(
+      child: const MangaListScreen(
+        title: '',
+        items: [],
+        emptyIcon: Icons.history_outlined,
+        emptyMessage: '최근에 본 작품이 없습니다.',
+      ),
     );
   }
 } 

@@ -8,15 +8,13 @@ class SavedScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final savedManga = ref.watch(savedProvider);
-
-    return MangaListScreen(
-      title: '',
-      items: savedManga.value ?? [],
-      isLoading: savedManga.isLoading,
-      errorMessage: savedManga.hasError ? savedManga.error.toString() : null,
-      emptyIcon: Icons.bookmark_outline,
-      emptyMessage: '저장한 작품이 없습니다.',
+    return SafeArea(
+      child: const MangaListScreen(
+        title: '',
+        items: [],
+        emptyIcon: Icons.bookmark_outline,
+        emptyMessage: '저장한 작품이 없습니다.',
+      ),
     );
   }
 }

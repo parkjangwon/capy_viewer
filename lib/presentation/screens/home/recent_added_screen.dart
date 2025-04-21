@@ -4,6 +4,9 @@ import '../../viewmodels/recent_added_provider.dart';
 import '../../../data/models/recent_added_model.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import '../../viewmodels/global_cookie_provider.dart';
+import '../../viewmodels/cookie_sync_utils.dart';
+import '../../../data/providers/site_url_provider.dart';
 
 class RecentAddedScreen extends ConsumerStatefulWidget {
   const RecentAddedScreen({Key? key}) : super(key: key);
@@ -18,6 +21,12 @@ class _RecentAddedScreenState extends ConsumerState<RecentAddedScreen> {
   @override
   void initState() {
     super.initState();
+    // WebView 쿠키 → Dio 쿠키 동기화 (최초 진입 시)
+    Future.microtask(() async {
+      final jar = ref.read(globalCookieJarProvider);
+      final url = ref.read(siteUrlServiceProvider);
+      await syncWebViewCookiesToDio(url, jar);
+    });
     _pagingController.addPageRequestListener(_fetchPage);
   }
 

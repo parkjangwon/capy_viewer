@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../data/datasources/site_url_service.dart';
 import '../captcha_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,13 +7,12 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'dart:async';
 import '../../../data/models/manga_title.dart';
 
-
 import '../../../utils/html_manga_parser.dart';
 import 'search_webview_controller.dart';
 import '../../widgets/manga/manga_list_item.dart';
-
-
-
+import '../../viewmodels/global_cookie_provider.dart';
+import '../../viewmodels/cookie_sync_utils.dart';
+import '../../../data/providers/site_url_provider.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -40,6 +38,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       } else {
         _pagingController = null;
       }
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // WebView 쿠키 → Dio 쿠키 동기화 (최초 진입 시)
+    Future.microtask(() async {
+      final jar = ref.read(globalCookieJarProvider);
+      final url = ref.read(siteUrlServiceProvider);
+      await syncWebViewCookiesToDio(url, jar);
     });
   }
 
@@ -200,16 +209,24 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   Expanded(
                     child: TextField(
                       controller: _searchController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: '제목을 입력하세요',
-                        border: OutlineInputBorder(),
+                        border: const OutlineInputBorder(),
+                        suffixIcon: _searchController.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: () {
+                                  setState(() {
+                                    _searchController.clear();
+                                    _onSearch('');
+                                  });
+                                },
+                              )
+                            : null,
                       ),
                       onSubmitted: _onSearch,
+                      onChanged: (_) => setState(() {}),
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.search),
-                    onPressed: () => _onSearch(_searchController.text),
                   ),
                 ],
               ),
