@@ -5,11 +5,7 @@ import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'dart:async';
 import '../../../data/models/manga_title.dart';
 import '../../../data/datasources/api_service.dart';
-import '../../viewmodels/manga_providers.dart';
-import '../../widgets/manga/manga_grid.dart';
 import '../../widgets/manga/manga_list_item.dart';
-import '../../widgets/search/search_bar.dart';
-import '../../widgets/search/search_filters.dart';
 import '../../widgets/captcha/cloudflare_captcha.dart';
 import '../../screens/captcha/captcha_screen.dart';
 import '../../../data/datasources/site_url_service.dart';
@@ -59,7 +55,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       // 캡차 인증 필요: 인증 성공 시 검색 재시작
       final result = await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => CaptchaScreen(url: ref.read(siteUrlServiceProvider)),
+          builder: (context) =>
+              CaptchaScreen(url: ref.read(siteUrlServiceProvider)),
         ),
       );
       if (result != null && mounted) {
@@ -73,7 +70,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     try {
       final apiService = ref.read(apiServiceProvider);
       final newItems = await apiService.search(_currentQuery, offset: pageKey);
-      
+
       final isLastPage = newItems.isEmpty;
       if (isLastPage) {
         _pagingController?.appendLastPage(newItems);
@@ -108,7 +105,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         '검색어를 입력하고 검색 버튼을 눌러주세요',
                         style: TextStyle(
                           fontSize: 16,
-                          color: theme.colorScheme.onBackground.withOpacity(0.4),
+                          color:
+                              theme.colorScheme.onBackground.withOpacity(0.4),
                         ),
                       ),
                     )
@@ -123,10 +121,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             manga: item,
                             onTap: () => _onMangaSelected(context, item),
                           ),
-                          firstPageProgressIndicatorBuilder: (context) => const Center(
+                          firstPageProgressIndicatorBuilder: (context) =>
+                              const Center(
                             child: CircularProgressIndicator(),
                           ),
-                          newPageProgressIndicatorBuilder: (context) => const Padding(
+                          newPageProgressIndicatorBuilder: (context) =>
+                              const Padding(
                             padding: EdgeInsets.all(16.0),
                             child: Center(child: CircularProgressIndicator()),
                           ),
@@ -138,7 +138,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                 Icon(
                                   Icons.search_off_rounded,
                                   size: 100,
-                                  color: theme.colorScheme.primary.withOpacity(0.8),
+                                  color: theme.colorScheme.primary
+                                      .withOpacity(0.8),
                                 ),
                                 const SizedBox(height: 24),
                                 Text(
@@ -146,7 +147,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w500,
-                                    color: theme.colorScheme.onBackground.withOpacity(0.4),
+                                    color: theme.colorScheme.onBackground
+                                        .withOpacity(0.4),
                                   ),
                                 ),
                                 const SizedBox(height: 80),
@@ -187,4 +189,4 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   void _onMangaSelected(BuildContext context, MangaTitle manga) {
     context.push('/detail/${manga.id}');
   }
-} 
+}

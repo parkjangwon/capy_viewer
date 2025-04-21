@@ -6,29 +6,22 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'dart:convert';
 import 'dart:io' as io;
 import 'dart:io';
-import '../../core/typedefs.dart';
-import 'dart:math';
 import 'package:html/parser.dart' as html_parser;
 import '../models/manga_title.dart';
 import '../models/title_detail.dart';
-import '../../core/constants/api_constants.dart';
-import '../../core/errors/exceptions.dart';
-import '../../core/errors/failures.dart';
-import '../../presentation/widgets/captcha/cloudflare_captcha.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart' as dio_cookie;
-import 'package:dio/io.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart' as inappwebview;
 import '../providers/site_url_provider.dart';
 import '../../presentation/screens/captcha_screen.dart';
 import '../../presentation/viewmodels/navigator_provider.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 part 'api_service.g.dart';
 
 // 모든 요청에 사용할 User-Agent (WebView & Dio 공용)
-const String kUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36';
+const String kUserAgent =
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36';
 
 @Riverpod(keepAlive: true)
 class ApiService extends _$ApiService {
@@ -45,13 +38,13 @@ class ApiService extends _$ApiService {
   @override
   ApiService build({bool forceRefresh = false}) {
     _navigatorKey = ref.read(navigatorKeyProvider);
-    
+
     final currentUrl = ref.read(siteUrlServiceProvider);
-    
+
     _dio = Dio();
     _cookieJar = CookieJar(); // 메모리 기반 쿠키 저장소로 시작
     _dio.interceptors.add(dio_cookie.CookieManager(_cookieJar));
-    
+
     _dio.options = BaseOptions(
       baseUrl: currentUrl,
       followRedirects: false,
@@ -80,11 +73,11 @@ class ApiService extends _$ApiService {
 
       _logger.i('[CAPTCHA] 캡차 우회 시작: $url');
       final prefs = await SharedPreferences.getInstance();
-      
+
       // 캡차 URL이 반복 호출되는 것을 방지하기 위한 호출 횟수 제한
       final captchaAttemptKey = 'captcha_attempt_${Uri.parse(url).host}';
       final captchaAttempts = prefs.getInt(captchaAttemptKey) ?? 0;
-      
+
       if (captchaAttempts > 3) {
         final lastAttemptTime = prefs.getInt('captcha_last_attempt_time') ?? 0;
         final now = DateTime.now().millisecondsSinceEpoch;
@@ -97,11 +90,12 @@ class ApiService extends _$ApiService {
           await prefs.setInt(captchaAttemptKey, 0);
         }
       }
-      
+
       // 시도 횟수 증가
       await prefs.setInt(captchaAttemptKey, captchaAttempts + 1);
-      await prefs.setInt('captcha_last_attempt_time', DateTime.now().millisecondsSinceEpoch);
-      
+      await prefs.setInt(
+          'captcha_last_attempt_time', DateTime.now().millisecondsSinceEpoch);
+
       bool captchaSolved = false;
       await showDialog(
         context: navigatorState.context,
@@ -122,10 +116,10 @@ class ApiService extends _$ApiService {
       }
 
       _updateCaptchaSolvedTime();
-      
+
       // 성공 시 캡차 시도 횟수 리셋
       await prefs.setInt(captchaAttemptKey, 0);
-      
+
       return true;
     } catch (e, stack) {
       _logger.e('[CAPTCHA] 캡차 우회 중 오류', error: e, stackTrace: stack);
@@ -144,13 +138,16 @@ class ApiService extends _$ApiService {
     try {
       final baseUrl = ref.read(siteUrlServiceProvider);
       final uri = Uri.parse(baseUrl);
-      
-      final dartCookies = cookies.map((c) => io.Cookie(
-        c.name,
-        c.value,
-      )..domain = c.domain
-        ..path = c.path ?? '/'
-        ..secure = c.isSecure ?? false).toList();
+
+      final dartCookies = cookies
+          .map((c) => io.Cookie(
+                c.name,
+                c.value,
+              )
+                ..domain = c.domain
+                ..path = c.path ?? '/'
+                ..secure = c.isSecure ?? false)
+          .toList();
 
       await _cookieJar.saveFromResponse(uri, dartCookies);
       _logger.i('[COOKIE] 쿠키 동기화 완료: ${dartCookies.length}개');
@@ -166,13 +163,14 @@ class ApiService extends _$ApiService {
     bool bypassCaptchaOnBlocked = false,
   }) async {
     final baseUrl = ref.read(siteUrlServiceProvider);
-    
+
     try {
       final siteUrl = ref.read(siteUrlServiceProvider);
       var url = joinUrl(siteUrl, path);
       if (queryParameters != null && queryParameters.isNotEmpty) {
         final query = queryParameters.entries
-            .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value.toString())}')
+            .map((e) =>
+                '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value.toString())}')
             .join('&');
         url = '$url?$query';
       }
@@ -181,22 +179,22 @@ class ApiService extends _$ApiService {
       if (_lastRequestUrl == url) {
         _logger.w('[REQUEST] 이미 처리 중인 URL 중복 요청 방지: $url');
         throw DioException(
-          requestOptions: RequestOptions(path: url),
-          error: '이미 처리 중인 URL입니다',
-          type: DioExceptionType.cancel
-        );
+            requestOptions: RequestOptions(path: url),
+            error: '이미 처리 중인 URL입니다',
+            type: DioExceptionType.cancel);
       }
 
       _lastRequestUrl = url;
-      
+
       final response = await _dio.get<T>(
         url,
-        options: options ?? Options(
-          responseType: ResponseType.plain,
-          headers: {
-            'Referer': baseUrl,
-          },
-        ),
+        options: options ??
+            Options(
+              responseType: ResponseType.plain,
+              headers: {
+                'Referer': baseUrl,
+              },
+            ),
       );
 
       // 요청 성공 후 _lastRequestUrl 초기화
@@ -207,7 +205,7 @@ class ApiService extends _$ApiService {
       // 요청 실패 시에도 _lastRequestUrl 초기화
       _lastRequestUrl = null;
 
-      if (e.response?.statusCode == 403 || 
+      if (e.response?.statusCode == 403 ||
           (e.response?.data as String?)?.contains('captcha-bypass') == true ||
           (e.response?.data as String?)?.contains('_cf_chl_opt') == true) {
         _logger.w('[REQUEST] 캡차 감지됨');
@@ -216,27 +214,28 @@ class ApiService extends _$ApiService {
           final success = await bypassCaptcha(e.requestOptions.uri.toString());
           if (success) {
             _logger.i('[REQUEST] 캡차 우회 성공, 재시도');
-            return _request(path, queryParameters: queryParameters, options: options, bypassCaptchaOnBlocked: bypassCaptchaOnBlocked);
+            return _request(path,
+                queryParameters: queryParameters,
+                options: options,
+                bypassCaptchaOnBlocked: bypassCaptchaOnBlocked);
           } else {
             _logger.e('[REQUEST] 캡차 우회 실패, 요청 중단');
             throw DioException(
-              requestOptions: e.requestOptions,
-              response: e.response,
-              error: '캡차 우회 실패',
-              type: DioExceptionType.badResponse
-            );
+                requestOptions: e.requestOptions,
+                response: e.response,
+                error: '캡차 우회 실패',
+                type: DioExceptionType.badResponse);
           }
         } else {
           _logger.w('[REQUEST] 캡차 우회 시도하지 않음 (자동 요청)');
           throw DioException(
-            requestOptions: e.requestOptions,
-            response: e.response,
-            error: '자동 요청 중 캡차 감지됨',
-            type: DioExceptionType.badResponse
-          );
+              requestOptions: e.requestOptions,
+              response: e.response,
+              error: '자동 요청 중 캡차 감지됨',
+              type: DioExceptionType.badResponse);
         }
       }
-      
+
       rethrow;
     }
   }
@@ -267,23 +266,24 @@ class ApiService extends _$ApiService {
     try {
       final dir = await getApplicationDocumentsDirectory();
       final cookieDir = '${dir.path}/.cookies';
-      
+
       // 디렉토리가 없으면 생성
       final directory = Directory(cookieDir);
       if (!await directory.exists()) {
         await directory.create(recursive: true);
       }
-      
+
       _cookieJar = PersistCookieJar(
         storage: FileStorage(cookieDir),
       );
       debugPrint('Cookie storage initialized at $cookieDir');
-      
+
       // 쿠키 저장소가 변경되었으므로 interceptor도 업데이트
       _dio.interceptors.clear();
       _dio.interceptors.add(dio_cookie.CookieManager(_cookieJar));
     } catch (e, stack) {
-      _logger.e('[COOKIE] Failed to initialize cookie storage', error: e, stackTrace: stack);
+      _logger.e('[COOKIE] Failed to initialize cookie storage',
+          error: e, stackTrace: stack);
       // 실패한 경우 메모리 기반 쿠키 저장소로 대체
       _cookieJar = CookieJar();
       _dio.interceptors.clear();
@@ -320,7 +320,7 @@ class ApiService extends _$ApiService {
         },
         bypassCaptchaOnBlocked: false, // 홈화면 자동 요청에서는 캡차 우회 시도 금지
       );
-      
+
       if (response.data == null || response.data!.isEmpty) {
         _logger.w('Empty response data');
         return [];
@@ -330,7 +330,7 @@ class ApiService extends _$ApiService {
         _logger.d('Parsing HTML response for recent titles...');
         final document = html_parser.parse(response.data!);
         final items = document.querySelectorAll('.img-item');
-        
+
         _logger.d('Found ${items.length} recent items');
         if (items.isEmpty) {
           _logger.w('No recent titles found');
@@ -341,14 +341,14 @@ class ApiService extends _$ApiService {
           final anchor = item.querySelector('a');
           final img = item.querySelector('img');
           final titleSpan = item.querySelector('.title');
-          
+
           final href = anchor?.attributes['href'] ?? '';
           final id = href.split('/').last.split('?').first;
           final title = titleSpan?.text ?? '';
           final thumbnailUrl = img?.attributes['src'] ?? '';
 
           _logger.d('Parsed recent item: id=$id, title=$title');
-          
+
           return MangaTitle(
             id: id,
             title: title,
@@ -378,7 +378,7 @@ class ApiService extends _$ApiService {
         },
         bypassCaptchaOnBlocked: false, // 홈화면 자동 요청에서는 캡차 우회 시도 금지
       );
-      
+
       if (response.data == null || response.data!.isEmpty) {
         _logger.w('Empty response data');
         return [];
@@ -388,7 +388,7 @@ class ApiService extends _$ApiService {
         _logger.d('Parsing HTML response for weekly best...');
         final document = html_parser.parse(response.data!);
         final items = document.querySelectorAll('.img-item');
-        
+
         _logger.d('Found ${items.length} weekly best items');
         if (items.isEmpty) {
           _logger.w('No weekly best titles found');
@@ -399,14 +399,14 @@ class ApiService extends _$ApiService {
           final anchor = item.querySelector('a');
           final img = item.querySelector('img');
           final titleSpan = item.querySelector('.title');
-          
+
           final href = anchor?.attributes['href'] ?? '';
           final id = href.split('/').last.split('?').first;
           final title = titleSpan?.text ?? '';
           final thumbnailUrl = img?.attributes['src'] ?? '';
 
           _logger.d('Parsed weekly best item: id=$id, title=$title');
-          
+
           return MangaTitle(
             id: id,
             title: title,
@@ -430,7 +430,7 @@ class ApiService extends _$ApiService {
   Future<TitleDetail> fetchTitleDetail(String id) async {
     try {
       final response = await _request<String>('/title/$id');
-      
+
       if (response.data == null || response.data!.isEmpty) {
         throw Exception('No data received');
       }
@@ -446,7 +446,7 @@ class ApiService extends _$ApiService {
   Future<List<String>> fetchChapter(String id) async {
     try {
       final response = await _request<String>('/chapter/$id');
-      
+
       if (response.data == null || response.data!.isEmpty) {
         return [];
       }
@@ -463,13 +463,14 @@ class ApiService extends _$ApiService {
     _logger.i('[SEARCH] 검색 시작: query="$query", offset=$offset');
     final page = (offset ~/ 10) + 1;
     final baseUrl = ref.read(siteUrlServiceProvider);
-    final searchUrl = '$baseUrl/bbs/search.php?sfl=wr_subject&stx=${Uri.encodeComponent(query)}&sop=and&where=all&onetable=&page=$page';
+    final searchUrl =
+        '$baseUrl/bbs/search.php?sfl=wr_subject&stx=${Uri.encodeComponent(query)}&sop=and&where=all&onetable=&page=$page';
 
     _logger.i('[SEARCH] 요청 URL: $searchUrl');
     try {
       // 먼저 직접 HTTP 요청 시도
       _logger.i('[SEARCH] 요청 헤더: ${_dio.options.headers}');
-      
+
       final response = await _dio.get(
         searchUrl,
         options: Options(
@@ -487,14 +488,15 @@ class ApiService extends _$ApiService {
       if (response.isRedirect == true) {
         _logger.i('[SEARCH] 리다이렉트 URL: ${response.headers.value('location')}');
       }
-      
+
       final responseData = response.data as String;
-      _logger.i('[SEARCH] 응답 본문 일부: ${responseData.substring(0, responseData.length > 500 ? 500 : responseData.length)}');
+      _logger.i(
+          '[SEARCH] 응답 본문 일부: ${responseData.substring(0, responseData.length > 500 ? 500 : responseData.length)}');
 
       // 캡차가 필요한 경우
       if (_needsCaptcha(response)) {
         _logger.i('[SEARCH] 캡차 감지됨, 쿠키 획득 시도');
-        
+
         // 캡차 해결을 위한 웹뷰 표시
         final success = await bypassCaptcha(searchUrl);
         if (!success) {
@@ -537,14 +539,14 @@ class ApiService extends _$ApiService {
 
   bool _needsCaptcha(Response response) {
     if (response.statusCode == 302 || response.statusCode == 403) return true;
-    
+
     final html = response.data as String;
-    return html.contains('captcha-bypass') || 
-           html.contains('_cf_chl_opt') ||
-           html.contains('challenge-form') ||
-           html.contains('cf-spinner') ||
-           html.contains('cloudflare-challenge') ||
-           html.contains('turnstile_');
+    return html.contains('captcha-bypass') ||
+        html.contains('_cf_chl_opt') ||
+        html.contains('challenge-form') ||
+        html.contains('cf-spinner') ||
+        html.contains('cloudflare-challenge') ||
+        html.contains('turnstile_');
   }
 
   List<MangaTitle> _parseMangaTitles(String html) {
@@ -553,7 +555,8 @@ class ApiService extends _$ApiService {
 
     final table = document.querySelector('#fboardlist');
     if (table == null) {
-      _logger.w('[PARSE] #fboardlist 테이블 없음. HTML 일부: ${html.substring(0, html.length > 2000 ? 2000 : html.length)}');
+      _logger.w(
+          '[PARSE] #fboardlist 테이블 없음. HTML 일부: ${html.substring(0, html.length > 2000 ? 2000 : html.length)}');
       return titles;
     }
 
@@ -576,19 +579,23 @@ class ApiService extends _$ApiService {
           titles.add(MangaTitle(
             title: title,
             id: _extractIdFromUrl(href),
-            thumbnailUrl: thumbnail.startsWith('http') ? thumbnail : '$siteUrl/$thumbnail',
+            thumbnailUrl: thumbnail.startsWith('http')
+                ? thumbnail
+                : '$siteUrl/$thumbnail',
             author: author,
             release: date,
           ));
         }
       } catch (e, stack) {
         _logger.e('[PARSE] 만화 타이틀 파싱 실패', error: e, stackTrace: stack);
-        _logger.w('[PARSE] 파싱 실패한 row HTML: ${row.outerHtml.substring(0, row.outerHtml.length > 500 ? 500 : row.outerHtml.length)}');
+        _logger.w(
+            '[PARSE] 파싱 실패한 row HTML: ${row.outerHtml.substring(0, row.outerHtml.length > 500 ? 500 : row.outerHtml.length)}');
       }
     }
 
     if (titles.isEmpty) {
-      _logger.w('[PARSE] 최종적으로 파싱된 타이틀 없음. 전체 HTML 일부: ${html.substring(0, html.length > 2000 ? 2000 : html.length)}');
+      _logger.w(
+          '[PARSE] 최종적으로 파싱된 타이틀 없음. 전체 HTML 일부: ${html.substring(0, html.length > 2000 ? 2000 : html.length)}');
     }
     return titles;
   }
@@ -596,10 +603,10 @@ class ApiService extends _$ApiService {
   String _extractIdFromUrl(String url) {
     final uri = Uri.tryParse(url);
     if (uri == null) return '';
-    
+
     final pathSegments = uri.pathSegments;
     if (pathSegments.isEmpty) return '';
-    
+
     return pathSegments.last;
   }
 
@@ -629,7 +636,7 @@ class ApiService extends _$ApiService {
   Future<void> _handleResponse(Response response) async {
     if (response.statusCode == 200) {
       final html = response.data as String;
-      if (html.contains('captcha-bypass') || 
+      if (html.contains('captcha-bypass') ||
           html.contains('_cf_chl_opt') ||
           html.contains('challenge-form')) {
         _lastRequestUrl = response.requestOptions.uri.toString();
@@ -637,4 +644,4 @@ class ApiService extends _$ApiService {
       }
     }
   }
-} 
+}

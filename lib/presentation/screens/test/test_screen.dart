@@ -2,15 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:io' show Platform;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:manga_view_flutter/utils/html_manga_parser.dart';
-import 'package:dio/dio.dart';
-import 'package:cookie_jar/cookie_jar.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:manga_view_flutter/data/datasources/api_service.dart';
 import 'package:url_launcher/url_launcher.dart';
-
 
 class TestScreen extends StatefulWidget {
   const TestScreen({Key? key}) : super(key: key);
@@ -21,7 +15,8 @@ class TestScreen extends StatefulWidget {
 
 class _TestScreenState extends State<TestScreen> {
   String? _targetUrl;
-  static const String _comicPath = '/comic?stx=%EB%B2%A0%EB%A5%B4%EC%84%B8%EB%A5%B4%ED%81%AC';
+  static const String _comicPath =
+      '/comic?stx=%EB%B2%A0%EB%A5%B4%EC%84%B8%EB%A5%B4%ED%81%AC';
 
   @override
   void initState() {
@@ -31,7 +26,8 @@ class _TestScreenState extends State<TestScreen> {
 
   Future<void> _loadTargetUrl() async {
     final prefs = await SharedPreferences.getInstance();
-    final baseUrl = prefs.getString('site_base_url') ?? 'https://manatoki468.net';
+    final baseUrl =
+        prefs.getString('site_base_url') ?? 'https://manatoki468.net';
     setState(() {
       _targetUrl = baseUrl + _comicPath;
     });
@@ -40,16 +36,18 @@ class _TestScreenState extends State<TestScreen> {
   @override
   Widget build(BuildContext context) {
     if (_targetUrl == null) {
-      return Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator());
     }
-    return CloudflareBypassWidget(targetUrl: _targetUrl!);
+    return SafeArea(
+      child: CloudflareBypassWidget(targetUrl: _targetUrl!),
+    );
   }
 }
 
-
 class CloudflareBypassWidget extends StatefulWidget {
   final String targetUrl;
-  const CloudflareBypassWidget({Key? key, required this.targetUrl}) : super(key: key);
+  const CloudflareBypassWidget({Key? key, required this.targetUrl})
+      : super(key: key);
 
   @override
   State<CloudflareBypassWidget> createState() => _CloudflareBypassWidgetState();
@@ -69,8 +67,6 @@ class _CloudflareBypassWidgetState extends State<CloudflareBypassWidget> {
       ..loadRequest(Uri.parse(widget.targetUrl));
   }
 
-
-
   Future<void> _fetchHtmlFromWebView() async {
     setState(() {
       _parsedMangaList = null;
@@ -78,7 +74,8 @@ class _CloudflareBypassWidgetState extends State<CloudflareBypassWidget> {
       _htmlContent = null;
     });
     try {
-      final html = await _webViewController.runJavaScriptReturningResult('document.documentElement.outerHTML');
+      final html = await _webViewController
+          .runJavaScriptReturningResult('document.documentElement.outerHTML');
       setState(() {
         _htmlContent = html.toString();
         _parsedMangaList = parseMangaListFromHtml(_htmlContent!);
@@ -102,8 +99,8 @@ class _CloudflareBypassWidgetState extends State<CloudflareBypassWidget> {
         builder: (context) => CaptchaWebViewPage(
           url: widget.targetUrl,
           onCookiesExtracted: (cookies) async {
-  // 인증 후 별도 동작 없음 (쿠키 저장/동기화 제거)
-},
+            // 인증 후 별도 동작 없음 (쿠키 저장/동기화 제거)
+          },
         ),
       ),
     );
@@ -164,7 +161,8 @@ class _CloudflareBypassWidgetState extends State<CloudflareBypassWidget> {
 class CaptchaWebViewPage extends StatefulWidget {
   final String url;
   final ValueChanged<String> onCookiesExtracted;
-  const CaptchaWebViewPage({required this.url, required this.onCookiesExtracted});
+  const CaptchaWebViewPage(
+      {required this.url, required this.onCookiesExtracted});
 
   @override
   State<CaptchaWebViewPage> createState() => _CaptchaWebViewPageState();
@@ -186,7 +184,8 @@ class _CaptchaWebViewPageState extends State<CaptchaWebViewPage> {
           },
           onPageFinished: (url) async {
             setState(() => _isLoading = false);
-            final cookies = await _controller.runJavaScriptReturningResult('document.cookie');
+            final cookies = await _controller
+                .runJavaScriptReturningResult('document.cookie');
             if (cookies != null && cookies.toString().isNotEmpty) {
               widget.onCookiesExtracted(cookies.toString());
             }

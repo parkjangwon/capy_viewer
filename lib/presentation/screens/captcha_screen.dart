@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:logger/logger.dart';
-import '../../core/constants/api_constants.dart';
 
 class CaptchaScreen extends StatefulWidget {
   final String url;
@@ -29,7 +28,7 @@ class _CaptchaScreenState extends State<CaptchaScreen> {
   String? _lastUrl;
   bool _mounted = true;
   InAppWebViewController? _webViewController;
-  
+
   @override
   void initState() {
     super.initState();
@@ -47,7 +46,8 @@ class _CaptchaScreenState extends State<CaptchaScreen> {
     if (lastTime != null) {
       _lastCaptchaTime = DateTime.fromMillisecondsSinceEpoch(lastTime);
       final now = DateTime.now();
-      if (_lastCaptchaTime != null && now.difference(_lastCaptchaTime!).inHours < 1) {
+      if (_lastCaptchaTime != null &&
+          now.difference(_lastCaptchaTime!).inHours < 1) {
         _isCaptchaVerified = true;
         widget.onCaptchaVerified();
       }
@@ -67,12 +67,12 @@ class _CaptchaScreenState extends State<CaptchaScreen> {
       });
     }
   }
-  
+
   void _injectHelperScript() async {
     if (_webViewController == null) return;
-    
+
     await Future.delayed(const Duration(seconds: 1));
-    
+
     // CloudFlare 캡차 자동 해결 시도를 위한 스크립트
     await _webViewController!.evaluateJavascript(source: '''
       // 자동 체크박스 클릭 시도
@@ -145,7 +145,8 @@ class _CaptchaScreenState extends State<CaptchaScreen> {
             initialUrlRequest: URLRequest(
               url: WebUri(widget.url),
               headers: {
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
+                'User-Agent':
+                    'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
               },
             ),
             initialOptions: InAppWebViewGroupOptions(
@@ -153,7 +154,8 @@ class _CaptchaScreenState extends State<CaptchaScreen> {
                 useShouldOverrideUrlLoading: true,
                 useOnLoadResource: true,
                 javaScriptEnabled: true,
-                userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
+                userAgent:
+                    'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
               ),
               ios: IOSInAppWebViewOptions(
                 allowsInlineMediaPlayback: true,
@@ -181,20 +183,20 @@ class _CaptchaScreenState extends State<CaptchaScreen> {
             shouldOverrideUrlLoading: (controller, navigationAction) async {
               final url = navigationAction.request.url?.toString() ?? '';
               _logger.d('[CAPTCHA] URL 변경: $url');
-              
+
               // about:blank 또는 about:srcdoc로의 리다이렉션은 무시
               if (url.startsWith('about:')) {
                 return NavigationActionPolicy.CANCEL;
               }
-              
+
               // 이전 URL과 동일한 경우 리다이렉션 방지
               if (url == _lastUrl) {
                 return NavigationActionPolicy.CANCEL;
               }
-              
+
               // 캡차 인증 성공 후 리다이렉션 처리
-              if (url.contains('manatoki') && 
-                  !url.contains('challenges.cloudflare.com') && 
+              if (url.contains('manatoki') &&
+                  !url.contains('challenges.cloudflare.com') &&
                   _lastUrl?.contains('challenges.cloudflare.com') == true) {
                 if (_mounted) {
                   _isCaptchaVerified = true;
@@ -203,7 +205,7 @@ class _CaptchaScreenState extends State<CaptchaScreen> {
                 }
                 return NavigationActionPolicy.CANCEL;
               }
-              
+
               _lastUrl = url;
               return NavigationActionPolicy.ALLOW;
             },
@@ -219,4 +221,4 @@ class _CaptchaScreenState extends State<CaptchaScreen> {
       ),
     );
   }
-} 
+}

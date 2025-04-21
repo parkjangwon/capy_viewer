@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:manga_view_flutter/screens/home/home_screen.dart';
-import 'package:manga_view_flutter/screens/search/search_screen.dart';
-import 'package:manga_view_flutter/screens/settings/settings_screen.dart';
-import 'package:manga_view_flutter/screens/viewer/viewer_screen.dart';
-import 'package:manga_view_flutter/widgets/captcha/cloudflare_captcha.dart';
-import 'package:manga_view_flutter/widgets/captcha/site_captcha.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import '../../presentation/screens/home/home_screen.dart';
+import '../../presentation/screens/search/search_screen.dart';
+import '../../presentation/screens/settings/settings_screen.dart';
+import '../../presentation/screens/viewer/viewer_screen.dart';
 
 part 'router.g.dart';
 
@@ -92,4 +90,4 @@ int _calculateSelectedIndex(GoRouterState state) {
     return 2;
   }
   return 0;
-} 
+}

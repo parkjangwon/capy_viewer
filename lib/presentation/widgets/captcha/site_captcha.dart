@@ -1,10 +1,8 @@
 import 'dart:typed_data';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:manga_view_flutter/services/site_url_service.dart';
 
 class SiteCaptchaWidget extends ConsumerStatefulWidget {
   final String imageUrl;
@@ -44,7 +42,7 @@ class _SiteCaptchaWidgetState extends ConsumerState<SiteCaptchaWidget> {
 
   Future<void> _loadImage() async {
     if (!mounted) return;
-    
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -70,7 +68,7 @@ class _SiteCaptchaWidgetState extends ConsumerState<SiteCaptchaWidget> {
     } catch (e) {
       _logger.e('Error loading captcha image: $e');
       if (!mounted) return;
-      
+
       setState(() {
         _errorMessage = '이미지를 불러올 수 없습니다';
         _isLoading = false;
@@ -108,7 +106,7 @@ class _SiteCaptchaWidgetState extends ConsumerState<SiteCaptchaWidget> {
     } catch (e) {
       _logger.e('Error loading captcha image: $e');
       if (!mounted) return;
-      
+
       setState(() {
         _errorMessage = '이미지를 불러올 수 없습니다';
         _isLoading = false;
@@ -243,4 +241,4 @@ class _SiteCaptchaWidgetState extends ConsumerState<SiteCaptchaWidget> {
       Navigator.pop(context);
     }
   }
-} 
+}

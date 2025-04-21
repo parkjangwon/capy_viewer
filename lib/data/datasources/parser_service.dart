@@ -3,7 +3,6 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../models/manga.dart';
 import '../models/title.dart';
 import 'package:logger/logger.dart';
-import 'dart:math' as math;
 
 part 'parser_service.g.dart';
 

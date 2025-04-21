@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:photo_view/photo_view.dart';
 import '../../../data/models/manga.dart';
 import '../../../data/datasources/api_service.dart';
@@ -126,4 +125,4 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
       ),
     );
   }
-} 
+}

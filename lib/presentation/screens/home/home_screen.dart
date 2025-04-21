@@ -4,8 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../../data/models/manga_title.dart';
 import '../../../data/datasources/api_service.dart';
 import '../../viewmodels/manga_providers.dart';
-import '../../widgets/manga/manga_list_screen.dart';
-import '../../widgets/manga/title_card.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -37,10 +35,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   void _onScroll() async {
     if (!_scrollController.hasClients) return;
-    
+
     final maxScroll = _scrollController.position.maxScrollExtent;
     final currentScroll = _scrollController.offset;
-    
+
     if (currentScroll >= (maxScroll * 0.9) && !_isLoading && _hasMore) {
       await _loadMoreWeeklyBest();
     }
@@ -48,11 +46,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<void> _loadData() async {
     try {
-      final recentTitles = await ref.read(apiServiceProvider).fetchRecentTitles();
+      final recentTitles =
+          await ref.read(apiServiceProvider).fetchRecentTitles();
       final weeklyBest = await ref.read(apiServiceProvider).fetchWeeklyBest();
-      
+
       if (!mounted) return;
-      
+
       setState(() {
         _recentTitles = recentTitles;
         _weeklyBestTitles = weeklyBest;
@@ -61,7 +60,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      
+
       setState(() {
         _isLoading = false;
         _error = e.toString();
@@ -78,9 +77,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     try {
       final moreTitles = await ref.read(apiServiceProvider).fetchWeeklyBest(
-        offset: _weeklyBestTitles.length,
-      );
-      
+            offset: _weeklyBestTitles.length,
+          );
+
       setState(() {
         _weeklyBestTitles.addAll(moreTitles);
         _isLoading = false;
@@ -299,4 +298,4 @@ class _TitleCard extends StatelessWidget {
       ),
     );
   }
-} 
+}

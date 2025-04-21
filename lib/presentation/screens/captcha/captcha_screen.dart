@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dart:io';
 import '../../widgets/captcha/cloudflare_captcha.dart';
-import '../../../core/typedefs.dart';
 import '../../../core/logger.dart';
 
 class CaptchaScreen extends StatefulWidget {

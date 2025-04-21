@@ -1,5 +1,4 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
-import 'chapter.dart';
 
 part 'title_detail.freezed.dart';
 part 'title_detail.g.dart';
@@ -17,7 +16,8 @@ class TitleDetail with _$TitleDetail {
     String? status,
   }) = _TitleDetail;
 
-  factory TitleDetail.fromJson(Map<String, dynamic> json) => _$TitleDetailFromJson(json);
+  factory TitleDetail.fromJson(Map<String, dynamic> json) =>
+      _$TitleDetailFromJson(json);
 }
 
 @freezed
@@ -29,5 +29,6 @@ class Chapter with _$Chapter {
     required DateTime uploadDate,
   }) = _Chapter;
 
-  factory Chapter.fromJson(Map<String, dynamic> json) => _$ChapterFromJson(json);
-} 
+  factory Chapter.fromJson(Map<String, dynamic> json) =>
+      _$ChapterFromJson(json);
+}

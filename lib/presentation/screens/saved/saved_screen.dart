@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../data/models/manga_title.dart';
 import '../../widgets/manga/manga_list_screen.dart';
 import '../../viewmodels/saved_provider.dart';
 
@@ -20,4 +19,4 @@ class SavedScreen extends ConsumerWidget {
       emptyMessage: '저장한 작품이 없습니다.',
     );
   }
-} 
+}

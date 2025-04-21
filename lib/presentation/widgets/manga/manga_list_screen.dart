@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import '../../../data/models/manga_title.dart';
 import 'manga_grid.dart';
-import 'manga_list_item.dart';
 
 class MangaListScreen extends StatelessWidget {
   final String title;
@@ -160,4 +159,4 @@ class MangaListScreen extends StatelessWidget {
       padding: const EdgeInsets.all(8),
     );
   }
-} 
+}

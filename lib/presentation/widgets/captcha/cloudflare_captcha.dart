@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
-import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 import '../../../core/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -29,7 +28,7 @@ class CloudflareCaptcha extends StatefulWidget {
       final prefs = await SharedPreferences.getInstance();
       final lastVerified = prefs.getInt(_captchaVerifiedKey);
       if (lastVerified == null) return false;
-      
+
       final now = DateTime.now().millisecondsSinceEpoch;
       return now - lastVerified <= _captchaValidDuration.inMilliseconds;
     } catch (e) {
@@ -41,7 +40,8 @@ class CloudflareCaptcha extends StatefulWidget {
   static Future<void> saveCaptchaVerifiedTime() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt(_captchaVerifiedKey, DateTime.now().millisecondsSinceEpoch);
+      await prefs.setInt(
+          _captchaVerifiedKey, DateTime.now().millisecondsSinceEpoch);
     } catch (e) {
       // 저장 실패는 무시
     }
@@ -77,8 +77,9 @@ class _CloudflareCaptchaState extends State<CloudflareCaptcha> {
             if (!mounted) return;
             setState(() => _isLoading = false);
             _logger.i('[CAPTCHA] 페이지 로드 완료: $url');
-            
-            if (url.startsWith('blob:') || url.contains('challenges.cloudflare.com')) {
+
+            if (url.startsWith('blob:') ||
+                url.contains('challenges.cloudflare.com')) {
               _checkCaptchaStatus();
             }
           },
@@ -103,7 +104,8 @@ class _CloudflareCaptchaState extends State<CloudflareCaptcha> {
         document.documentElement.outerHTML;
       ''');
 
-      if (result != null && result.toString().contains('cf-browser-verification')) {
+      if (result != null &&
+          result.toString().contains('cf-browser-verification')) {
         _logger.i('[CAPTCHA] 캡차 검증 중...');
         return;
       }
@@ -113,7 +115,7 @@ class _CloudflareCaptchaState extends State<CloudflareCaptcha> {
       ''');
 
       if (!mounted) return;
-      
+
       widget.onVerified(
         result.toString(),
         cookies.toString().split(';').map((c) => c.trim()).toList(),
