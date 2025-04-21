@@ -103,6 +103,7 @@ class _RecentAddedListItem extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 16),
+              // 텍스트 영역을 Expanded로 감싸 overflow 방지
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -114,24 +115,39 @@ class _RecentAddedListItem extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 6),
-                    Row(
+                    // 날짜/댓글/좋아요/조회수 한 줄, 넘칠 경우 줄바꿈
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
                       children: [
                         Text(
                           item.date,
                           style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.deepPurple),
                         ),
-                        const SizedBox(width: 12),
-                        Icon(Icons.comment, size: 16, color: Colors.blueGrey),
-                        const SizedBox(width: 2),
-                        Text('${item.comments ?? 0}', style: Theme.of(context).textTheme.bodySmall),
-                        const SizedBox(width: 8),
-                        Icon(Icons.thumb_up_alt_outlined, size: 16, color: Colors.pink),
-                        const SizedBox(width: 2),
-                        Text('${item.likes ?? 0}', style: Theme.of(context).textTheme.bodySmall),
-                        const SizedBox(width: 8),
-                        Icon(Icons.remove_red_eye, size: 16, color: Colors.teal),
-                        const SizedBox(width: 2),
-                        Text('${item.views ?? 0}', style: Theme.of(context).textTheme.bodySmall),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.comment, size: 16, color: Colors.blueGrey),
+                            const SizedBox(width: 2),
+                            Text('${item.comments ?? 0}', style: Theme.of(context).textTheme.bodySmall),
+                          ],
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.thumb_up_alt_outlined, size: 16, color: Colors.pink),
+                            const SizedBox(width: 2),
+                            Text('${item.likes ?? 0}', style: Theme.of(context).textTheme.bodySmall),
+                          ],
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.remove_red_eye, size: 16, color: Colors.teal),
+                            const SizedBox(width: 2),
+                            Text('${item.views ?? 0}', style: Theme.of(context).textTheme.bodySmall),
+                          ],
+                        ),
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -165,15 +181,16 @@ class _RecentAddedListItem extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              // 우측: 전편보기 버튼 (높이 꽉차게)
+              // 버튼 영역 고정 폭으로 overflow 방지
               SizedBox(
+                width: 55,
                 height: 110,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.deepPurple,
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 0),
                   ),
                   onPressed: () {
                     Fluttertoast.showToast(
@@ -182,7 +199,7 @@ class _RecentAddedListItem extends StatelessWidget {
                       gravity: ToastGravity.BOTTOM,
                     );
                   },
-                  child: const Text('전편보기'),
+                  child: const Text('전편보기', textAlign: TextAlign.center),
                 ),
               ),
             ],
