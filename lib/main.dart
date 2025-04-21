@@ -102,7 +102,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   @override
   Widget build(BuildContext context) {
     final screens = [
-      const HomeScreen(),
+      HomeScreen(
+        onRecentTap: () => setState(() => _selectedIndex = 2),
+      ),
       const SearchScreen(),
       const RecentScreen(),
       const FavoritesScreen(),

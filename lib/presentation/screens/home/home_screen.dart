@@ -1,301 +1,192 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import '../../../data/models/manga_title.dart';
-import '../../../data/datasources/api_service.dart';
-import '../../viewmodels/manga_providers.dart';
 
-class HomeScreen extends ConsumerStatefulWidget {
-  const HomeScreen({super.key});
-
-  @override
-  ConsumerState<HomeScreen> createState() => _HomeScreenState();
-}
-
-class _HomeScreenState extends ConsumerState<HomeScreen> {
-  final _scrollController = ScrollController();
-  List<MangaTitle>? _recentTitles;
-  List<MangaTitle> _weeklyBestTitles = [];
-  String? _error;
-  bool _isLoading = true;
-  bool _hasMore = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadData();
-    _scrollController.addListener(_onScroll);
-  }
-
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() async {
-    if (!_scrollController.hasClients) return;
-
-    final maxScroll = _scrollController.position.maxScrollExtent;
-    final currentScroll = _scrollController.offset;
-
-    if (currentScroll >= (maxScroll * 0.9) && !_isLoading && _hasMore) {
-      await _loadMoreWeeklyBest();
-    }
-  }
-
-  Future<void> _loadData() async {
-    try {
-      final recentTitles =
-          await ref.read(apiServiceProvider()).fetchRecentTitles();
-      final weeklyBest = await ref.read(apiServiceProvider()).fetchWeeklyBest();
-
-      if (!mounted) return;
-
-      setState(() {
-        _recentTitles = recentTitles;
-        _weeklyBestTitles = weeklyBest;
-        _isLoading = false;
-        _hasMore = weeklyBest.length >= 20;
-      });
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        _isLoading = false;
-        _error = e.toString();
-      });
-    }
-  }
-
-  Future<void> _loadMoreWeeklyBest() async {
-    if (_isLoading || !_hasMore) return;
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final moreTitles = await ref.read(apiServiceProvider()).fetchWeeklyBest(
-            offset: _weeklyBestTitles.length,
-          );
-
-      setState(() {
-        _weeklyBestTitles.addAll(moreTitles);
-        _isLoading = false;
-        _hasMore = moreTitles.length >= 20;
-      });
-    } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
-    }
-  }
+class HomeScreen extends StatelessWidget {
+  final VoidCallback? onRecentTap;
+  const HomeScreen({Key? key, this.onRecentTap}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: () {
-            ref.invalidate(recentTitlesProvider);
-            ref.invalidate(weeklyBestProvider);
-            return Future(() {});
-          },
-          child: CustomScrollView(
-            slivers: [
-              const SliverAppBar(
-                floating: true,
-                snap: true,
-              ),
-              _buildRecentTitles(),
-              _buildWeeklyBest(),
-            ],
-          ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _SectionTitleWithAction(
+              title: '최근 추가된 작품',
+              onAction: () {},
+            ),
+            _HorizontalCardList(placeholderCount: 6),
+            const SizedBox(height: 16),
+            _SectionTitleWithAction(
+              title: '최근에 본 작품',
+              onAction: onRecentTap,
+            ),
+            _HorizontalCardList(placeholderCount: 6, emptyText: '결과 없음'),
+            const SizedBox(height: 16),
+            _SectionTitle('주간 베스트'),
+            _VerticalList(placeholderCount: 10),
+            const SizedBox(height: 16),
+            _SectionTitle('일본만화 베스트'),
+            _VerticalList(placeholderCount: 6),
+            const SizedBox(height: 16),
+            _SectionTitle('이름'),
+            _NameSelector(),
+            const SizedBox(height: 16),
+            _SectionTitle('장르'),
+            _GenreSelector(),
+            const SizedBox(height: 16),
+            _SectionTitle('발행'),
+            _PublishSelector(),
+            const SizedBox(height: 24),
+          ],
         ),
       ),
-    );
-  }
-
-  Widget _buildRecentTitles() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final recentTitles = ref.watch(recentTitlesProvider);
-
-        return recentTitles.when(
-          data: (titles) {
-            if (titles.isEmpty) {
-              return const SliverToBoxAdapter(child: SizedBox.shrink());
-            }
-
-            return SliverList(
-              delegate: SliverChildListDelegate([
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Text(
-                    '최근 업데이트',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  height: 200,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    scrollDirection: Axis.horizontal,
-                    itemCount: titles.length,
-                    itemBuilder: (context, index) {
-                      final title = titles[index];
-                      return _TitleCard(title: title);
-                    },
-                  ),
-                ),
-              ]),
-            );
-          },
-          loading: () => const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-            ),
-          ),
-          error: (error, stackTrace) => const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(
-                child: Text('데이터를 불러올 수 없습니다'),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildWeeklyBest() {
-    return Consumer(
-      builder: (context, ref, child) {
-        final weeklyBest = ref.watch(weeklyBestProvider);
-
-        return weeklyBest.when(
-          data: (titles) {
-            if (titles.isEmpty) {
-              return const SliverToBoxAdapter(child: SizedBox.shrink());
-            }
-
-            return SliverList(
-              delegate: SliverChildListDelegate([
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Text(
-                    '주간 인기',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  height: 200,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    scrollDirection: Axis.horizontal,
-                    itemCount: titles.length,
-                    itemBuilder: (context, index) {
-                      final title = titles[index];
-                      return _TitleCard(title: title);
-                    },
-                  ),
-                ),
-              ]),
-            );
-          },
-          loading: () => const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-            ),
-          ),
-          error: (error, stackTrace) => const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(
-                child: Text('데이터를 불러올 수 없습니다'),
-              ),
-            ),
-          ),
-        );
-      },
+      // bottomNavigationBar 제거 (실제 네비게이션은 부모에서 관리)
     );
   }
 }
 
-class _TitleCard extends StatelessWidget {
-  final MangaTitle title;
-
-  const _TitleCard({required this.title});
-
+class _SectionTitle extends StatelessWidget {
+  final String title;
+  const _SectionTitle(this.title);
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(right: 8),
-      child: InkWell(
-        onTap: () => context.push('/viewer/${title.id}'),
-        borderRadius: BorderRadius.circular(12),
-        child: SizedBox(
-          width: 120,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(12),
-                ),
-                child: Image.network(
-                  title.thumbnailUrl,
-                  width: 120,
-                  height: 160,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      width: 120,
-                      height: 160,
-                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      child: const Icon(Icons.error_outline),
-                    );
-                  },
-                ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Text(
-                    title.title,
-                    style: const TextStyle(fontSize: 12),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ),
-            ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Text(title, style: Theme.of(context).textTheme.titleMedium),
+    );
+  }
+}
+
+class _SectionTitleWithAction extends StatelessWidget {
+  final String title;
+  final VoidCallback? onAction;
+  const _SectionTitleWithAction({required this.title, this.onAction});
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          if (onAction != null)
+            IconButton(
+              icon: const Icon(Icons.arrow_forward_ios, size: 18),
+              onPressed: onAction,
+              tooltip: '더 보기',
+              padding: const EdgeInsets.only(left: 4),
+              constraints: BoxConstraints(),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HorizontalCardList extends StatelessWidget {
+  final int placeholderCount;
+  final String? emptyText;
+  const _HorizontalCardList({required this.placeholderCount, this.emptyText});
+  @override
+  Widget build(BuildContext context) {
+    if (placeholderCount == 0 && emptyText != null) {
+      return Padding(
+        padding: const EdgeInsets.all(12),
+        child: Text(emptyText!, style: TextStyle(color: Colors.grey)),
+      );
+    }
+    return SizedBox(
+      height: 120,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: placeholderCount,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, idx) => Container(
+          width: 80,
+          decoration: BoxDecoration(
+            color: Colors.grey[300],
+            borderRadius: BorderRadius.circular(8),
           ),
+          child: Center(child: Text('만화 ${idx + 1}')),
         ),
       ),
+    );
+  }
+}
+
+class _VerticalList extends StatelessWidget {
+  final int placeholderCount;
+  const _VerticalList({required this.placeholderCount});
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: placeholderCount,
+      separatorBuilder: (_, __) => const Divider(height: 1),
+      itemBuilder: (context, idx) => ListTile(
+        title: Text('작품 ${idx + 1}'),
+        subtitle: Text('설명 또는 회차'),
+        dense: true,
+        onTap: () {},
+      ),
+    );
+  }
+}
+
+class _NameSelector extends StatelessWidget {
+  static const List<String> kor = ['ㄱ','ㄴ','ㄷ','ㄹ','ㅁ','ㅂ','ㅅ','ㅇ','ㅈ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+  static const List<String> eng = ['A-Z','0-9'];
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 4,
+      children: [
+        ...kor.map((e) => _ChipButton(label: e)),
+        ...eng.map((e) => _ChipButton(label: e)),
+      ],
+    );
+  }
+}
+
+class _GenreSelector extends StatelessWidget {
+  static const genres = [
+    '17', 'BL', 'SF', 'TS', '개그', '게임', '도박', '드라마', '라노벨', '러브코미디', '먹방',
+    '백합', '붕탁', '순정', '스릴러', '스포츠', '시대', '애니', '액션', '음악', '이세계',
+    '일상', '전생', '추리', '판타지', '학원', '호러',
+  ];
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: genres.map((g) => _ChipButton(label: g)).toList(),
+    );
+  }
+}
+
+class _PublishSelector extends StatelessWidget {
+  static const publish = ['미분류','주간','격주','월간','단편','단행본','완결'];
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      children: publish.map((p) => _ChipButton(label: p)).toList(),
+    );
+  }
+}
+
+class _ChipButton extends StatelessWidget {
+  final String label;
+  const _ChipButton({required this.label});
+  @override
+  Widget build(BuildContext context) {
+    return ActionChip(
+      label: Text(label),
+      onPressed: () {},
+      backgroundColor: Colors.grey[200],
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
     );
   }
 }
