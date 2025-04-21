@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'recent_added_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../data/models/recent_added_model.dart';
+import '../../viewmodels/recent_added_provider.dart';
 
 class HomeScreen extends StatelessWidget {
   final VoidCallback? onRecentTap;
@@ -23,7 +26,19 @@ class HomeScreen extends StatelessWidget {
                 );
               },
             ),
-            _HorizontalCardList(placeholderCount: 6),
+            Consumer(
+              builder: (context, ref, _) {
+                final asyncValue = ref.watch(recentAddedPreviewProvider);
+                return asyncValue.when(
+                  data: (items) => _HorizontalCardList(
+                    items: items,
+                    placeholderCount: 6,
+                  ),
+                  loading: () => _HorizontalCardList(placeholderCount: 6),
+                  error: (e, st) => Center(child: Text('불러오기 실패')),
+                );
+              },
+            ),
             const SizedBox(height: 16),
             _SectionTitleWithAction(
               title: '최근에 본 작품',
@@ -94,9 +109,53 @@ class _SectionTitleWithAction extends StatelessWidget {
 class _HorizontalCardList extends StatelessWidget {
   final int placeholderCount;
   final String? emptyText;
-  const _HorizontalCardList({required this.placeholderCount, this.emptyText});
+  final List<RecentAddedItem>? items;
+  const _HorizontalCardList({this.placeholderCount = 0, this.emptyText, this.items});
   @override
   Widget build(BuildContext context) {
+    if (items != null && items!.isNotEmpty) {
+      return SizedBox(
+        height: 140,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: items!.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 8),
+          itemBuilder: (context, idx) {
+            final item = items![idx];
+            return SizedBox(
+              width: 100,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      item.thumbnailUrl,
+                      width: 100,
+                      height: 100,
+                      fit: BoxFit.cover,
+                      errorBuilder: (c, e, s) => Container(
+                        width: 100,
+                        height: 100,
+                        color: Colors.grey[300],
+                        child: const Icon(Icons.broken_image, size: 32, color: Colors.grey),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    item.title,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+    }
     if (placeholderCount == 0 && emptyText != null) {
       return Padding(
         padding: const EdgeInsets.all(12),
@@ -115,7 +174,6 @@ class _HorizontalCardList extends StatelessWidget {
             color: Colors.grey[300],
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Center(child: Text('만화 ${idx + 1}')),
         ),
       ),
     );

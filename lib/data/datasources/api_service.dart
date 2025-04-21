@@ -644,4 +644,11 @@ class ApiService extends _$ApiService {
       }
     }
   }
+
+  /// 마나토끼 최근 추가된 작품 페이지 HTML (page: 1~10)
+  Future<String> fetchRecentAddedPage(int page) async {
+    final url = '/bbs/page.php?hid=update&page=$page';
+    final response = await _dio.get(url);
+    return response.data as String;
+  }
 }
