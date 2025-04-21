@@ -285,7 +285,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       foregroundColor: Theme.of(context).colorScheme.onError,
                     ),
                     onPressed: () async {
-                      final apiService = ref.read(apiServiceProvider.notifier);
+                      final apiService = ref.read(apiServiceProvider());
                       await apiService.clearCache();
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(

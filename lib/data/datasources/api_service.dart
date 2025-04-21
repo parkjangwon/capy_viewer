@@ -353,7 +353,7 @@ class ApiService extends _$ApiService {
             id: id,
             title: title,
             thumbnailUrl: thumbnailUrl,
-            type: 'manga',
+            
           );
         }).toList();
 
@@ -411,7 +411,7 @@ class ApiService extends _$ApiService {
             id: id,
             title: title,
             thumbnailUrl: thumbnailUrl,
-            type: 'manga',
+            
           );
         }).toList();
 

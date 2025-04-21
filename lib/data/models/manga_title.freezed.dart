@@ -25,7 +25,8 @@ mixin _$MangaTitle {
   String get thumbnailUrl => throw _privateConstructorUsedError;
   String get author => throw _privateConstructorUsedError;
   String get release => throw _privateConstructorUsedError;
-  String get type => throw _privateConstructorUsedError;
+  String? get period => throw _privateConstructorUsedError;
+  String? get updateDate => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
@@ -45,7 +46,8 @@ abstract class $MangaTitleCopyWith<$Res> {
       String thumbnailUrl,
       String author,
       String release,
-      String type});
+      String? period,
+      String? updateDate});
 }
 
 /// @nodoc
@@ -66,7 +68,8 @@ class _$MangaTitleCopyWithImpl<$Res, $Val extends MangaTitle>
     Object? thumbnailUrl = null,
     Object? author = null,
     Object? release = null,
-    Object? type = null,
+    Object? period = freezed,
+    Object? updateDate = freezed,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -89,10 +92,14 @@ class _$MangaTitleCopyWithImpl<$Res, $Val extends MangaTitle>
           ? _value.release
           : release // ignore: cast_nullable_to_non_nullable
               as String,
-      type: null == type
-          ? _value.type
-          : type // ignore: cast_nullable_to_non_nullable
-              as String,
+      period: freezed == period
+          ? _value.period
+          : period // ignore: cast_nullable_to_non_nullable
+              as String?,
+      updateDate: freezed == updateDate
+          ? _value.updateDate
+          : updateDate // ignore: cast_nullable_to_non_nullable
+              as String?,
     ) as $Val);
   }
 }
@@ -111,7 +118,8 @@ abstract class _$$MangaTitleImplCopyWith<$Res>
       String thumbnailUrl,
       String author,
       String release,
-      String type});
+      String? period,
+      String? updateDate});
 }
 
 /// @nodoc
@@ -130,7 +138,8 @@ class __$$MangaTitleImplCopyWithImpl<$Res>
     Object? thumbnailUrl = null,
     Object? author = null,
     Object? release = null,
-    Object? type = null,
+    Object? period = freezed,
+    Object? updateDate = freezed,
   }) {
     return _then(_$MangaTitleImpl(
       id: null == id
@@ -153,10 +162,14 @@ class __$$MangaTitleImplCopyWithImpl<$Res>
           ? _value.release
           : release // ignore: cast_nullable_to_non_nullable
               as String,
-      type: null == type
-          ? _value.type
-          : type // ignore: cast_nullable_to_non_nullable
-              as String,
+      period: freezed == period
+          ? _value.period
+          : period // ignore: cast_nullable_to_non_nullable
+              as String?,
+      updateDate: freezed == updateDate
+          ? _value.updateDate
+          : updateDate // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -170,7 +183,8 @@ class _$MangaTitleImpl implements _MangaTitle {
       required this.thumbnailUrl,
       this.author = '',
       this.release = '',
-      this.type = 'manga'});
+      this.period,
+      this.updateDate});
 
   factory _$MangaTitleImpl.fromJson(Map<String, dynamic> json) =>
       _$$MangaTitleImplFromJson(json);
@@ -188,12 +202,13 @@ class _$MangaTitleImpl implements _MangaTitle {
   @JsonKey()
   final String release;
   @override
-  @JsonKey()
-  final String type;
+  final String? period;
+  @override
+  final String? updateDate;
 
   @override
   String toString() {
-    return 'MangaTitle(id: $id, title: $title, thumbnailUrl: $thumbnailUrl, author: $author, release: $release, type: $type)';
+    return 'MangaTitle(id: $id, title: $title, thumbnailUrl: $thumbnailUrl, author: $author, release: $release, period: $period, updateDate: $updateDate)';
   }
 
   @override
@@ -207,13 +222,15 @@ class _$MangaTitleImpl implements _MangaTitle {
                 other.thumbnailUrl == thumbnailUrl) &&
             (identical(other.author, author) || other.author == author) &&
             (identical(other.release, release) || other.release == release) &&
-            (identical(other.type, type) || other.type == type));
+            (identical(other.period, period) || other.period == period) &&
+            (identical(other.updateDate, updateDate) ||
+                other.updateDate == updateDate));
   }
 
   @JsonKey(ignore: true)
   @override
-  int get hashCode =>
-      Object.hash(runtimeType, id, title, thumbnailUrl, author, release, type);
+  int get hashCode => Object.hash(runtimeType, id, title, thumbnailUrl, author,
+      release, period, updateDate);
 
   @JsonKey(ignore: true)
   @override
@@ -236,7 +253,8 @@ abstract class _MangaTitle implements MangaTitle {
       required final String thumbnailUrl,
       final String author,
       final String release,
-      final String type}) = _$MangaTitleImpl;
+      final String? period,
+      final String? updateDate}) = _$MangaTitleImpl;
 
   factory _MangaTitle.fromJson(Map<String, dynamic> json) =
       _$MangaTitleImpl.fromJson;
@@ -252,7 +270,9 @@ abstract class _MangaTitle implements MangaTitle {
   @override
   String get release;
   @override
-  String get type;
+  String? get period;
+  @override
+  String? get updateDate;
   @override
   @JsonKey(ignore: true)
   _$$MangaTitleImplCopyWith<_$MangaTitleImpl> get copyWith =>

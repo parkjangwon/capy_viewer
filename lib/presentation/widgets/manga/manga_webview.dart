@@ -82,7 +82,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView> {
               id,
               title,
               thumbnailUrl,
-              type: 'manga',
+              
               author: artist,
               release: publish,
             };
@@ -99,7 +99,7 @@ class _MangaWebViewState extends ConsumerState<MangaWebView> {
                   id: item['id'] as String,
                   title: item['title'] as String,
                   thumbnailUrl: item['thumbnailUrl'] as String,
-                  type: item['type'] as String,
+                  
                   author: item['author'] as String,
                   release: item['release'] as String,
                 ))

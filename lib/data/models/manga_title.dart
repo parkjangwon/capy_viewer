@@ -11,7 +11,8 @@ class MangaTitle with _$MangaTitle {
     required String thumbnailUrl,
     @Default('') String author,
     @Default('') String release,
-    @Default('manga') String type,
+    String? period,
+    String? updateDate,
   }) = _MangaTitle;
 
   factory MangaTitle.fromJson(Map<String, dynamic> json) =>

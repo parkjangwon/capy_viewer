@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
+import '../../../data/datasources/site_url_service.dart';
+import '../captcha_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'dart:async';
 import '../../../data/models/manga_title.dart';
-import '../../../data/datasources/api_service.dart';
+
+
+import '../../../utils/html_manga_parser.dart';
+import 'search_webview_controller.dart';
 import '../../widgets/manga/manga_list_item.dart';
-import '../../widgets/captcha/cloudflare_captcha.dart';
-import '../../screens/captcha/captcha_screen.dart';
-import '../../../data/datasources/site_url_service.dart';
+
+
+
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -20,6 +26,8 @@ class SearchScreen extends ConsumerStatefulWidget {
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   PagingController<int, MangaTitle>? _pagingController;
+  late final SearchWebViewController _webViewHelper = SearchWebViewController();
+  bool _webViewInitialized = false;
   String _currentQuery = '';
 
   void _onSearch(String query) {
@@ -43,41 +51,66 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Future<void> _fetchPage(int pageKey) async {
+    if (!_webViewInitialized) {
+      await _webViewHelper.initialize();
+      _webViewInitialized = true;
+    }
     // 검색어가 없으면 절대 캡차/네트워크 요청을 하지 않음
     if (_currentQuery.trim().isEmpty) {
       _pagingController?.appendLastPage([]);
       return;
     }
 
-    // 1. 캡차 인증 유효성 검사
-    final isCaptchaValid = await CloudflareCaptcha.isCaptchaValid();
-    if (!isCaptchaValid) {
-      // 캡차 인증 필요: 인증 성공 시 검색 재시작
-      final result = await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) =>
-              CaptchaScreen(url: ref.read(siteUrlServiceProvider)),
-        ),
-      );
-      if (result != null && mounted) {
-        await _fetchPage(pageKey);
-      } else if (mounted) {
-        _pagingController?.error = '캡차 인증이 필요합니다.';
-      }
-      return;
-    }
-
+    // 기존 캡차 및 apiService.search 로직 제거, WebView+HTML 파싱 방식으로 대체
     try {
-      final apiService = ref.read(apiServiceProvider);
-      final newItems = await apiService.search(_currentQuery, offset: pageKey);
-
-      final isLastPage = newItems.isEmpty;
-      if (isLastPage) {
-        _pagingController?.appendLastPage(newItems);
-      } else {
-        final nextPageKey = pageKey + newItems.length;
-        _pagingController?.appendPage(newItems, nextPageKey);
+      await _webViewHelper.loadSearch(_currentQuery);
+      final html = await _webViewHelper.getHtml();
+      // 캡차 페이지 감지
+      final captchaKeywords = [
+        'captcha-bypass',
+        'challenge-form',
+        'cloudflare-challenge',
+        'turnstile_',
+        '_cf_chl_opt',
+        'cf-spinner',
+      ];
+      final isCaptcha = captchaKeywords.any((k) => html.contains(k));
+      if (isCaptcha) {
+        if (context.mounted) {
+          final siteUrl = ref.read(siteUrlServiceProvider);
+          final prefs = await SharedPreferences.getInstance();
+          final result = await showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => CaptchaScreen(
+              url: siteUrl,
+              preferences: prefs,
+              onCaptchaVerified: () {
+                Navigator.of(ctx).pop(true);
+              },
+            ),
+          );
+          // 인증 후 재검색
+          if (result != null) {
+            await _fetchPage(pageKey);
+            return;
+          } else {
+            _pagingController?.error = Exception('캡차 인증이 필요합니다.');
+            return;
+          }
+        }
       }
+      final parsed = parseMangaListFromHtml(html);
+      final newItems = parsed.map((item) => MangaTitle(
+        id: item.href,
+        title: item.title,
+        thumbnailUrl: item.thumbnailUrl,
+        author: item.author,
+        release: '',
+        period: item.period,
+        updateDate: item.updateDate,
+      )).toList();
+      _pagingController?.appendLastPage(newItems);
     } catch (e) {
       _pagingController?.error = e;
     }

@@ -13,7 +13,8 @@ _$MangaTitleImpl _$$MangaTitleImplFromJson(Map<String, dynamic> json) =>
       thumbnailUrl: json['thumbnailUrl'] as String,
       author: json['author'] as String? ?? '',
       release: json['release'] as String? ?? '',
-      type: json['type'] as String? ?? 'manga',
+      period: json['period'] as String?,
+      updateDate: json['updateDate'] as String?,
     );
 
 Map<String, dynamic> _$$MangaTitleImplToJson(_$MangaTitleImpl instance) =>
@@ -23,5 +24,6 @@ Map<String, dynamic> _$$MangaTitleImplToJson(_$MangaTitleImpl instance) =>
       'thumbnailUrl': instance.thumbnailUrl,
       'author': instance.author,
       'release': instance.release,
-      'type': instance.type,
+      'period': instance.period,
+      'updateDate': instance.updateDate,
     };

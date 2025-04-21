@@ -47,8 +47,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _loadData() async {
     try {
       final recentTitles =
-          await ref.read(apiServiceProvider).fetchRecentTitles();
-      final weeklyBest = await ref.read(apiServiceProvider).fetchWeeklyBest();
+          await ref.read(apiServiceProvider()).fetchRecentTitles();
+      final weeklyBest = await ref.read(apiServiceProvider()).fetchWeeklyBest();
 
       if (!mounted) return;
 
@@ -76,7 +76,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
 
     try {
-      final moreTitles = await ref.read(apiServiceProvider).fetchWeeklyBest(
+      final moreTitles = await ref.read(apiServiceProvider()).fetchWeeklyBest(
             offset: _weeklyBestTitles.length,
           );
 
