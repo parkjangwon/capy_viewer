@@ -10,11 +10,11 @@ class CaptchaScreen extends StatefulWidget {
   final SharedPreferences preferences;
 
   const CaptchaScreen({
-    Key? key,
+    super.key,
     required this.url,
     required this.onCaptchaVerified,
     required this.preferences,
-  }) : super(key: key);
+  });
 
   @override
   State<CaptchaScreen> createState() => _CaptchaScreenState();

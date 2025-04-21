@@ -53,7 +53,7 @@ class MangaGridItem extends StatelessWidget {
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) {
                   return Container(
-                    color: Theme.of(context).colorScheme.surfaceVariant,
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
                     child: const Icon(Icons.error_outline),
                   );
                 },

@@ -7,7 +7,7 @@ import 'package:manga_view_flutter/utils/html_manga_parser.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class TestScreen extends StatefulWidget {
-  const TestScreen({Key? key}) : super(key: key);
+  const TestScreen({super.key});
 
   @override
   State<TestScreen> createState() => _TestScreenState();
@@ -46,8 +46,7 @@ class _TestScreenState extends State<TestScreen> {
 
 class CloudflareBypassWidget extends StatefulWidget {
   final String targetUrl;
-  const CloudflareBypassWidget({Key? key, required this.targetUrl})
-      : super(key: key);
+  const CloudflareBypassWidget({super.key, required this.targetUrl});
 
   @override
   State<CloudflareBypassWidget> createState() => _CloudflareBypassWidgetState();
@@ -114,16 +113,16 @@ class _CloudflareBypassWidgetState extends State<CloudflareBypassWidget> {
         children: <Widget>[
           ElevatedButton(
             onPressed: _navigateToCaptchaWebView,
-            child: Text('캡차 인증하기'),
+            child: const Text('캡차 인증하기'),
           ),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           ElevatedButton(
             onPressed: () => _fetchHtmlFromWebView(),
-            child: Text('HTML 가져오기(WebView)'),
+            child: const Text('HTML 가져오기(WebView)'),
           ),
-          SizedBox(height: 20),
+          const SizedBox(height: 20),
           if (_isFetchingHtml)
-            CircularProgressIndicator()
+            const CircularProgressIndicator()
           else if (_parsedMangaList != null)
             Expanded(
               child: ListView.builder(
@@ -138,7 +137,7 @@ class _CloudflareBypassWidgetState extends State<CloudflareBypassWidget> {
                         launchUrl(uri, mode: LaunchMode.externalApplication);
                       }
                     },
-                    subtitle: Text(item.href, style: TextStyle(fontSize: 11)),
+                    subtitle: Text(item.href, style: const TextStyle(fontSize: 11)),
                   );
                 },
               ),
@@ -146,12 +145,12 @@ class _CloudflareBypassWidgetState extends State<CloudflareBypassWidget> {
           else if (_htmlContent != null)
             Expanded(
               child: SingleChildScrollView(
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(16),
                 child: Text('HTML 내용:\n$_htmlContent'),
               ),
             )
           else
-            Text('HTML 내용은 여기에 표시됩니다.'),
+            const Text('HTML 내용은 여기에 표시됩니다.'),
         ],
       ),
     );
@@ -162,7 +161,7 @@ class CaptchaWebViewPage extends StatefulWidget {
   final String url;
   final ValueChanged<String> onCookiesExtracted;
   const CaptchaWebViewPage(
-      {required this.url, required this.onCookiesExtracted});
+      {super.key, required this.url, required this.onCookiesExtracted});
 
   @override
   State<CaptchaWebViewPage> createState() => _CaptchaWebViewPageState();
@@ -186,7 +185,7 @@ class _CaptchaWebViewPageState extends State<CaptchaWebViewPage> {
             setState(() => _isLoading = false);
             final cookies = await _controller
                 .runJavaScriptReturningResult('document.cookie');
-            if (cookies != null && cookies.toString().isNotEmpty) {
+            if (cookies.toString().isNotEmpty) {
               widget.onCookiesExtracted(cookies.toString());
             }
           },
@@ -203,11 +202,11 @@ class _CaptchaWebViewPageState extends State<CaptchaWebViewPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('캡차 인증')),
+      appBar: AppBar(title: const Text('캡차 인증')),
       body: Stack(
         children: [
           WebViewWidget(controller: _controller),
-          if (_isLoading) Center(child: CircularProgressIndicator()),
+          if (_isLoading) const Center(child: CircularProgressIndicator()),
         ],
       ),
     );

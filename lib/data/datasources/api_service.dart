@@ -130,7 +130,7 @@ class ApiService extends _$ApiService {
   bool _shouldCheckCaptcha() {
     if (_lastCaptchaSolvedTime == null) return true;
     final now = DateTime.now();
-    return now.difference(_lastCaptchaSolvedTime!) > Duration(minutes: 60);
+    return now.difference(_lastCaptchaSolvedTime!) > const Duration(minutes: 60);
   }
 
   /// 쿠키 동기화

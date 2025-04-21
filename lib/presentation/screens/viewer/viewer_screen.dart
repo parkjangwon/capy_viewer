@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:photo_view/photo_view.dart';
-import '../../../data/models/manga.dart';
+
 import '../../../data/datasources/api_service.dart';
 
 class ViewerScreen extends ConsumerStatefulWidget {
@@ -21,7 +21,7 @@ class ViewerScreen extends ConsumerStatefulWidget {
 class _ViewerScreenState extends ConsumerState<ViewerScreen> {
   final _pageController = PageController();
   bool _isAppBarVisible = true;
-  Manga? _manga;
+  List<String> _images = []; // 이미지 URL 리스트
   bool _isLoading = true;
   String? _error;
 
@@ -39,9 +39,9 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
 
     try {
       final api = ref.read(apiServiceProvider);
-      final manga = await api.fetchChapter(widget.titleId, widget.chapterId);
+      final images = await api.fetchChapter(widget.titleId);
       setState(() {
-        _manga = manga;
+        _images = images;
         _isLoading = false;
       });
     } catch (e) {
@@ -92,12 +92,10 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
       );
     }
 
-    final manga = _manga!;
-
     return Scaffold(
       appBar: _isAppBarVisible
           ? AppBar(
-              title: Text(manga.name),
+              title: Text('만화 보기'),
               actions: [
                 IconButton(
                   icon: const Icon(Icons.fullscreen),
@@ -110,10 +108,10 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
         onTap: _toggleAppBar,
         child: PageView.builder(
           controller: _pageController,
-          itemCount: manga.images.length,
+          itemCount: _images.length,
           itemBuilder: (context, index) {
             return PhotoView(
-              imageProvider: NetworkImage(manga.images[index]),
+              imageProvider: NetworkImage(_images[index]),
               minScale: PhotoViewComputedScale.contained,
               maxScale: PhotoViewComputedScale.covered * 2,
               backgroundDecoration: const BoxDecoration(

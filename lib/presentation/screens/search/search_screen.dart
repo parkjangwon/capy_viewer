@@ -106,7 +106,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         style: TextStyle(
                           fontSize: 16,
                           color:
-                              theme.colorScheme.onBackground.withOpacity(0.4),
+                              theme.colorScheme.onSurface.withOpacity(0.4),
                         ),
                       ),
                     )
@@ -147,7 +147,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w500,
-                                    color: theme.colorScheme.onBackground
+                                    color: theme.colorScheme.onSurface
                                         .withOpacity(0.4),
                                   ),
                                 ),
@@ -166,7 +166,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   Expanded(
                     child: TextField(
                       controller: _searchController,
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         hintText: '제목을 입력하세요',
                         border: OutlineInputBorder(),
                       ),
@@ -174,7 +174,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     ),
                   ),
                   IconButton(
-                    icon: Icon(Icons.search),
+                    icon: const Icon(Icons.search),
                     onPressed: () => _onSearch(_searchController.text),
                   ),
                 ],

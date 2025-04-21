@@ -6,10 +6,10 @@ class MangaListItem extends StatelessWidget {
   final VoidCallback? onTap;
 
   const MangaListItem({
-    Key? key,
+    super.key,
     required this.manga,
     this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

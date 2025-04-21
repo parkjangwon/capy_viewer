@@ -105,7 +105,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           },
           child: CustomScrollView(
             slivers: [
-              SliverAppBar(
+              const SliverAppBar(
                 floating: true,
                 snap: true,
               ),
@@ -275,7 +275,7 @@ class _TitleCard extends StatelessWidget {
                     return Container(
                       width: 120,
                       height: 160,
-                      color: Theme.of(context).colorScheme.surfaceVariant,
+                      color: Theme.of(context).colorScheme.surfaceContainerHighest,
                       child: const Icon(Icons.error_outline),
                     );
                   },

@@ -16,7 +16,7 @@ class CaptchaScreen extends StatefulWidget {
 }
 
 class _CaptchaScreenState extends State<CaptchaScreen> {
-  bool _isLoading = true;
+  final bool _isLoading = true;
   final _logger = Logger();
 
   @override

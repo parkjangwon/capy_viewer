@@ -94,7 +94,7 @@ class _CloudflareCaptchaState extends State<CloudflareCaptcha> {
     if (_controller.platform is AndroidWebViewController) {
       AndroidWebViewController.enableDebugging(true);
       (_controller.platform as AndroidWebViewController)
-        ..setMediaPlaybackRequiresUserGesture(false);
+        .setMediaPlaybackRequiresUserGesture(false);
     }
   }
 
@@ -104,8 +104,7 @@ class _CloudflareCaptchaState extends State<CloudflareCaptcha> {
         document.documentElement.outerHTML;
       ''');
 
-      if (result != null &&
-          result.toString().contains('cf-browser-verification')) {
+      if (result.toString().contains('cf-browser-verification')) {
         _logger.i('[CAPTCHA] 캡차 검증 중...');
         return;
       }

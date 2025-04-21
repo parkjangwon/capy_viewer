@@ -1,13 +1,24 @@
 import 'package:html/parser.dart' as parser;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../models/manga.dart';
-import '../models/title.dart';
+import '../models/chapter.dart';
+import '../models/manga_title.dart';
+import 'dart:math' as math;
 import 'package:logger/logger.dart';
 
 part 'parser_service.g.dart';
 
 @riverpod
 class ParserService extends _$ParserService {
+  // 최근 작품 목록 파싱
+  List<MangaTitle> parseMangaList(String html) {
+    return parseRecentTitles(html);
+  }
+  // 챕터 목록 파싱 (임시: 빈 리스트 반환)
+  List<Chapter> parseChapters(String html) {
+    // TODO: 실제 파싱 로직 구현
+    return [];
+  }
   final _logger = Logger();
 
   @override
@@ -24,13 +35,10 @@ class ParserService extends _$ParserService {
       final link = element.querySelector('a');
       final img = element.querySelector('img');
       final name = element.querySelector('.name');
-
       return MangaTitle(
-        id: int.tryParse(link?.attributes['href']?.split('/').last ?? '0') ?? 0,
-        name: name?.text ?? '',
-        url: link?.attributes['href'] ?? '',
-        thumbnails: [img?.attributes['src'] ?? ''],
-        chapters: [],
+        id: link?.attributes['href']?.split('/').last ?? '',
+        title: name?.text ?? '',
+        thumbnailUrl: img?.attributes['src'] ?? '',
       );
     }).toList();
   }
@@ -38,32 +46,11 @@ class ParserService extends _$ParserService {
   MangaTitle parseTitleDetail(String html) {
     final document = parser.parse(html);
     final titleElement = document.querySelector('.webtoon-info');
-    final chapterElements = document.querySelectorAll('.webtoon-list li');
-
-    final title = MangaTitle(
-      id: 0,
-      name: titleElement?.querySelector('.name')?.text ?? '',
-      url: '',
-      thumbnails: [
-        titleElement?.querySelector('img')?.attributes['src'] ?? '',
-      ],
-      chapters: chapterElements.map((element) {
-        final link = element.querySelector('a');
-        final name = element.querySelector('.name');
-
-        return Manga(
-          id: int.tryParse(link?.attributes['href']?.split('/').last ?? '0') ?? 0,
-          name: name?.text ?? '',
-          url: link?.attributes['href'] ?? '',
-          thumbnails: [],
-          mode: MangaMode.vertical,
-          images: [],
-          date: '',
-        );
-      }).toList(),
+    return MangaTitle(
+      id: '',
+      title: titleElement?.querySelector('.name')?.text ?? '',
+      thumbnailUrl: titleElement?.querySelector('img')?.attributes['src'] ?? '',
     );
-
-    return title;
   }
 
   Manga parseChapter(String html) {
@@ -115,48 +102,25 @@ class ParserService extends _$ParserService {
 
   List<MangaTitle> parseSearchResults(String html) {
     _logger.i('검색 결과 HTML 파싱 시작');
-    
     try {
       final document = parser.parse(html);
       _logger.d('HTML 문서 파싱 완료');
-      
-      // 웹툰 목록 형식으로 시도
       final webtoonItems = document.querySelectorAll('.webtoon-list li');
       _logger.i('웹툰 목록 형식으로 찾은 아이템 수: ${webtoonItems.length}');
-      
       if (webtoonItems.isEmpty) {
         _logger.w('검색 결과를 찾을 수 없음');
-        // 전체 HTML 구조를 로그로 출력
         _logger.d('HTML 구조: ${document.outerHtml.substring(0, math.min(1000, document.outerHtml.length))}');
         return [];
       }
-      
       return webtoonItems.map((item) {
         try {
           final linkElement = item.querySelector('a');
           final imgElement = item.querySelector('img');
           final titleElement = item.querySelector('.name');
-          final authorElement = item.querySelector('.author');
-          final categoryElement = item.querySelector('.etc');
-          
-          final title = titleElement?.text.trim() ?? '';
-          final href = linkElement?.attributes['href'] ?? '';
-          final thumbnail = imgElement?.attributes['src'] ?? '';
-          final author = authorElement?.text.trim() ?? '';
-          final category = categoryElement?.text.trim() ?? '';
-          
-          final id = _extractIdFromUrl(href);
-          
-          _logger.d('아이템 파싱: 제목=$title, 작가=$author, 카테고리=$category, URL=$href');
-          
           return MangaTitle(
-            id: id,
-            name: title,
-            url: href,
-            thumbnails: thumbnail.isNotEmpty ? [thumbnail] : [],
-            author: author,
-            category: category,
-            chapters: [],
+            id: linkElement?.attributes['href']?.split('/').last ?? '',
+            title: titleElement?.text.trim() ?? '',
+            thumbnailUrl: imgElement?.attributes['src'] ?? '',
           );
         } catch (e, stack) {
           _logger.e('아이템 파싱 실패', error: e, stackTrace: stack);
@@ -172,13 +136,5 @@ class ParserService extends _$ParserService {
     }
   }
 
-  int _extractIdFromUrl(String url) {
-    try {
-      final parts = url.split('/');
-      return int.parse(parts.last);
-    } catch (e) {
-      _logger.w('URL에서 ID 추출 실패: $url');
-      return 0;
-    }
-  }
+
 } 
