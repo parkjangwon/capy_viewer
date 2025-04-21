@@ -14,7 +14,7 @@ class HomeScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _SectionTitleWithAction(
-              title: '최근 추가된 만화',
+              title: '최근 추가된 작품',
               onAction: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
@@ -143,42 +143,30 @@ class _VerticalList extends StatelessWidget {
 }
 
 class _NameSelector extends StatelessWidget {
-  static const List<String> kor = ['ㄱ','ㄴ','ㄷ','ㄹ','ㅁ','ㅂ','ㅅ','ㅇ','ㅈ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
-  static const List<String> eng = ['A-Z','0-9'];
   @override
   Widget build(BuildContext context) {
+    final names = ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ', '0-9', 'A-Z'];
     return Wrap(
-      spacing: 4,
-      children: [
-        ...kor.map((e) => _ChipButton(label: e)),
-        ...eng.map((e) => _ChipButton(label: e)),
-      ],
+      children: names.map((n) => _ChipButton(label: n)).toList(),
     );
   }
 }
 
 class _GenreSelector extends StatelessWidget {
-  static const genres = [
-    '17', 'BL', 'SF', 'TS', '개그', '게임', '도박', '드라마', '라노벨', '러브코미디', '먹방',
-    '백합', '붕탁', '순정', '스릴러', '스포츠', '시대', '애니', '액션', '음악', '이세계',
-    '일상', '전생', '추리', '판타지', '학원', '호러',
-  ];
   @override
   Widget build(BuildContext context) {
+    final genres = ['17', 'BL', 'SF', 'TS', '개그', '게임', '도박', '드라마', '라노벨', '러브코미디', '먹방', '백합', '붕탁', '순정', '스릴러', '스포츠', '시대', '애니화', '액션', '음악', '이세계', '일상', '전생', '추리', '판타지', '학원', '호러'];
     return Wrap(
-      spacing: 6,
-      runSpacing: 6,
       children: genres.map((g) => _ChipButton(label: g)).toList(),
     );
   }
 }
 
 class _PublishSelector extends StatelessWidget {
-  static const publish = ['미분류','주간','격주','월간','단편','단행본','완결'];
+  static const publish = ['미분류', '주간', '격주', '월간', '단편', '단행본', '완결'];
   @override
   Widget build(BuildContext context) {
     return Wrap(
-      spacing: 8,
       children: publish.map((p) => _ChipButton(label: p)).toList(),
     );
   }
@@ -186,14 +174,30 @@ class _PublishSelector extends StatelessWidget {
 
 class _ChipButton extends StatelessWidget {
   final String label;
-  const _ChipButton({required this.label});
+  final bool selected;
+  final VoidCallback? onTap;
+  const _ChipButton({required this.label, this.selected = false, this.onTap});
   @override
   Widget build(BuildContext context) {
-    return ActionChip(
-      label: Text(label),
-      onPressed: () {},
-      backgroundColor: Colors.grey[200],
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+      child: Chip(
+        label: Text(
+          label,
+          style: TextStyle(
+            color: isDark ? Colors.white : Colors.black,
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+        backgroundColor: isDark ? Colors.grey[850] : Colors.grey[200],
+        shape: const StadiumBorder(),
+        side: BorderSide(color: isDark ? Colors.deepPurple[300]! : Colors.deepPurple[200]!),
+        visualDensity: VisualDensity.compact,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+      ),
     );
   }
 }
