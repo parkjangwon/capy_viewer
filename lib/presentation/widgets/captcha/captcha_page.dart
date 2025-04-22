@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'manatoki_captcha_helper.dart';
 
 class CaptchaPage extends StatefulWidget {
   final String url;
@@ -18,6 +19,24 @@ class CaptchaPage extends StatefulWidget {
 class _CaptchaPageState extends State<CaptchaPage> {
   late InAppWebViewController _webViewController;
   bool _isLoading = true;
+
+  Future<void> _handleManatokiCaptcha(String url) async {
+    if (ManatokiCaptchaHelper.isManatokiCaptchaUrl(url)) {
+      final wrId = ManatokiCaptchaHelper.extractWrId(url);
+      final result = await ManatokiCaptchaHelper.showCaptchaDialog(
+        context: context,
+        captchaUrl: url,
+        formActionUrl: 'https://manatoki468.net/bbs/captcha_check.php',
+        redirectUrl: 'https://manatoki468.net/comic/$wrId',
+      );
+
+      if (result != null) {
+        _webViewController.loadUrl(
+          urlRequest: URLRequest(url: WebUri(result)),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -49,15 +68,23 @@ class _CaptchaPageState extends State<CaptchaPage> {
             onWebViewCreated: (controller) {
               _webViewController = controller;
             },
-            onLoadStart: (controller, url) {
+            onLoadStart: (controller, url) async {
               setState(() {
                 _isLoading = true;
               });
+
+              if (url != null) {
+                await _handleManatokiCaptcha(url.toString());
+              }
             },
             onLoadStop: (controller, url) async {
               setState(() {
                 _isLoading = false;
               });
+
+              if (url != null) {
+                await _handleManatokiCaptcha(url.toString());
+              }
 
               final html = await controller.evaluateJavascript(
                 source: "document.documentElement.outerHTML",

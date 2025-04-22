@@ -66,7 +66,7 @@ class ApiService extends _$ApiService {
         return false;
       }
 
-      // 이미 캡차가 해결된 경우 (1시간 내) 바로 성공 반환
+      // 이미 캡차가 해결된 경우 (10분 내) 바로 성공 반환
       if (!_shouldCheckCaptcha()) {
         _logger.i('[CAPTCHA] 최근에 캡차가 이미 해결됨, 스킵');
         return true;
@@ -79,12 +79,12 @@ class ApiService extends _$ApiService {
       final captchaAttemptKey = 'captcha_attempt_${Uri.parse(url).host}';
       final captchaAttempts = prefs.getInt(captchaAttemptKey) ?? 0;
 
-      if (captchaAttempts > 3) {
+      if (captchaAttempts > 5) {  // 시도 횟수 제한을 5회로 증가
         final lastAttemptTime = prefs.getInt('captcha_last_attempt_time') ?? 0;
         final now = DateTime.now().millisecondsSinceEpoch;
-        // 마지막 시도 후 1분이 지나지 않았으면 스킵
-        if (now - lastAttemptTime < 60 * 1000) {
-          _logger.w('[CAPTCHA] 과도한 캡차 시도, 일시적으로 스킵 (1분 대기)');
+        // 마지막 시도 후 30초가 지나지 않았으면 스킵 (1분에서 30초로 감소)
+        if (now - lastAttemptTime < 30 * 1000) {
+          _logger.w('[CAPTCHA] 과도한 캡차 시도, 일시적으로 스킵 (30초 대기)');
           return false;
         } else {
           // 시간이 지났으면 카운터 리셋
@@ -128,10 +128,14 @@ class ApiService extends _$ApiService {
     }
   }
 
+  void _updateCaptchaSolvedTime() {
+    _lastCaptchaSolvedTime = DateTime.now();
+  }
+
   bool _shouldCheckCaptcha() {
     if (_lastCaptchaSolvedTime == null) return true;
     final now = DateTime.now();
-    return now.difference(_lastCaptchaSolvedTime!) > const Duration(minutes: 60);
+    return now.difference(_lastCaptchaSolvedTime!) > _captchaCheckInterval;
   }
 
   /// 쿠키 동기화
@@ -201,14 +205,32 @@ class ApiService extends _$ApiService {
       // 요청 성공 후 _lastRequestUrl 초기화
       _lastRequestUrl = null;
 
+      // HTML 응답에서 캡차 필요 여부 확인
+      if (response.data is String &&
+          _isCaptchaRequired(response.data as String)) {
+        _logger.w('[REQUEST] HTML 응답에서 캡차 감지됨');
+        if (bypassCaptchaOnBlocked) {
+          final success = await bypassCaptcha(url);
+          if (success) {
+            return _request(path,
+                queryParameters: queryParameters,
+                options: options,
+                bypassCaptchaOnBlocked: false);
+          }
+        }
+        throw DioException(
+            requestOptions: RequestOptions(path: url),
+            error: '캡차 인증이 필요합니다',
+            type: DioExceptionType.badResponse);
+      }
+
       return response;
     } on DioException catch (e) {
       // 요청 실패 시에도 _lastRequestUrl 초기화
       _lastRequestUrl = null;
 
       if (e.response?.statusCode == 403 ||
-          (e.response?.data as String?)?.contains('captcha-bypass') == true ||
-          (e.response?.data as String?)?.contains('_cf_chl_opt') == true) {
+          _isCaptchaRequired(e.response?.data as String? ?? '')) {
         _logger.w('[REQUEST] 캡차 감지됨');
         if (bypassCaptchaOnBlocked) {
           _logger.w('[REQUEST] 캡차 우회 시도');
@@ -218,7 +240,7 @@ class ApiService extends _$ApiService {
             return _request(path,
                 queryParameters: queryParameters,
                 options: options,
-                bypassCaptchaOnBlocked: bypassCaptchaOnBlocked);
+                bypassCaptchaOnBlocked: false);
           } else {
             _logger.e('[REQUEST] 캡차 우회 실패, 요청 중단');
             throw DioException(
@@ -241,10 +263,18 @@ class ApiService extends _$ApiService {
     }
   }
 
+  bool _isCaptchaRequired(String html) {
+    return html.contains('captcha-bypass') ||
+        html.contains('_cf_chl_opt') ||
+        html.contains('cf-browser-verification') ||
+        html.contains('challenge-form');
+  }
+
   /// 앱 내 쿠키 삭제
   Future<void> clearCookies() async {
     try {
       await _cookieJar.deleteAll();
+      _lastCaptchaSolvedTime = null;  // 캡차 해결 시간도 초기화
       _logger.i('[SETTINGS] 모든 쿠키 삭제 완료');
     } catch (e, stack) {
       _logger.e('[SETTINGS] 쿠키 삭제 중 오류', error: e, stackTrace: stack);
@@ -290,16 +320,6 @@ class ApiService extends _$ApiService {
       _dio.interceptors.clear();
       _dio.interceptors.add(dio_cookie.CookieManager(_cookieJar));
     }
-  }
-
-  bool _shouldShowCaptcha() {
-    if (_lastCaptchaSolvedTime == null) return true;
-    final now = DateTime.now();
-    return now.difference(_lastCaptchaSolvedTime!) > _captchaCheckInterval;
-  }
-
-  void _updateCaptchaSolvedTime() {
-    _lastCaptchaSolvedTime = DateTime.now();
   }
 
   String joinUrl(String base, String path) {
@@ -468,70 +488,74 @@ class ApiService extends _$ApiService {
         '$baseUrl/bbs/search.php?sfl=wr_subject&stx=${Uri.encodeComponent(query)}&sop=and&where=all&onetable=&page=$page';
 
     _logger.i('[SEARCH] 요청 URL: $searchUrl');
+    
     try {
-      // 먼저 직접 HTTP 요청 시도
-      _logger.i('[SEARCH] 요청 헤더: ${_dio.options.headers}');
+      Response response;
+      bool captchaBypassAttempted = false;
 
-      final response = await _dio.get(
-        searchUrl,
-        options: Options(
-          followRedirects: false,
-          validateStatus: (status) => true,
-          headers: {
-            'User-Agent': kUserAgent,
-            'Referer': baseUrl,
-          },
-        ),
-      );
+      while (true) {
+        try {
+          response = await _dio.get(
+            searchUrl,
+            options: Options(
+              followRedirects: false,
+              validateStatus: (status) => true,
+              headers: {
+                'User-Agent': kUserAgent,
+                'Referer': baseUrl,
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+              },
+            ),
+          );
 
-      _logger.i('[SEARCH] 응답 상태 코드: ${response.statusCode}');
-      _logger.i('[SEARCH] 응답 헤더: ${response.headers}');
-      if (response.isRedirect == true) {
-        _logger.i('[SEARCH] 리다이렉트 URL: ${response.headers.value('location')}');
-      }
+          _logger.i('[SEARCH] 응답 상태 코드: ${response.statusCode}');
 
-      final responseData = response.data as String;
-      _logger.i(
-          '[SEARCH] 응답 본문 일부: ${responseData.substring(0, responseData.length > 500 ? 500 : responseData.length)}');
+          // 캡차가 필요한 경우
+          if (_needsCaptcha(response) || response.statusCode == 403) {
+            if (captchaBypassAttempted) {
+              _logger.e('[SEARCH] 캡차 우회 재시도 실패');
+              return [];
+            }
 
-      // 캡차가 필요한 경우
-      if (_needsCaptcha(response)) {
-        _logger.i('[SEARCH] 캡차 감지됨, 쿠키 획득 시도');
+            _logger.i('[SEARCH] 캡차 감지됨, 우회 시도');
+            final success = await bypassCaptcha(searchUrl);
+            if (!success) {
+              _logger.e('[SEARCH] 캡차 우회 실패');
+              return [];
+            }
 
-        // 캡차 해결을 위한 웹뷰 표시
-        final success = await bypassCaptcha(searchUrl);
-        if (!success) {
-          _logger.e('[SEARCH] 캡차 우회 실패');
+            captchaBypassAttempted = true;
+            continue;  // 캡차 우회 후 검색 재시도
+          }
+
+          // 정상 응답인 경우
+          if (response.statusCode == 200) {
+            final responseData = response.data as String;
+            if (responseData.contains('검색결과가 없습니다')) {
+              _logger.i('[SEARCH] 검색 결과 없음');
+              return [];
+            }
+            return _parseMangaTitles(responseData);
+          }
+
+          _logger.e('[SEARCH] 예상치 못한 응답: ${response.statusCode}');
           return [];
+
+        } on DioException catch (e) {
+          if (e.response?.statusCode == 403 && !captchaBypassAttempted) {
+            _logger.w('[SEARCH] DioException: 캡차 감지됨, 우회 시도');
+            final success = await bypassCaptcha(searchUrl);
+            if (!success) {
+              _logger.e('[SEARCH] 캡차 우회 실패');
+              return [];
+            }
+            captchaBypassAttempted = true;
+            continue;  // 캡차 우회 후 검색 재시도
+          }
+          rethrow;
         }
-
-        // 캡차 해결 후 다시 검색 시도
-        _logger.i('[SEARCH] 캡차 해결됨, 검색 재시도');
-        final newResponse = await _dio.get(
-          searchUrl,
-          options: Options(
-            headers: {
-              'User-Agent': kUserAgent,
-              'Referer': baseUrl,
-            },
-          ),
-        );
-
-        if (_needsCaptcha(newResponse)) {
-          _logger.e('[SEARCH] 캡차 우회 후에도 캡차 발생');
-          return [];
-        }
-
-        return _parseMangaTitles(newResponse.data as String);
       }
-
-      // 캡차가 필요없는 경우 바로 파싱
-      if (response.statusCode == 200) {
-        return _parseMangaTitles(response.data as String);
-      }
-
-      _logger.e('[SEARCH] 예상치 못한 응답: ${response.statusCode}');
-      return [];
     } catch (e, stack) {
       _logger.e('[SEARCH] 검색 실패', error: e, stackTrace: stack);
       return [];
@@ -540,6 +564,7 @@ class ApiService extends _$ApiService {
 
   bool _needsCaptcha(Response response) {
     if (response.statusCode == 302 || response.statusCode == 403) return true;
+    if (response.data == null || !(response.data is String)) return false;
 
     final html = response.data as String;
     return html.contains('captcha-bypass') ||
@@ -547,7 +572,9 @@ class ApiService extends _$ApiService {
         html.contains('challenge-form') ||
         html.contains('cf-spinner') ||
         html.contains('cloudflare-challenge') ||
-        html.contains('turnstile_');
+        html.contains('turnstile_') ||
+        html.contains('cf-browser-verification') ||
+        html.contains('cf_captcha_kind');
   }
 
   List<MangaTitle> _parseMangaTitles(String html) {
