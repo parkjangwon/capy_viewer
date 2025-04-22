@@ -34,7 +34,6 @@ dependencies:
   dartz: ^0.10.1
   fluttertoast: ^8.2.12
 
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -55,4 +54,3 @@ flutter_icons:
 
 flutter:
   uses-material-design: true
-

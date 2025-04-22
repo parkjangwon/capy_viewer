@@ -26,6 +26,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _urlController = TextEditingController();
   PackageInfo? _packageInfo;
   String _selectedInitialScreen = 'home';
+  bool _safeMode = false;
 
   @override
   void initState() {
@@ -38,6 +39,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _selectedInitialScreen = prefs.getString('initial_screen') ?? 'home';
+      _safeMode = prefs.getBool('safe_mode') ?? false;
     });
   }
 
@@ -53,6 +55,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     await prefs.setString('initial_screen', value);
     setState(() {
       _selectedInitialScreen = value;
+    });
+  }
+
+  Future<void> _toggleSafeMode(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('safe_mode', value);
+    setState(() {
+      _safeMode = value;
     });
   }
 
@@ -251,6 +261,55 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ref.read(themeProvider.notifier).setTheme(value);
                         }
                       },
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '콘텐츠 필터',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                '안심 모드',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '민감한 콘텐츠를 숨깁니다',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Switch(
+                          value: _safeMode,
+                          onChanged: _toggleSafeMode,
+                        ),
+                      ],
                     ),
                   ],
                 ),

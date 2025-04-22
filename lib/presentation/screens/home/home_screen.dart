@@ -16,6 +16,8 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  final ScrollController _scrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
@@ -28,59 +30,76 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _SectionTitleWithAction(
-                title: '최근 추가된 작품',
-                onAction: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const RecentAddedScreen(),
+        child: RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(recentAddedPreviewProvider);
+            setState(() {});
+          },
+          child: CustomScrollView(
+            controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate([
+                    _SectionTitleWithAction(
+                      title: '최근 추가된 작품',
+                      onAction: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const RecentAddedScreen(),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
-              Consumer(
-                builder: (context, ref, _) {
-                  final asyncValue = ref.watch(recentAddedPreviewProvider);
-                  return asyncValue.when(
-                    data: (items) => _HorizontalCardList(
-                      items: items,
-                      placeholderCount: 6,
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final asyncValue = ref.watch(recentAddedPreviewProvider);
+                        return asyncValue.when(
+                          data: (items) => _HorizontalCardList(
+                            items: items,
+                            placeholderCount: 6,
+                          ),
+                          loading: () => _HorizontalCardList(placeholderCount: 6),
+                          error: (e, st) => Center(child: Text('불러오기 실패')),
+                        );
+                      },
                     ),
-                    loading: () => _HorizontalCardList(placeholderCount: 6),
-                    error: (e, st) => Center(child: Text('불러오기 실패')),
-                  );
-                },
+                    const SizedBox(height: 16),
+                    _SectionTitleWithAction(
+                      title: '최근에 본 작품',
+                      onAction: widget.onRecentTap,
+                    ),
+                    _HorizontalCardList(placeholderCount: 6, emptyText: '결과 없음'),
+                    const SizedBox(height: 16),
+                    _SectionTitle('주간 베스트'),
+                    _VerticalList(placeholderCount: 10),
+                    const SizedBox(height: 16),
+                    _SectionTitle('일본만화 베스트'),
+                    _VerticalList(placeholderCount: 6),
+                    const SizedBox(height: 16),
+                    _SectionTitle('이름'),
+                    _NameSelector(),
+                    const SizedBox(height: 16),
+                    _SectionTitle('장르'),
+                    _GenreSelector(),
+                    const SizedBox(height: 16),
+                    _SectionTitle('발행'),
+                    _PublishSelector(),
+                    const SizedBox(height: 24),
+                  ]),
+                ),
               ),
-              const SizedBox(height: 16),
-              _SectionTitleWithAction(
-                title: '최근에 본 작품',
-                onAction: widget.onRecentTap,
-              ),
-              _HorizontalCardList(placeholderCount: 6, emptyText: '결과 없음'),
-              const SizedBox(height: 16),
-              _SectionTitle('주간 베스트'),
-              _VerticalList(placeholderCount: 10),
-              const SizedBox(height: 16),
-              _SectionTitle('일본만화 베스트'),
-              _VerticalList(placeholderCount: 6),
-              const SizedBox(height: 16),
-              _SectionTitle('이름'),
-              _NameSelector(),
-              const SizedBox(height: 16),
-              _SectionTitle('장르'),
-              _GenreSelector(),
-              const SizedBox(height: 16),
-              _SectionTitle('발행'),
-              _PublishSelector(),
-              const SizedBox(height: 24),
             ],
           ),
         ),

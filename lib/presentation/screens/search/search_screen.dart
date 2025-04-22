@@ -13,6 +13,7 @@ import '../../widgets/manga/manga_list_item.dart';
 import '../../viewmodels/global_cookie_provider.dart';
 import '../../viewmodels/cookie_sync_utils.dart';
 import '../../../data/providers/site_url_provider.dart';
+import '../settings/settings_screen.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -70,7 +71,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       return;
     }
 
-    // 기존 캡차 및 apiService.search 로직 제거, WebView+HTML 파싱 방식으로 대체
     try {
       final baseUrl = ref.read(siteUrlServiceProvider);
       await _webViewHelper.loadSearch(baseUrl, _currentQuery);
@@ -88,16 +88,13 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       if (isCaptcha) {
         if (context.mounted) {
           final siteUrl = ref.read(siteUrlServiceProvider);
-          final prefs = await SharedPreferences.getInstance();
-          final result = await showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (ctx) => CaptchaScreen(
-              url: siteUrl,
-              preferences: prefs,
-              onCaptchaVerified: () {
-                Navigator.of(ctx).pop(true);
-              },
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CaptchaWebViewPage(
+                url: siteUrl,
+                onCookiesExtracted: (cookies) {},
+              ),
             ),
           );
           // 인증 후 재검색

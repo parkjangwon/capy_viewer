@@ -7,6 +7,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import '../../viewmodels/global_cookie_provider.dart';
 import '../../viewmodels/cookie_sync_utils.dart';
 import '../../../data/providers/site_url_provider.dart';
+import '../../../utils/content_filter.dart';
 
 class RecentAddedScreen extends ConsumerStatefulWidget {
   const RecentAddedScreen({Key? key}) : super(key: key);
@@ -17,6 +18,7 @@ class RecentAddedScreen extends ConsumerStatefulWidget {
 class _RecentAddedScreenState extends ConsumerState<RecentAddedScreen> {
   static const _pageSize = 20;
   final PagingController<int, RecentAddedItem> _pagingController = PagingController(firstPageKey: 1);
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -33,21 +35,41 @@ class _RecentAddedScreenState extends ConsumerState<RecentAddedScreen> {
   Future<void> _fetchPage(int pageKey) async {
     try {
       final items = await ref.read(recentAddedPagingProvider(pageKey).future);
+      final isSafeMode = await ContentFilter.isSafeModeEnabled();
+      
+      List<RecentAddedItem> filteredItems = items;
+      if (isSafeMode) {
+        filteredItems = await Future.wait(
+          items.map((item) async {
+            final tags = item.genres.join(' ');
+            final isAllowed = await ContentFilter.isContentAllowed(item.title, tags);
+            return isAllowed ? item : null;
+          }),
+        ).then((results) => results.where((item) => item != null).cast<RecentAddedItem>().toList());
+      }
+
       final isLastPage = pageKey == 10;
       final nextPageKey = isLastPage ? null : pageKey + 1;
       if (isLastPage) {
-        _pagingController.appendLastPage(items);
+        _pagingController.appendLastPage(filteredItems);
       } else {
-        _pagingController.appendPage(items, nextPageKey);
+        _pagingController.appendPage(filteredItems, nextPageKey);
       }
     } catch (e) {
       _pagingController.error = e;
     }
   }
 
+  Future<void> _refresh() async {
+    // Provider를 무효화하여 새로운 데이터를 가져오도록 함
+    ref.invalidate(recentAddedPagingProvider(1));
+    _pagingController.refresh();
+  }
+
   @override
   void dispose() {
     _pagingController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -62,12 +84,20 @@ class _RecentAddedScreenState extends ConsumerState<RecentAddedScreen> {
         title: const Text('최근 추가된 작품'),
         centerTitle: true,
       ),
-      body: PagedListView<int, RecentAddedItem>(
-        pagingController: _pagingController,
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 0),
-        builderDelegate: PagedChildBuilderDelegate<RecentAddedItem>(
-          itemBuilder: (context, item, idx) => _RecentAddedListItem(item: item),
-          noItemsFoundIndicatorBuilder: (context) => const Center(child: Text('작품 없음')),
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: CustomScrollView(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            PagedSliverList<int, RecentAddedItem>(
+              pagingController: _pagingController,
+              builderDelegate: PagedChildBuilderDelegate<RecentAddedItem>(
+                itemBuilder: (context, item, idx) => _RecentAddedListItem(item: item),
+                noItemsFoundIndicatorBuilder: (context) => const Center(child: Text('작품 없음')),
+              ),
+            ),
+          ],
         ),
       ),
     );
