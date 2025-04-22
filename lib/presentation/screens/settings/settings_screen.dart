@@ -13,6 +13,7 @@ import '../../../data/providers/site_url_provider.dart';
 import '../../../utils/html_manga_parser.dart';
 import '../../widgets/captcha_modal.dart';
 import '../captcha/captcha_screen.dart';
+import 'package:logger/logger.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -395,6 +396,10 @@ class CaptchaWebViewPage extends StatefulWidget {
 class _CaptchaWebViewPageState extends State<CaptchaWebViewPage> {
   late final WebViewController _controller;
   bool _isLoading = true;
+  bool _mounted = true;
+  bool _hasSeenChallenge = false;
+  String _lastHtml = '';
+  int _blankCount = 0;
 
   @override
   void initState() {
@@ -404,27 +409,82 @@ class _CaptchaWebViewPageState extends State<CaptchaWebViewPage> {
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (url) {
+            if (!_mounted) return;
             setState(() => _isLoading = true);
           },
           onPageFinished: (url) async {
+            if (!_mounted) return;
             setState(() => _isLoading = false);
-            final cookies = await _controller.runJavaScriptReturningResult('document.cookie');
-            if (cookies.toString().isNotEmpty) {
-              widget.onCookiesExtracted(cookies.toString());
+
+            if (url.startsWith('about:')) {
+              if (url == 'about:blank') {
+                _blankCount++;
+                if (_blankCount >= 3) {
+                  // 여러 번의 about:blank 후에 인증이 완료된 것으로 간주
+                  if (_mounted) {
+                    Navigator.of(context).pop();
+                  }
+                }
+              }
+              return;
             }
+
+            final html = await _controller.runJavaScriptReturningResult('document.documentElement.outerHTML');
+            final htmlStr = html.toString().toLowerCase();
+
+            // HTML 내용이 변경되었는지 확인
+            if (htmlStr != _lastHtml) {
+              _lastHtml = htmlStr;
+              
+              // 첫 페이지 로드에서 챌린지를 보았는지 확인
+              if (!_hasSeenChallenge) {
+                if (htmlStr.contains('challenge-form') || 
+                    htmlStr.contains('cf-please-wait') ||
+                    htmlStr.contains('turnstile')) {
+                  _hasSeenChallenge = true;
+                } else {
+                  // 챌린지가 없으면 바로 종료
+                  if (_mounted) {
+                    Navigator.of(context).pop();
+                  }
+                }
+              } else {
+                // 챌린지를 본 후에 챌린지 요소가 없으면 인증 완료
+                if (!htmlStr.contains('challenge-form') && 
+                    !htmlStr.contains('cf-please-wait') &&
+                    !htmlStr.contains('turnstile')) {
+                  if (_mounted) {
+                    Navigator.of(context).pop();
+                  }
+                }
+              }
+            }
+          },
+          onNavigationRequest: (request) {
+            // 모든 네비게이션 허용
+            return NavigationDecision.navigate;
           },
         ),
       )
       ..loadRequest(Uri.parse(widget.url));
-    if (!Platform.isMacOS) {
-      _controller.setBackgroundColor(Colors.white);
-    }
+  }
+
+  @override
+  void dispose() {
+    _mounted = false;
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('캡차 인증')),
+      appBar: AppBar(
+        title: const Text('보안 인증'),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
       body: Stack(
         children: [
           WebViewWidget(controller: _controller),
