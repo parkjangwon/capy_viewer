@@ -29,6 +29,11 @@ class _CaptchaScreenState extends State<CaptchaScreen> {
   bool _mounted = true;
   InAppWebViewController? _webViewController;
 
+  String get _targetUrl {
+    final baseUrl = widget.url.endsWith('/') ? widget.url : '${widget.url}/';
+    return '${baseUrl}comic/129241';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -143,7 +148,7 @@ class _CaptchaScreenState extends State<CaptchaScreen> {
         children: [
           InAppWebView(
             initialUrlRequest: URLRequest(
-              url: WebUri(widget.url),
+              url: WebUri(_targetUrl),
               headers: {
                 'User-Agent':
                     'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',

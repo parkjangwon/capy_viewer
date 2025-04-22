@@ -11,6 +11,8 @@ import '../../viewmodels/global_cookie_provider.dart';
 import '../../viewmodels/cookie_sync_utils.dart';
 import '../../../data/providers/site_url_provider.dart';
 import '../../../utils/html_manga_parser.dart';
+import '../../widgets/captcha_modal.dart';
+import '../captcha/captcha_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -264,11 +266,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     const SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: () async {
-                        final siteUrl = ref.read(siteUrlServiceProvider);
+                        final targetUrl = currentUrl.endsWith('/') ? '${currentUrl}comic/129241' : '${currentUrl}/comic/129241';
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => CaptchaWebViewPage(url: siteUrl, onCookiesExtracted: (cookies) {}),
+                            builder: (context) => CaptchaWebViewPage(url: targetUrl, onCookiesExtracted: (cookies) {}),
                           ),
                         );
                       },
