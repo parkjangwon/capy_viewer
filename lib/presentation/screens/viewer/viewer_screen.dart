@@ -38,7 +38,7 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
     });
 
     try {
-      final api = ref.read(apiServiceProvider);
+      final api = ref.read(apiServiceProvider as ProviderListenable);
       final images = await api.fetchChapter(widget.titleId);
       setState(() {
         _images = images;

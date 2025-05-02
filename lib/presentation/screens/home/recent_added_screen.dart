@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../viewmodels/recent_added_provider.dart';
-import '../../../data/models/recent_added_model.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:cookie_jar/cookie_jar.dart';
+import 'dart:async';
+import '../../viewmodels/recent_added_provider.dart';
+import '../../../data/models/recent_added_model.dart';
 import '../../viewmodels/global_cookie_provider.dart';
 import '../../viewmodels/cookie_sync_utils.dart';
 import '../../../data/providers/site_url_provider.dart';
 import '../../../utils/content_filter.dart';
+import '../../../utils/network_image_with_headers.dart';
 
 class RecentAddedScreen extends ConsumerStatefulWidget {
   const RecentAddedScreen({Key? key}) : super(key: key);
@@ -104,11 +107,21 @@ class _RecentAddedScreenState extends ConsumerState<RecentAddedScreen> {
   }
 }
 
-class _RecentAddedListItem extends StatelessWidget {
+Future<String?> getCookieString(CookieJar jar, String url) async {
+  try {
+    final cookies = await jar.loadForRequest(Uri.parse(url));
+    if (cookies.isEmpty) return null;
+    return cookies.map((c) => '${c.name}=${c.value}').join('; ');
+  } catch (_) {
+    return null;
+  }
+}
+
+class _RecentAddedListItem extends ConsumerWidget {
   final RecentAddedItem item;
   const _RecentAddedListItem({required this.item});
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       elevation: 2,
@@ -128,17 +141,22 @@ class _RecentAddedListItem extends StatelessWidget {
             children: [
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  item.thumbnailUrl,
-                  width: 80,
-                  height: 110,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    width: 80,
-                    height: 110,
-                    color: Colors.grey[300],
-                    child: const Icon(Icons.broken_image, size: 40, color: Colors.grey),
-                  ),
+                child: FutureBuilder<String?>(
+                  future: getCookieString(ref.read(globalCookieJarProvider), item.url),
+                  builder: (context, snapshot) {
+                    return NetworkImageWithHeaders(
+                      url: item.thumbnailUrl,
+                      width: 80,
+                      height: 110,
+                      cookie: snapshot.data,
+                      errorWidget: Container(
+                        width: 80,
+                        height: 110,
+                        color: Colors.grey[300],
+                        child: const Icon(Icons.broken_image, size: 40, color: Colors.grey),
+                      ),
+                    );
+                  },
                 ),
               ),
               const SizedBox(width: 16),

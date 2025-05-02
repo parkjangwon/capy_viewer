@@ -6,6 +6,8 @@ import '../../viewmodels/recent_added_provider.dart';
 import '../../viewmodels/global_cookie_provider.dart';
 import '../../viewmodels/cookie_sync_utils.dart';
 import '../../../data/providers/site_url_provider.dart';
+import '../../../utils/network_image_with_headers.dart';
+import 'package:cookie_jar/cookie_jar.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   final VoidCallback? onRecentTap;
@@ -13,6 +15,17 @@ class HomeScreen extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+// getCookieString 함수 추가
+Future<String?> getCookieString(CookieJar jar, String url) async {
+  try {
+    final cookies = await jar.loadForRequest(Uri.parse(url));
+    if (cookies.isEmpty) return null;
+    return cookies.map((c) => '${c.name}=${c.value}').join('; ');
+  } catch (_) {
+    return null;
+  }
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
@@ -169,18 +182,26 @@ class _HorizontalCardList extends StatelessWidget {
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      item.thumbnailUrl,
-                      width: 100,
-                      height: 100,
-                      fit: BoxFit.cover,
-                      errorBuilder: (c, e, s) => Container(
-                        width: 100,
-                        height: 100,
-                        color: Colors.grey[300],
-                        child: const Icon(Icons.broken_image, size: 32, color: Colors.grey),
-                      ),
-                    ),
+                    child: Consumer(builder: (context, ref, _) {
+                      return FutureBuilder<String?>(  
+                        future: getCookieString(ref.read(globalCookieJarProvider), item.url),
+                        builder: (context, snapshot) {
+                          return NetworkImageWithHeaders(
+                            url: item.thumbnailUrl,
+                            width: 100,
+                            height: 100,
+                            fit: BoxFit.cover,
+                            cookie: snapshot.data,
+                            errorWidget: Container(
+                              width: 100,
+                              height: 100,
+                              color: Colors.grey[300],
+                              child: const Icon(Icons.broken_image, size: 32, color: Colors.grey),
+                            ),
+                          );
+                        },
+                      );
+                    }),
                   ),
                   const SizedBox(height: 4),
                   Text(
