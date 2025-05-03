@@ -8,6 +8,7 @@ import '../../viewmodels/cookie_sync_utils.dart';
 import '../../../data/providers/site_url_provider.dart';
 import '../../../utils/network_image_with_headers.dart';
 import 'package:cookie_jar/cookie_jar.dart';
+import '../manga/manga_navigation.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   final VoidCallback? onRecentTap;
@@ -99,6 +100,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     _VerticalList(placeholderCount: 10),
                     const SizedBox(height: 16),
                     _SectionTitle('일본만화 베스트'),
+                    _VerticalList(placeholderCount: 10),
+                    const SizedBox(height: 16),
+                    
+                    // 테스트용 만화 상세 화면 버튼
+                    _SectionTitle('테스트 기능'),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                MangaNavigation.navigateToMangaDetail(context, '21054450');
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.redAccent,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                              child: const Text('만화 상세 화면'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                MangaNavigation.navigateToMangaDetailTest(context);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                              child: const Text('상세 테스트 화면'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
                     _VerticalList(placeholderCount: 6),
                     const SizedBox(height: 16),
                     _SectionTitle('이름'),

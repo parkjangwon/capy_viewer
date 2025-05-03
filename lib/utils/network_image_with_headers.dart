@@ -1,8 +1,10 @@
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../data/providers/site_url_provider.dart';
 
-class NetworkImageWithHeaders extends StatelessWidget {
+class NetworkImageWithHeaders extends ConsumerWidget {
   final String url;
   final double width;
   final double height;
@@ -20,13 +22,13 @@ class NetworkImageWithHeaders extends StatelessWidget {
     super.key,
   });
 
-  Future<Uint8List?> _fetchImageBytes() async {
+  Future<Uint8List?> _fetchImageBytes(String siteBaseUrl) async {
     try {
       // URL이 상대 경로인 경우 절대 경로로 변환
       String imageUrl = url;
       if (url.startsWith('/')) {
-        // 상대 경로인 경우 기본 도메인 추가
-        imageUrl = 'https://manatoki468.net$url';
+        // 상대 경로인 경우 동적 기본 도메인 추가
+        imageUrl = '$siteBaseUrl$url';
         print('상대 경로 URL 변환: $url -> $imageUrl');
       }
       
@@ -71,9 +73,11 @@ class NetworkImageWithHeaders extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final siteBaseUrl = ref.watch(siteUrlServiceProvider);
+    
     return FutureBuilder<Uint8List?>(
-      future: _fetchImageBytes(),
+      future: _fetchImageBytes(siteBaseUrl),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.done && snapshot.data != null) {
           return Image.memory(
