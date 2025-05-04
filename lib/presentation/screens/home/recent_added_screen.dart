@@ -129,10 +129,9 @@ class _RecentAddedListItem extends ConsumerWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
         onTap: () {
-          // URL에서 만화 ID 추출
+          // 상세보기 버튼 클릭 시 해당 만화의 mangaId만 넘김
           final mangaIdMatch = RegExp(r'/comic/([0-9]+)').firstMatch(item.url);
           final mangaId = mangaIdMatch?.group(1);
-          
           if (mangaId != null) {
             MangaNavigation.navigateToMangaDetail(context, mangaId, title: item.title);
           } else {

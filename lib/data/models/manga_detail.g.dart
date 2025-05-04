@@ -12,13 +12,17 @@ _$MangaDetailImpl _$$MangaDetailImplFromJson(Map<String, dynamic> json) =>
       title: json['title'] as String,
       thumbnailUrl: json['thumbnailUrl'] as String,
       author: json['author'] as String? ?? '',
-      genre: json['genre'] as String? ?? '',
+      genres: (json['genres'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          const <String>[],
       releaseStatus: json['releaseStatus'] as String? ?? '',
       chapters: (json['chapters'] as List<dynamic>?)
               ?.map((e) => MangaChapter.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const <MangaChapter>[],
       previousChapterId: json['previousChapterId'] as String? ?? '',
+      fullViewUrl: json['fullViewUrl'] as String?,
     );
 
 Map<String, dynamic> _$$MangaDetailImplToJson(_$MangaDetailImpl instance) =>
@@ -27,10 +31,11 @@ Map<String, dynamic> _$$MangaDetailImplToJson(_$MangaDetailImpl instance) =>
       'title': instance.title,
       'thumbnailUrl': instance.thumbnailUrl,
       'author': instance.author,
-      'genre': instance.genre,
+      'genres': instance.genres,
       'releaseStatus': instance.releaseStatus,
       'chapters': instance.chapters,
       'previousChapterId': instance.previousChapterId,
+      'fullViewUrl': instance.fullViewUrl,
     };
 
 _$MangaChapterImpl _$$MangaChapterImplFromJson(Map<String, dynamic> json) =>
@@ -42,6 +47,7 @@ _$MangaChapterImpl _$$MangaChapterImplFromJson(Map<String, dynamic> json) =>
       rating: (json['rating'] as num?)?.toInt() ?? 0,
       likes: (json['likes'] as num?)?.toInt() ?? 0,
       comments: (json['comments'] as num?)?.toInt() ?? 0,
+      fullViewUrl: json['fullViewUrl'] as String?,
     );
 
 Map<String, dynamic> _$$MangaChapterImplToJson(_$MangaChapterImpl instance) =>
@@ -53,4 +59,5 @@ Map<String, dynamic> _$$MangaChapterImplToJson(_$MangaChapterImpl instance) =>
       'rating': instance.rating,
       'likes': instance.likes,
       'comments': instance.comments,
+      'fullViewUrl': instance.fullViewUrl,
     };

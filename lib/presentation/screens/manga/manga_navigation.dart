@@ -9,9 +9,10 @@ class MangaNavigation {
   /// [context] 현재 컨텍스트
   /// [mangaIdOrUrl] 만화 ID 또는 전체 URL
   /// [title] 만화 제목 (옵션)
+  /// [fullViewUrl] 전체 뷰 URL (옵션)
   /// [isChapterUrl] 전체 URL을 전달하는 경우 true
   /// [parseFullPage] 전체 페이지를 파싱하여 전편보기 링크 추출
-  static void navigateToMangaDetail(BuildContext context, String mangaIdOrUrl, {String? title, bool isChapterUrl = false, bool parseFullPage = false}) {
+  static void navigateToMangaDetail(BuildContext context, String mangaIdOrUrl, {String? title, String? fullViewUrl, bool isChapterUrl = false, bool parseFullPage = false}) {
     // ProviderScope에서 사이트 URL 가져오기
     final container = ProviderScope.containerOf(context);
     final baseUrl = container.read(siteUrlServiceProvider);
@@ -20,20 +21,19 @@ class MangaNavigation {
     String url;
     String mangaId;
     
-    if (isChapterUrl) {
-      // 이미 전체 URL이 전달된 경우
+    if (fullViewUrl != null && fullViewUrl.isNotEmpty) {
+      url = fullViewUrl;
+      final match = RegExp(r'/comic/(\d+)').firstMatch(fullViewUrl);
+      mangaId = match?.group(1) ?? '';
+    } else if (isChapterUrl) {
       if (mangaIdOrUrl.startsWith('http')) {
         url = mangaIdOrUrl;
-        // URL에서 만화 ID 추출
-        final match = RegExp(r'/comic/([0-9]+)').firstMatch(mangaIdOrUrl);
+        final match = RegExp(r'/comic/(\d+)').firstMatch(mangaIdOrUrl);
         mangaId = match?.group(1) ?? '';
       } else {
-        // 상대 경로로 가정
-        // baseUrl에서 끝에 슬래시가 있으면 제거
         final cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
         url = mangaIdOrUrl.startsWith('/') ? '$cleanBaseUrl$mangaIdOrUrl' : '$cleanBaseUrl/$mangaIdOrUrl';
-        // URL에서 만화 ID 추출
-        final match = RegExp(r'/comic/([0-9]+)').firstMatch(url);
+        final match = RegExp(r'/comic/(\d+)').firstMatch(url);
         mangaId = match?.group(1) ?? '';
       }
     } else {
@@ -48,9 +48,9 @@ class MangaNavigation {
     
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => MangaDetailTestScreen(
+        builder: (context) => MangaDetailScreen(
           mangaId: mangaId, 
-          directUrl: isChapterUrl ? url : null,
+          directUrl: fullViewUrl ?? (isChapterUrl ? url : null),
           parseFullPage: parseFullPage,
         ),
       ),

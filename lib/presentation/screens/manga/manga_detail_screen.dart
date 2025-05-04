@@ -13,13 +13,14 @@ import '../../widgets/manatoki_captcha_widget.dart';
 import '../../viewmodels/global_cookie_provider.dart';
 import '../../viewmodels/cookie_sync_utils.dart';
 import '../manga/manga_captcha_screen.dart';
+import '../manga/manga_navigation.dart';
 
-class MangaDetailTestScreen extends ConsumerStatefulWidget {
+class MangaDetailScreen extends ConsumerStatefulWidget {
   final String? mangaId;
   final String? directUrl; // 직접 접근할 URL (전편보기 버튼이 있는 페이지)
   final bool parseFullPage; // 전체 페이지를 파싱하여 전편보기 링크 추출
   
-  const MangaDetailTestScreen({
+  const MangaDetailScreen({
     Key? key, 
     this.mangaId, 
     this.directUrl, 
@@ -27,10 +28,10 @@ class MangaDetailTestScreen extends ConsumerStatefulWidget {
   }) : super(key: key);
 
   @override
-  ConsumerState<MangaDetailTestScreen> createState() => _MangaDetailTestScreenState();
+  ConsumerState<MangaDetailScreen> createState() => _MangaDetailScreenState();
 }
 
-class _MangaDetailTestScreenState extends ConsumerState<MangaDetailTestScreen> {
+class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
   late WebViewController _controller;
   bool _isLoading = true;
   bool _isError = false;
@@ -39,7 +40,12 @@ class _MangaDetailTestScreenState extends ConsumerState<MangaDetailTestScreen> {
   MangaDetail? _mangaDetail;
   bool _showManatokiCaptcha = false;
   ManatokiCaptchaInfo? _captchaInfo;
-  String get _mangaId => widget.mangaId ?? '22551218'; // 기본값 설정
+  String get _mangaId {
+    if (widget.mangaId == null || widget.mangaId!.isEmpty) {
+      throw Exception('mangaId가 전달되지 않았습니다.');
+    }
+    return widget.mangaId!;
+  }
   
   @override
   void initState() {
@@ -697,7 +703,18 @@ class _MangaDetailTestScreenState extends ConsumerState<MangaDetailTestScreen> {
                           ),
                           const SizedBox(height: 8),
                           _buildInfoRow(Icons.person, '작가', _mangaDetail!.author.isEmpty ? '정보 없음' : _mangaDetail!.author),
-                          _buildInfoRow(Icons.category, '장르', _mangaDetail!.genre.isEmpty ? '정보 없음' : _mangaDetail!.genre),
+                          _buildInfoRow(Icons.category, '분류', ''),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 2,
+                            children: _mangaDetail!.genres.isNotEmpty
+                                ? _mangaDetail!.genres.map((g) => Chip(
+                                      label: Text(g, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onPrimary)),
+                                      backgroundColor: theme.colorScheme.primary,
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                                    )).toList()
+                                : [Text('정보 없음', style: theme.textTheme.bodyMedium)],
+                          ),
                           _buildInfoRow(Icons.book, '발행상태', _mangaDetail!.releaseStatus.isEmpty ? '정보 없음' : _mangaDetail!.releaseStatus),
                         ],
                       ),
@@ -724,112 +741,119 @@ class _MangaDetailTestScreenState extends ConsumerState<MangaDetailTestScreen> {
                   physics: const NeverScrollableScrollPhysics(),
                   shrinkWrap: true,
                   itemCount: _mangaDetail!.chapters.length,
-                  separatorBuilder: (context, index) => const Divider(height: 1),
+                  separatorBuilder: (context, index) => Divider(height: 1, color: theme.dividerColor.withOpacity(0.2)),
                   itemBuilder: (context, index) {
                     final chapter = _mangaDetail!.chapters[index];
-                    // 회차 번호 계산 (역순)
-                    final chapterNumber = _mangaDetail!.chapters.length - index; // 순서대로 번호 부여
-                    // 별점 계산 (10점 만점 -> 5점 만점으로 변환)
+                    final chapterNumber = _mangaDetail!.chapters.length - index;
                     final rating = chapter.rating / 10.0;
-                    // 조회수 포맷팅 (1000 -> 1천, 10000 -> 1만)
                     String formattedViews = chapter.views.toString();
                     if (chapter.views >= 10000) {
                       formattedViews = '${(chapter.views / 10000).toStringAsFixed(1)}만';
                     } else if (chapter.views >= 1000) {
                       formattedViews = '${(chapter.views / 1000).toStringAsFixed(1)}천';
                     }
-                    return ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      title: Text(
-                        chapter.title,
-                        style: theme.textTheme.titleMedium,
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 4),
-                          Row(
+                    return Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () {
+                          print('상세보기 진입: chapter.id=${chapter.id}, title=${chapter.title}, fullViewUrl=${chapter.fullViewUrl}');
+                          MangaNavigation.navigateToMangaDetail(
+                            context,
+                            chapter.id,
+                            title: chapter.title,
+                            fullViewUrl: chapter.fullViewUrl,
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(Icons.calendar_today, size: 14, color: theme.colorScheme.onSurface.withOpacity(0.6)),
-                              const SizedBox(width: 4),
-                              Text(
-                                chapter.uploadDate,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                              Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.primary,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    chapterNumber.toString(),
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: theme.colorScheme.onPrimary,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              Icon(Icons.visibility, size: 14, color: theme.colorScheme.onSurface.withOpacity(0.6)),
-                              const SizedBox(width: 4),
-                              Text(
-                                formattedViews,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      chapter.title,
+                                      style: theme.textTheme.titleMedium,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Row(
+                                      children: [
+                                        Icon(Icons.calendar_today, size: 14, color: theme.colorScheme.onSurface.withOpacity(0.6)),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          chapter.uploadDate,
+                                          style: theme.textTheme.bodySmall?.copyWith(
+                                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Icon(Icons.visibility, size: 14, color: theme.colorScheme.onSurface.withOpacity(0.6)),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          formattedViews,
+                                          style: theme.textTheme.bodySmall?.copyWith(
+                                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Icon(Icons.comment, size: 14, color: theme.colorScheme.onSurface.withOpacity(0.6)),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          chapter.comments.toString(),
+                                          style: theme.textTheme.bodySmall?.copyWith(
+                                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Icon(Icons.thumb_up, size: 14, color: theme.colorScheme.onSurface.withOpacity(0.6)),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          chapter.likes.toString(),
+                                          style: theme.textTheme.bodySmall?.copyWith(
+                                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Icon(Icons.star, size: 14, color: Colors.amber),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          rating.toStringAsFixed(1),
+                                          style: theme.textTheme.bodySmall?.copyWith(
+                                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
                               ),
-                              if (chapter.likes > 0) ...[
-                                const SizedBox(width: 8),
-                                Icon(Icons.thumb_up, size: 14, color: theme.colorScheme.onSurface.withOpacity(0.6)),
-                                const SizedBox(width: 4),
-                                Text(
-                                  chapter.likes.toString(),
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurface.withOpacity(0.6),
-                                  ),
-                                ),
-                              ],
-                              if (chapter.rating > 0) ...[
-                                const SizedBox(width: 8),
-                                Icon(Icons.star, size: 14, color: Colors.amber),
-                                const SizedBox(width: 4),
-                                Text(
-                                  rating.toStringAsFixed(1),
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurface.withOpacity(0.6),
-                                  ),
-                                ),
-                              ],
-                              if (chapter.comments > 0) ...[
-                                const SizedBox(width: 8),
-                                Icon(Icons.comment, size: 14, color: theme.colorScheme.onSurface.withOpacity(0.6)),
-                                const SizedBox(width: 4),
-                                Text(
-                                  chapter.comments.toString(),
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.onSurface.withOpacity(0.6),
-                                  ),
-                                ),
-                              ],
                             ],
                           ),
-                        ],
-                      ),
-                      leading: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primary,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Center(
-                          child: Text(
-                            chapterNumber.toString(),
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onPrimary,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
                         ),
                       ),
-                      onTap: () {
-                        // 회차 클릭 시 처리
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('${chapter.title} 클릭됨'),
-                            duration: const Duration(seconds: 1),
-                          ),
-                        );
-                      },
                     );
                   },
                 ),

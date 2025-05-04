@@ -24,10 +24,12 @@ mixin _$MangaDetail {
   String get title => throw _privateConstructorUsedError;
   String get thumbnailUrl => throw _privateConstructorUsedError;
   String get author => throw _privateConstructorUsedError;
-  String get genre => throw _privateConstructorUsedError;
+  List<String> get genres => throw _privateConstructorUsedError;
   String get releaseStatus => throw _privateConstructorUsedError;
   List<MangaChapter> get chapters => throw _privateConstructorUsedError;
-  String get previousChapterId => throw _privateConstructorUsedError;
+  String get previousChapterId =>
+      throw _privateConstructorUsedError; // 전편보기 링크의 만화 ID
+  String? get fullViewUrl => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
@@ -46,10 +48,11 @@ abstract class $MangaDetailCopyWith<$Res> {
       String title,
       String thumbnailUrl,
       String author,
-      String genre,
+      List<String> genres,
       String releaseStatus,
       List<MangaChapter> chapters,
-      String previousChapterId});
+      String previousChapterId,
+      String? fullViewUrl});
 }
 
 /// @nodoc
@@ -69,10 +72,11 @@ class _$MangaDetailCopyWithImpl<$Res, $Val extends MangaDetail>
     Object? title = null,
     Object? thumbnailUrl = null,
     Object? author = null,
-    Object? genre = null,
+    Object? genres = null,
     Object? releaseStatus = null,
     Object? chapters = null,
     Object? previousChapterId = null,
+    Object? fullViewUrl = freezed,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -91,10 +95,10 @@ class _$MangaDetailCopyWithImpl<$Res, $Val extends MangaDetail>
           ? _value.author
           : author // ignore: cast_nullable_to_non_nullable
               as String,
-      genre: null == genre
-          ? _value.genre
-          : genre // ignore: cast_nullable_to_non_nullable
-              as String,
+      genres: null == genres
+          ? _value.genres
+          : genres // ignore: cast_nullable_to_non_nullable
+              as List<String>,
       releaseStatus: null == releaseStatus
           ? _value.releaseStatus
           : releaseStatus // ignore: cast_nullable_to_non_nullable
@@ -107,6 +111,10 @@ class _$MangaDetailCopyWithImpl<$Res, $Val extends MangaDetail>
           ? _value.previousChapterId
           : previousChapterId // ignore: cast_nullable_to_non_nullable
               as String,
+      fullViewUrl: freezed == fullViewUrl
+          ? _value.fullViewUrl
+          : fullViewUrl // ignore: cast_nullable_to_non_nullable
+              as String?,
     ) as $Val);
   }
 }
@@ -124,10 +132,11 @@ abstract class _$$MangaDetailImplCopyWith<$Res>
       String title,
       String thumbnailUrl,
       String author,
-      String genre,
+      List<String> genres,
       String releaseStatus,
       List<MangaChapter> chapters,
-      String previousChapterId});
+      String previousChapterId,
+      String? fullViewUrl});
 }
 
 /// @nodoc
@@ -145,10 +154,11 @@ class __$$MangaDetailImplCopyWithImpl<$Res>
     Object? title = null,
     Object? thumbnailUrl = null,
     Object? author = null,
-    Object? genre = null,
+    Object? genres = null,
     Object? releaseStatus = null,
     Object? chapters = null,
     Object? previousChapterId = null,
+    Object? fullViewUrl = freezed,
   }) {
     return _then(_$MangaDetailImpl(
       id: null == id
@@ -167,10 +177,10 @@ class __$$MangaDetailImplCopyWithImpl<$Res>
           ? _value.author
           : author // ignore: cast_nullable_to_non_nullable
               as String,
-      genre: null == genre
-          ? _value.genre
-          : genre // ignore: cast_nullable_to_non_nullable
-              as String,
+      genres: null == genres
+          ? _value._genres
+          : genres // ignore: cast_nullable_to_non_nullable
+              as List<String>,
       releaseStatus: null == releaseStatus
           ? _value.releaseStatus
           : releaseStatus // ignore: cast_nullable_to_non_nullable
@@ -183,6 +193,10 @@ class __$$MangaDetailImplCopyWithImpl<$Res>
           ? _value.previousChapterId
           : previousChapterId // ignore: cast_nullable_to_non_nullable
               as String,
+      fullViewUrl: freezed == fullViewUrl
+          ? _value.fullViewUrl
+          : fullViewUrl // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -195,11 +209,13 @@ class _$MangaDetailImpl implements _MangaDetail {
       required this.title,
       required this.thumbnailUrl,
       this.author = '',
-      this.genre = '',
+      final List<String> genres = const <String>[],
       this.releaseStatus = '',
       final List<MangaChapter> chapters = const <MangaChapter>[],
-      this.previousChapterId = ''})
-      : _chapters = chapters;
+      this.previousChapterId = '',
+      this.fullViewUrl})
+      : _genres = genres,
+        _chapters = chapters;
 
   factory _$MangaDetailImpl.fromJson(Map<String, dynamic> json) =>
       _$$MangaDetailImplFromJson(json);
@@ -213,9 +229,15 @@ class _$MangaDetailImpl implements _MangaDetail {
   @override
   @JsonKey()
   final String author;
+  final List<String> _genres;
   @override
   @JsonKey()
-  final String genre;
+  List<String> get genres {
+    if (_genres is EqualUnmodifiableListView) return _genres;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_genres);
+  }
+
   @override
   @JsonKey()
   final String releaseStatus;
@@ -231,10 +253,13 @@ class _$MangaDetailImpl implements _MangaDetail {
   @override
   @JsonKey()
   final String previousChapterId;
+// 전편보기 링크의 만화 ID
+  @override
+  final String? fullViewUrl;
 
   @override
   String toString() {
-    return 'MangaDetail(id: $id, title: $title, thumbnailUrl: $thumbnailUrl, author: $author, genre: $genre, releaseStatus: $releaseStatus, chapters: $chapters, previousChapterId: $previousChapterId)';
+    return 'MangaDetail(id: $id, title: $title, thumbnailUrl: $thumbnailUrl, author: $author, genres: $genres, releaseStatus: $releaseStatus, chapters: $chapters, previousChapterId: $previousChapterId, fullViewUrl: $fullViewUrl)';
   }
 
   @override
@@ -247,12 +272,14 @@ class _$MangaDetailImpl implements _MangaDetail {
             (identical(other.thumbnailUrl, thumbnailUrl) ||
                 other.thumbnailUrl == thumbnailUrl) &&
             (identical(other.author, author) || other.author == author) &&
-            (identical(other.genre, genre) || other.genre == genre) &&
+            const DeepCollectionEquality().equals(other._genres, _genres) &&
             (identical(other.releaseStatus, releaseStatus) ||
                 other.releaseStatus == releaseStatus) &&
             const DeepCollectionEquality().equals(other._chapters, _chapters) &&
             (identical(other.previousChapterId, previousChapterId) ||
-                other.previousChapterId == previousChapterId));
+                other.previousChapterId == previousChapterId) &&
+            (identical(other.fullViewUrl, fullViewUrl) ||
+                other.fullViewUrl == fullViewUrl));
   }
 
   @JsonKey(ignore: true)
@@ -263,10 +290,11 @@ class _$MangaDetailImpl implements _MangaDetail {
       title,
       thumbnailUrl,
       author,
-      genre,
+      const DeepCollectionEquality().hash(_genres),
       releaseStatus,
       const DeepCollectionEquality().hash(_chapters),
-      previousChapterId);
+      previousChapterId,
+      fullViewUrl);
 
   @JsonKey(ignore: true)
   @override
@@ -288,10 +316,11 @@ abstract class _MangaDetail implements MangaDetail {
       required final String title,
       required final String thumbnailUrl,
       final String author,
-      final String genre,
+      final List<String> genres,
       final String releaseStatus,
       final List<MangaChapter> chapters,
-      final String previousChapterId}) = _$MangaDetailImpl;
+      final String previousChapterId,
+      final String? fullViewUrl}) = _$MangaDetailImpl;
 
   factory _MangaDetail.fromJson(Map<String, dynamic> json) =
       _$MangaDetailImpl.fromJson;
@@ -305,13 +334,15 @@ abstract class _MangaDetail implements MangaDetail {
   @override
   String get author;
   @override
-  String get genre;
+  List<String> get genres;
   @override
   String get releaseStatus;
   @override
   List<MangaChapter> get chapters;
   @override
   String get previousChapterId;
+  @override // 전편보기 링크의 만화 ID
+  String? get fullViewUrl;
   @override
   @JsonKey(ignore: true)
   _$$MangaDetailImplCopyWith<_$MangaDetailImpl> get copyWith =>
@@ -331,6 +362,7 @@ mixin _$MangaChapter {
   int get rating => throw _privateConstructorUsedError;
   int get likes => throw _privateConstructorUsedError;
   int get comments => throw _privateConstructorUsedError;
+  String? get fullViewUrl => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
@@ -351,7 +383,8 @@ abstract class $MangaChapterCopyWith<$Res> {
       int views,
       int rating,
       int likes,
-      int comments});
+      int comments,
+      String? fullViewUrl});
 }
 
 /// @nodoc
@@ -374,6 +407,7 @@ class _$MangaChapterCopyWithImpl<$Res, $Val extends MangaChapter>
     Object? rating = null,
     Object? likes = null,
     Object? comments = null,
+    Object? fullViewUrl = freezed,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -404,6 +438,10 @@ class _$MangaChapterCopyWithImpl<$Res, $Val extends MangaChapter>
           ? _value.comments
           : comments // ignore: cast_nullable_to_non_nullable
               as int,
+      fullViewUrl: freezed == fullViewUrl
+          ? _value.fullViewUrl
+          : fullViewUrl // ignore: cast_nullable_to_non_nullable
+              as String?,
     ) as $Val);
   }
 }
@@ -423,7 +461,8 @@ abstract class _$$MangaChapterImplCopyWith<$Res>
       int views,
       int rating,
       int likes,
-      int comments});
+      int comments,
+      String? fullViewUrl});
 }
 
 /// @nodoc
@@ -444,6 +483,7 @@ class __$$MangaChapterImplCopyWithImpl<$Res>
     Object? rating = null,
     Object? likes = null,
     Object? comments = null,
+    Object? fullViewUrl = freezed,
   }) {
     return _then(_$MangaChapterImpl(
       id: null == id
@@ -474,6 +514,10 @@ class __$$MangaChapterImplCopyWithImpl<$Res>
           ? _value.comments
           : comments // ignore: cast_nullable_to_non_nullable
               as int,
+      fullViewUrl: freezed == fullViewUrl
+          ? _value.fullViewUrl
+          : fullViewUrl // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -488,7 +532,8 @@ class _$MangaChapterImpl implements _MangaChapter {
       this.views = 0,
       this.rating = 0,
       this.likes = 0,
-      this.comments = 0});
+      this.comments = 0,
+      this.fullViewUrl});
 
   factory _$MangaChapterImpl.fromJson(Map<String, dynamic> json) =>
       _$$MangaChapterImplFromJson(json);
@@ -512,10 +557,12 @@ class _$MangaChapterImpl implements _MangaChapter {
   @override
   @JsonKey()
   final int comments;
+  @override
+  final String? fullViewUrl;
 
   @override
   String toString() {
-    return 'MangaChapter(id: $id, title: $title, uploadDate: $uploadDate, views: $views, rating: $rating, likes: $likes, comments: $comments)';
+    return 'MangaChapter(id: $id, title: $title, uploadDate: $uploadDate, views: $views, rating: $rating, likes: $likes, comments: $comments, fullViewUrl: $fullViewUrl)';
   }
 
   @override
@@ -531,13 +578,15 @@ class _$MangaChapterImpl implements _MangaChapter {
             (identical(other.rating, rating) || other.rating == rating) &&
             (identical(other.likes, likes) || other.likes == likes) &&
             (identical(other.comments, comments) ||
-                other.comments == comments));
+                other.comments == comments) &&
+            (identical(other.fullViewUrl, fullViewUrl) ||
+                other.fullViewUrl == fullViewUrl));
   }
 
   @JsonKey(ignore: true)
   @override
-  int get hashCode => Object.hash(
-      runtimeType, id, title, uploadDate, views, rating, likes, comments);
+  int get hashCode => Object.hash(runtimeType, id, title, uploadDate, views,
+      rating, likes, comments, fullViewUrl);
 
   @JsonKey(ignore: true)
   @override
@@ -561,7 +610,8 @@ abstract class _MangaChapter implements MangaChapter {
       final int views,
       final int rating,
       final int likes,
-      final int comments}) = _$MangaChapterImpl;
+      final int comments,
+      final String? fullViewUrl}) = _$MangaChapterImpl;
 
   factory _MangaChapter.fromJson(Map<String, dynamic> json) =
       _$MangaChapterImpl.fromJson;
@@ -580,6 +630,8 @@ abstract class _MangaChapter implements MangaChapter {
   int get likes;
   @override
   int get comments;
+  @override
+  String? get fullViewUrl;
   @override
   @JsonKey(ignore: true)
   _$$MangaChapterImplCopyWith<_$MangaChapterImpl> get copyWith =>
