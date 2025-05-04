@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'dart:async';
 import '../../../data/models/manga_title.dart';
@@ -12,6 +11,7 @@ import '../../viewmodels/global_cookie_provider.dart';
 import '../../viewmodels/cookie_sync_utils.dart';
 import '../../../data/providers/site_url_provider.dart';
 import '../settings/settings_screen.dart';
+import '../manga/manga_navigation.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -234,6 +234,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   void _onMangaSelected(BuildContext context, MangaTitle manga) {
-    context.push('/detail/${manga.id}');
+    // 검색 결과 아이템 클릭 시 만화 상세 보기 페이지로 이동
+    MangaNavigation.navigateToMangaDetail(
+      context,
+      manga.id,  // id 필드에 URL 경로가 저장되어 있음
+      title: manga.title,
+      isChapterUrl: true,  // URL 경로를 전달하므로 true로 설정
+    );
   }
 }

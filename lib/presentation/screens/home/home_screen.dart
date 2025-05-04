@@ -183,47 +183,65 @@ class _HorizontalCardList extends StatelessWidget {
           separatorBuilder: (_, __) => const SizedBox(width: 8),
           itemBuilder: (context, idx) {
             final item = items![idx];
-            return SizedBox(
-              width: 100,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Consumer(builder: (context, ref, _) {
-                      return FutureBuilder<String?>(
-                        future: getCookieString(
-                            ref.read(globalCookieJarProvider), item.url),
-                        builder: (context, snapshot) {
-                          return NetworkImageWithHeaders(
-                            url: item.thumbnailUrl,
-                            width: 100,
-                            height: 100,
-                            fit: BoxFit.cover,
-                            cookie: snapshot.data,
-                            errorWidget: Container(
+            return InkWell(
+              onTap: () {
+                // 홈 화면의 최근 추가된 작품 클릭 시 만화 읽기 알림 표시
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('알림'),
+                    content: const Text('만화 읽기'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('확인'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+              child: SizedBox(
+                width: 100,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Consumer(builder: (context, ref, _) {
+                        return FutureBuilder<String?>(
+                          future: getCookieString(
+                              ref.read(globalCookieJarProvider), item.url),
+                          builder: (context, snapshot) {
+                            return NetworkImageWithHeaders(
+                              url: item.thumbnailUrl,
                               width: 100,
                               height: 100,
-                              color: Colors.grey[300],
-                              child: const Icon(Icons.broken_image,
-                                  size: 32, color: Colors.grey),
-                            ),
-                          );
-                        },
-                      );
-                    }),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    item.title,
-                    style: Theme.of(context)
-                        .textTheme
-                        .bodySmall
-                        ?.copyWith(fontWeight: FontWeight.bold),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                              fit: BoxFit.cover,
+                              cookie: snapshot.data,
+                              errorWidget: Container(
+                                width: 100,
+                                height: 100,
+                                color: Colors.grey[300],
+                                child: const Icon(Icons.broken_image,
+                                    size: 32, color: Colors.grey),
+                              ),
+                            );
+                          },
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      item.title,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
             );
           },

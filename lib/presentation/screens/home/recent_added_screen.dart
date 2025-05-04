@@ -136,19 +136,20 @@ class _RecentAddedListItem extends ConsumerWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
         onTap: () {
-          // 상세보기 버튼 클릭 시 해당 만화의 mangaId만 넘김
-          final mangaIdMatch = RegExp(r'/comic/([0-9]+)').firstMatch(item.url);
-          final mangaId = mangaIdMatch?.group(1);
-          if (mangaId != null) {
-            MangaNavigation.navigateToMangaDetail(context, mangaId,
-                title: item.title);
-          } else {
-            Fluttertoast.showToast(
-              msg: '잘못된 URL 형식입니다',
-              toastLength: Toast.LENGTH_SHORT,
-              gravity: ToastGravity.BOTTOM,
-            );
-          }
+          // 카드 영역 클릭 시 만화 읽기 알림 표시
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('알림'),
+              content: const Text('만화 읽기'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('확인'),
+                ),
+              ],
+            ),
+          );
         },
         child: Padding(
           padding: const EdgeInsets.all(12),
