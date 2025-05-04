@@ -578,21 +578,8 @@ class _MangaDetailTestScreenState extends ConsumerState<MangaDetailTestScreen> {
       ),
       body: Stack(
         children: [
-          // 웹뷰는 화면에 보이지 않도록 완전히 숨김
-          Positioned(
-            left: -10000, // 화면 바깥으로 이동
-            top: -10000, // 화면 바깥으로 이동
-            child: Opacity(
-              opacity: 0, // 완전히 투명하게 처리
-              child: SizedBox(
-                width: 1, // 최소한의 크기로 설정
-                height: 1, // 최소한의 크기로 설정
-                child: WebViewWidget(controller: _controller),
-              ),
-            ),
-          ),
-          
-          // 실제 사용자에게 보이는 내용
+          // WebView 완전 제거 (숨김 처리 및 디버깅용 모두 삭제)
+          // 실제 사용자에게 보이는 내용만 남김
           _isLoading
           ? const Center(
               child: CircularProgressIndicator(),
@@ -651,65 +638,18 @@ class _MangaDetailTestScreenState extends ConsumerState<MangaDetailTestScreen> {
   }
 
   Widget _buildTestContent() {
-    // 만화 상세 정보가 없는 경우 테스트 데이터 추가
+    // 만화 상세 정보가 없는 경우 안내 메시지
     if (_mangaDetail == null) {
       return const Center(child: Text('만화 상세 정보를 불러올 수 없습니다.'));
     }
-    
-    // 회차 목록이 없을 경우 테스트 데이터 추가
+    // 회차 목록이 없을 경우 안내 메시지
     if (_mangaDetail!.chapters.isEmpty) {
-      print('회차 목록이 없습니다. 테스트 데이터를 추가합니다.');
-      
-      // 테스트 데이터 추가
-      _mangaDetail = MangaDetail(
-        id: _mangaDetail!.id,
-        title: _mangaDetail!.title,
-        thumbnailUrl: _mangaDetail!.thumbnailUrl,
-        author: _mangaDetail!.author.isEmpty ? '드래곤볼 작가' : _mangaDetail!.author,
-        genre: _mangaDetail!.genre.isEmpty ? '액션, 판타지' : _mangaDetail!.genre,
-        releaseStatus: _mangaDetail!.releaseStatus.isEmpty ? '연재중' : _mangaDetail!.releaseStatus,
-        chapters: [
-          MangaChapter(
-            id: '123456',
-            title: '드래곤볼 슈퍼 104-2화',
-            uploadDate: '2023-05-01',
-            views: 12500,
-            rating: 49,
-            likes: 350,
-            comments: 25,
-          ),
-          MangaChapter(
-            id: '123455',
-            title: '드래곤볼 슈퍼 104-1화',
-            uploadDate: '2023-04-25',
-            views: 15000,
-            rating: 48,
-            likes: 420,
-            comments: 32,
-          ),
-          MangaChapter(
-            id: '123454',
-            title: '드래곤볼 슈퍼 103화',
-            uploadDate: '2023-04-18',
-            views: 18000,
-            rating: 50,
-            likes: 520,
-            comments: 45,
-          ),
-        ],
-      );
+      return const Center(child: Text('회차 목록이 없습니다.'));
     }
-    
     final theme = Theme.of(context);
-    
     return Column(
       children: [
-        // 웹뷰 (디버깅용)
-        SizedBox(
-          height: 200,
-          child: WebViewWidget(controller: _controller),
-        ),
-        
+        // 광고/불필요한 HTML 제거: WebViewWidget 등 상단 불필요한 위젯 완전 삭제
         // 만화 정보
         Expanded(
           child: SingleChildScrollView(
@@ -743,9 +683,7 @@ class _MangaDetailTestScreenState extends ConsumerState<MangaDetailTestScreen> {
                               ),
                       ),
                     ),
-                    
                     const SizedBox(width: 16),
-                    
                     // 만화 정보
                     Expanded(
                       child: Column(
@@ -766,9 +704,7 @@ class _MangaDetailTestScreenState extends ConsumerState<MangaDetailTestScreen> {
                     ),
                   ],
                 ),
-                
                 const SizedBox(height: 24),
-                
                 // 회차 정보
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -782,9 +718,7 @@ class _MangaDetailTestScreenState extends ConsumerState<MangaDetailTestScreen> {
                     ),
                   ],
                 ),
-                
                 const Divider(),
-                
                 // 회차 목록
                 ListView.separated(
                   physics: const NeverScrollableScrollPhysics(),
@@ -793,13 +727,10 @@ class _MangaDetailTestScreenState extends ConsumerState<MangaDetailTestScreen> {
                   separatorBuilder: (context, index) => const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final chapter = _mangaDetail!.chapters[index];
-                    
                     // 회차 번호 계산 (역순)
                     final chapterNumber = _mangaDetail!.chapters.length - index; // 순서대로 번호 부여
-                    
                     // 별점 계산 (10점 만점 -> 5점 만점으로 변환)
                     final rating = chapter.rating / 10.0;
-                    
                     // 조회수 포맷팅 (1000 -> 1천, 10000 -> 1만)
                     String formattedViews = chapter.views.toString();
                     if (chapter.views >= 10000) {
@@ -807,7 +738,6 @@ class _MangaDetailTestScreenState extends ConsumerState<MangaDetailTestScreen> {
                     } else if (chapter.views >= 1000) {
                       formattedViews = '${(chapter.views / 1000).toStringAsFixed(1)}천';
                     }
-                    
                     return ListTile(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       title: Text(
