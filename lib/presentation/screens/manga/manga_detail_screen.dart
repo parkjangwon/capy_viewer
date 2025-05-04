@@ -19,13 +19,9 @@ class MangaDetailScreen extends ConsumerStatefulWidget {
   final String? mangaId;
   final String? directUrl; // 직접 접근할 URL (전편보기 버튼이 있는 페이지)
   final bool parseFullPage; // 전체 페이지를 파싱하여 전편보기 링크 추출
-  
-  const MangaDetailScreen({
-    Key? key, 
-    this.mangaId, 
-    this.directUrl, 
-    this.parseFullPage = false
-  }) : super(key: key);
+
+  const MangaDetailScreen(
+      {super.key, this.mangaId, this.directUrl, this.parseFullPage = false});
 
   @override
   ConsumerState<MangaDetailScreen> createState() => _MangaDetailScreenState();
@@ -46,19 +42,19 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
     }
     return widget.mangaId!;
   }
-  
+
   @override
   void initState() {
     super.initState();
     _initWebView();
     _loadMangaDetail();
   }
-  
+
   @override
   void dispose() {
     super.dispose();
   }
-  
+
   void _initWebView() {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -90,27 +86,30 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
         _showManatokiCaptcha = false;
         _captchaInfo = null;
       });
-      
+
       final baseUrl = ref.read(siteUrlServiceProvider); // 동적 URL 사용
-      final jar = ref.read(globalCookieJarProvider); // globalCookieJarProvider는 이미 정의되어 있다고 가정
-      
+      final jar = ref.read(
+          globalCookieJarProvider); // globalCookieJarProvider는 이미 정의되어 있다고 가정
+
       // 쿠키 동기화 생략 (WebView에 직접 접근하기 때문에 필요 없음)
       // await syncDioCookiesToWebView(baseUrl, jar);
-      
+
       // 로드할 URL 결정
       String url;
-      
+
       // directUrl이 있는 경우 (전편보기 버튼이 있는 페이지로 직접 접근)
       if (widget.directUrl != null && widget.directUrl!.isNotEmpty) {
         url = widget.directUrl!;
         print('전편보기 버튼이 있는 페이지 로드: $url');
       } else {
         // 기존 방식: 만화 ID로 상세 페이지 접근
-        final cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
+        final cleanBaseUrl = baseUrl.endsWith('/')
+            ? baseUrl.substring(0, baseUrl.length - 1)
+            : baseUrl;
         url = '$cleanBaseUrl/comic/$_mangaId';
         print('만화 상세 페이지 로드: $url');
       }
-      
+
       // 페이지 로드
       await _controller.loadRequest(Uri.parse(url));
     } catch (e) {
@@ -125,34 +124,33 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
 
   Future<void> _getHtmlContent() async {
     if (!mounted) return;
-    
+
     try {
       // 페이지 로드 후 약간의 지연 추가 (JavaScript 실행 시간 고려)
       await Future.delayed(const Duration(milliseconds: 500));
-      
+
       // 현재 URL 출력
       final currentUrl = await _controller.currentUrl();
       print('현재 WebView URL: $currentUrl');
-      
+
       // HTML 가져오기 - 안전하게 처리
       String htmlStr = '';
       try {
-        final html = await _controller.runJavaScriptReturningResult('document.documentElement.outerHTML');
-        if (html != null) {
-          htmlStr = html.toString();
-          // 크기 제한을 위해 최대 길이 제한
-          if (htmlStr.length > 500000) {
-            print('매우 큰 HTML 감지. 잘라냄: ${htmlStr.length} -> 500000');
-            htmlStr = htmlStr.substring(0, 500000);
-          }
+        final html = await _controller
+            .runJavaScriptReturningResult('document.documentElement.outerHTML');
+        htmlStr = html.toString();
+        // 크기 제한을 위해 최대 길이 제한
+        if (htmlStr.length > 500000) {
+          print('매우 큰 HTML 감지. 잘라냄: ${htmlStr.length} -> 500000');
+          htmlStr = htmlStr.substring(0, 500000);
         }
       } catch (e) {
         print('HTML 가져오기 오류: $e');
         htmlStr = '';
       }
-      
+
       if (!mounted) return;
-      
+
       // HTML 길이 출력 - 안전하게 처리
       try {
         final htmlLength = htmlStr.length;
@@ -160,7 +158,7 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
       } catch (e) {
         print('HTML 길이 출력 오류: $e');
       }
-      
+
       // 빈 HTML 문자열 처리
       if (htmlStr.isEmpty) {
         print('빈 HTML 문자열 감지. 다시 시도합니다.');
@@ -171,16 +169,17 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
         });
         return;
       }
-      
+
       // 마나토끼 캡챠 확인
       try {
         if (ManatokiCaptchaHelper.isCaptchaRequired(htmlStr)) {
           print('마나토끼 캡챠 감지됨: 웹뷰로 캡챠 처리를 시작합니다.');
-          
+
           // 캡챠 정보 추출
           final baseUrl = ref.read(siteUrlServiceProvider);
-          final captchaInfo = ManatokiCaptchaHelper.extractCaptchaInfo(htmlStr, baseUrl);
-          
+          final captchaInfo =
+              ManatokiCaptchaHelper.extractCaptchaInfo(htmlStr, baseUrl);
+
           if (captchaInfo != null) {
             setState(() {
               _showManatokiCaptcha = true;
@@ -193,42 +192,45 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
       } catch (e) {
         print('캡챠 확인 오류: $e');
       }
-      
+
       // HTML 파싱 시작
       print('만화 상세 페이지 HTML 파싱 시작: $_mangaId');
       try {
         _htmlContent = htmlStr;
-                // 전편보기 링크가 있는 페이지인 경우 (파싱 후 전편보기 링크로 이동)
+        // 전편보기 링크가 있는 페이지인 경우 (파싱 후 전편보기 링크로 이동)
         if (widget.parseFullPage) {
           print('전편보기 링크 추출 시도...');
-          
+
           // HTML 문서 파싱
           final document = html_parser.parse(htmlStr);
-          
+
           // 전편보기 링크 추출
           String? previousUrl;
-          
+
           // 1. 가장 정확한 방법: .pull-right.post-info 내부의 .btn.btn-xs.btn-primary 버튼 검색
-          final postInfoDivs = document.querySelectorAll('.pull-right.post-info');
+          final postInfoDivs =
+              document.querySelectorAll('.pull-right.post-info');
           print('- .pull-right.post-info 요소 개수: ${postInfoDivs.length}');
-          
+
           for (final postInfo in postInfoDivs) {
             // 정확히 전편보기 버튼을 찾기
-            final previousButtons = postInfo.querySelectorAll('a.btn-primary, a.btn-xs.btn-primary');
+            final previousButtons = postInfo
+                .querySelectorAll('a.btn-primary, a.btn-xs.btn-primary');
             print('  - 전편보기 버튼 개수: ${previousButtons.length}');
-            
+
             for (final button in previousButtons) {
               final text = button.text.trim();
               final href = button.attributes['href'];
               final rel = button.attributes['rel'];
               final className = button.attributes['class'] ?? '';
-              
-              print('  - 버튼 검색: text="$text", href=$href, rel=$rel, class=$className');
-              
+
+              print(
+                  '  - 버튼 검색: text="$text", href=$href, rel=$rel, class=$className');
+
               if (text.contains('전편보기') && href != null && href.isNotEmpty) {
                 previousUrl = href;
                 print('  -> 전편보기 버튼 발견: $previousUrl');
-                
+
                 // rel 속성을 저장하여 나중에 활용
                 if (rel != null && rel.isNotEmpty) {
                   print('  -> 전편보기 ID (rel 속성): $rel');
@@ -236,21 +238,21 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
                 break;
               }
             }
-            
+
             if (previousUrl != null) break;
-            
+
             // 전편보기 버튼을 찾지 못한 경우 모든 링크 검색
             if (previousUrl == null) {
               final links = postInfo.querySelectorAll('a');
               print('  - 모든 링크 개수: ${links.length}');
-              
+
               for (final link in links) {
                 final text = link.text.trim();
                 final href = link.attributes['href'];
                 final rel = link.attributes['rel'];
-                
+
                 print('  - 링크 검색: text="$text", href=$href, rel=$rel');
-                
+
                 if (text.contains('전편보기') && href != null && href.isNotEmpty) {
                   previousUrl = href;
                   print('  -> 전편보기 링크 발견: $previousUrl');
@@ -259,19 +261,20 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
               }
             }
           }
-          
+
           // 2. 전체 페이지에서 버튼 클래스로 찾기
           if (previousUrl == null) {
-            final primaryButtons = document.querySelectorAll('a.btn-primary, a.btn-xs.btn-primary');
+            final primaryButtons = document
+                .querySelectorAll('a.btn-primary, a.btn-xs.btn-primary');
             print('- 전체 페이지 버튼 개수: ${primaryButtons.length}');
-            
+
             for (final button in primaryButtons) {
               final text = button.text.trim();
               final href = button.attributes['href'];
               final rel = button.attributes['rel'];
-              
+
               print('  - 버튼 검색: text="$text", href=$href, rel=$rel');
-              
+
               if (text.contains('전편보기') && href != null && href.isNotEmpty) {
                 previousUrl = href;
                 print('  -> 전편보기 버튼 발견: $previousUrl');
@@ -279,39 +282,47 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
               }
             }
           }
-          
+
           // 3. 모든 링크 검색 (마지막 수단)
           if (previousUrl == null) {
             final allLinks = document.querySelectorAll('a');
             print('- 모든 링크 개수: ${allLinks.length}');
-            
+
             for (final link in allLinks) {
               final text = link.text.trim();
               final href = link.attributes['href'];
               final rel = link.attributes['rel'];
-              
+
               print('  - 링크 검색: text="$text", href=$href, rel=$rel');
-              
-              if ((text.contains('전편보기') || text.contains('전편') || text.contains('이전')) && 
-                  href != null && href.isNotEmpty && href.contains('/comic/')) {
+
+              if ((text.contains('전편보기') ||
+                      text.contains('전편') ||
+                      text.contains('이전')) &&
+                  href != null &&
+                  href.isNotEmpty &&
+                  href.contains('/comic/')) {
                 previousUrl = href;
                 print('  -> 전편보기 관련 링크 발견: $previousUrl');
                 break;
               }
             }
           }
-          
+
           // 전편보기 링크를 찾았으면 해당 URL로 이동
           if (previousUrl != null && previousUrl.isNotEmpty) {
             print('전편보기 링크로 이동: $previousUrl');
-            
+
             // URL이 상대 경로인 경우 절대 경로로 변환
             if (!previousUrl.startsWith('http')) {
               final baseUrl = ref.read(siteUrlServiceProvider);
-              final cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
-              previousUrl = previousUrl.startsWith('/') ? '$cleanBaseUrl$previousUrl' : '$cleanBaseUrl/$previousUrl';
+              final cleanBaseUrl = baseUrl.endsWith('/')
+                  ? baseUrl.substring(0, baseUrl.length - 1)
+                  : baseUrl;
+              previousUrl = previousUrl.startsWith('/')
+                  ? '$cleanBaseUrl$previousUrl'
+                  : '$cleanBaseUrl/$previousUrl';
             }
-            
+
             // 전편보기 링크로 이동
             await _controller.loadRequest(Uri.parse(previousUrl));
             return; // 페이지 로드가 완료되면 onPageFinished에서 _getHtmlContent가 다시 호출됨
@@ -319,10 +330,10 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
             print('전편보기 링크를 찾을 수 없습니다.');
           }
         }
-        
+
         // 일반 HTML 파싱 (전편보기 링크를 찾지 못했거나, parseFullPage가 false인 경우)
         final result = parseMangaDetailFromHtml(htmlStr, _mangaId);
-        
+
         if (result.hasCaptcha) {
           print('파싱 결과: 캡챠 필요');
           setState(() {
@@ -331,7 +342,7 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
           });
           return;
         }
-        
+
         setState(() {
           _mangaDetail = result.mangaDetail;
           _isLoading = false;
@@ -347,9 +358,9 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
       }
     } catch (e) {
       print('HTML 콘텐츠 가져오기 오류: $e');
-      
+
       if (!mounted) return;
-      
+
       setState(() {
         _isLoading = false;
         _isError = true;
@@ -357,69 +368,58 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
       });
     }
   }
-  
+
   // 디버깅을 위한 HTML 구조 분석 메서드
   Future<void> _debugHtmlStructure() async {
     try {
       // 주요 요소 확인
-      final bodyClass = await _controller.runJavaScriptReturningResult(
-        'document.body.className;'
-      );
+      final bodyClass = await _controller
+          .runJavaScriptReturningResult('document.body.className;');
       print('Body 클래스: $bodyClass');
-      
+
       // 회차 목록 관련 요소 확인
       final serialListCount = await _controller.runJavaScriptReturningResult(
-        'document.querySelectorAll(".serial-list").length;'
-      );
+          'document.querySelectorAll(".serial-list").length;');
       print('serial-list 요소 수: $serialListCount');
-      
+
       final listWrapCount = await _controller.runJavaScriptReturningResult(
-        'document.querySelectorAll(".list-wrap").length;'
-      );
+          'document.querySelectorAll(".list-wrap").length;');
       print('list-wrap 요소 수: $listWrapCount');
-      
+
       final boardListCount = await _controller.runJavaScriptReturningResult(
-        'document.querySelectorAll(".board-list").length;'
-      );
+          'document.querySelectorAll(".board-list").length;');
       print('board-list 요소 수: $boardListCount');
-      
+
       final comicLinksCount = await _controller.runJavaScriptReturningResult(
-        'document.querySelectorAll("a[href*=\\"/comic/\\"]").length;'
-      );
+          'document.querySelectorAll("a[href*=\\"/comic/\\"]").length;');
       print('만화 관련 링크 수: $comicLinksCount');
-      
+
       // 첫 번째 만화 링크 확인
       if (int.parse(comicLinksCount.toString()) > 0) {
         final firstLinkHref = await _controller.runJavaScriptReturningResult(
-          'document.querySelector("a[href*=\\"/comic/\\"]").getAttribute("href");'
-        );
+            'document.querySelector("a[href*=\\"/comic/\\"]").getAttribute("href");');
         final firstLinkText = await _controller.runJavaScriptReturningResult(
-          'document.querySelector("a[href*=\\"/comic/\\"]").textContent.trim();'
-        );
+            'document.querySelector("a[href*=\\"/comic/\\"]").textContent.trim();');
         print('첫 번째 만화 링크: $firstLinkHref, 텍스트: $firstLinkText');
       }
-      
+
       // 회차 목록 관련 추가 선택자 확인
       final viewContentCount = await _controller.runJavaScriptReturningResult(
-        'document.querySelectorAll(".view-content").length;'
-      );
+          'document.querySelectorAll(".view-content").length;');
       print('view-content 요소 수: $viewContentCount');
-      
+
       final comicWrapCount = await _controller.runJavaScriptReturningResult(
-        'document.querySelectorAll(".comic-wrap").length;'
-      );
+          'document.querySelectorAll(".comic-wrap").length;');
       print('comic-wrap 요소 수: $comicWrapCount');
-      
+
       // 테이블 구조 확인
       final tableCount = await _controller.runJavaScriptReturningResult(
-        'document.querySelectorAll("table").length;'
-      );
+          'document.querySelectorAll("table").length;');
       print('table 요소 수: $tableCount');
-      
+
       if (int.parse(tableCount.toString()) > 0) {
         final firstTableClass = await _controller.runJavaScriptReturningResult(
-          'document.querySelector("table").className;'
-        );
+            'document.querySelector("table").className;');
         print('첫 번째 테이블 클래스: $firstTableClass');
       }
     } catch (e) {
@@ -429,31 +429,32 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
 
   Future<bool> _handleManatokiCaptcha() async {
     if (!mounted) return false;
-    
+
     try {
       setState(() {
         _isLoading = true;
       });
-      
+
       final baseUrl = ref.read(siteUrlServiceProvider); // 동적 URL 사용
       final result = await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => MangaCaptchaScreen(url: '$baseUrl/comic/$_mangaId'),
+          builder: (context) =>
+              MangaCaptchaScreen(url: '$baseUrl/comic/$_mangaId'),
         ),
       );
-      
+
       if (!mounted) return false;
-      
+
       if (result == true) {
         // 캡챠 인증 성공
         setState(() {
           _isLoading = true;
         });
-        
+
         // WebView 초기화 및 다시 로드
         _initWebView();
         await _loadMangaDetail();
-        
+
         return true;
       } else {
         // 캡챠 인증 실패
@@ -465,41 +466,42 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
       }
     } catch (e) {
       if (!mounted) return false;
-      
+
       setState(() {
         _isLoading = false;
         _isError = true;
         _errorMessage = '캡챠 처리 중 오류가 발생했습니다: $e';
       });
     }
-    
+
     return false;
   }
 
   void _handleManatokiCaptchaInWebView() {
     if (!mounted || !_showManatokiCaptcha) return;
-    
+
     // 최대 60초 동안 캡챠 완료 확인
     int attempts = 0;
     const maxAttempts = 60;
-    
+
     Future.doWhile(() async {
       await Future.delayed(const Duration(seconds: 1));
       attempts++;
-      
+
       if (!mounted || !_showManatokiCaptcha) {
         return false; // 루프 종료
       }
-      
+
       try {
         // JavaScript를 사용하여 HTML 내용을 가져옵니다.
-        final html = await _controller.runJavaScriptReturningResult('document.documentElement.outerHTML');
+        final html = await _controller
+            .runJavaScriptReturningResult('document.documentElement.outerHTML');
         final htmlStr = html.toString();
-        
+
         // 캡챠가 더 이상 필요하지 않은지 확인
         if (!ManatokiCaptchaHelper.isCaptchaRequired(htmlStr)) {
           print('캡챠가 완료되었습니다. 만화 상세 정보를 다시 로드합니다.');
-          
+
           if (mounted) {
             setState(() {
               _showManatokiCaptcha = false;
@@ -507,40 +509,40 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
             });
             await _getHtmlContent();
           }
-          
+
           return false; // 루프 종료
         }
       } catch (e) {
         print('캡챠 확인 중 오류: $e');
       }
-      
+
       // 최대 시도 횟수 초과 시 종료
       if (attempts >= maxAttempts) {
         print('캡챠 완료 확인 시간 초과');
-        
+
         // 페이지 새로고침 시도
         try {
           await _controller.reload();
         } catch (e) {
           print('페이지 새로고침 오류: $e');
         }
-        
+
         return false; // 루프 종료
       }
-      
+
       return true; // 루프 계속
     });
   }
 
   void _retryAfterCaptcha() {
     if (!mounted) return;
-    
+
     setState(() {
       _showManatokiCaptcha = false;
       _captchaInfo = null;
       _isLoading = true;
     });
-    
+
     // 페이지 다시 로드
     try {
       _loadMangaDetail();
@@ -561,7 +563,11 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
         children: [
           Icon(icon, size: 16, color: Theme.of(context).colorScheme.primary),
           const SizedBox(width: 8),
-          Text('$label: ', style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text('$label: ',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(fontWeight: FontWeight.bold)),
           Expanded(
             child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
           ),
@@ -587,57 +593,59 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
           // WebView 완전 제거 (숨김 처리 및 디버깅용 모두 삭제)
           // 실제 사용자에게 보이는 내용만 남김
           _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(),
-            )
-          : _isError
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                      const SizedBox(height: 16),
-                      Text(_errorMessage, textAlign: TextAlign.center),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _loadMangaDetail,
-                        child: const Text('다시 시도'),
-                      ),
-                    ],
-                  ),
+              ? const Center(
+                  child: CircularProgressIndicator(),
                 )
-              : _showManatokiCaptcha
-                  ? _captchaInfo != null
-                      ? ManatokiCaptchaWidget(
-                          captchaInfo: _captchaInfo!,
-                          onCaptchaComplete: (success) {
-                            if (success) {
-                              _retryAfterCaptcha();
-                            }
-                          },
-                        )
-                      : Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.security, size: 48, color: Colors.orange),
-                              const SizedBox(height: 16),
-                              const Text('캡챠 인증이 필요합니다.'),
-                              const SizedBox(height: 16),
-                              ElevatedButton(
-                                onPressed: () {
-                                  setState(() {
-                                    _showManatokiCaptcha = false;
-                                    _isLoading = true;
-                                  });
-                                  _getHtmlContent();
-                                },
-                                child: const Text('캡챠 완료 확인'),
-                              ),
-                            ],
+              : _isError
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.error_outline,
+                              size: 48, color: Colors.red),
+                          const SizedBox(height: 16),
+                          Text(_errorMessage, textAlign: TextAlign.center),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: _loadMangaDetail,
+                            child: const Text('다시 시도'),
                           ),
-                        )
-                  : _buildTestContent(),
+                        ],
+                      ),
+                    )
+                  : _showManatokiCaptcha
+                      ? _captchaInfo != null
+                          ? ManatokiCaptchaWidget(
+                              captchaInfo: _captchaInfo!,
+                              onCaptchaComplete: (success) {
+                                if (success) {
+                                  _retryAfterCaptcha();
+                                }
+                              },
+                            )
+                          : Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.security,
+                                      size: 48, color: Colors.orange),
+                                  const SizedBox(height: 16),
+                                  const Text('캡챠 인증이 필요합니다.'),
+                                  const SizedBox(height: 16),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      setState(() {
+                                        _showManatokiCaptcha = false;
+                                        _isLoading = true;
+                                      });
+                                      _getHtmlContent();
+                                    },
+                                    child: const Text('캡챠 완료 확인'),
+                                  ),
+                                ],
+                              ),
+                            )
+                      : _buildTestContent(),
         ],
       ),
     );
@@ -685,7 +693,8 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
                                 fit: BoxFit.cover,
                               )
                             : const Center(
-                                child: Icon(Icons.image_not_supported, size: 48),
+                                child:
+                                    Icon(Icons.image_not_supported, size: 48),
                               ),
                       ),
                     ),
@@ -702,20 +711,41 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
                             ),
                           ),
                           const SizedBox(height: 8),
-                          _buildInfoRow(Icons.person, '작가', _mangaDetail!.author.isEmpty ? '정보 없음' : _mangaDetail!.author),
+                          _buildInfoRow(
+                              Icons.person,
+                              '작가',
+                              _mangaDetail!.author.isEmpty
+                                  ? '정보 없음'
+                                  : _mangaDetail!.author),
                           _buildInfoRow(Icons.category, '분류', ''),
                           Wrap(
                             spacing: 6,
                             runSpacing: 2,
                             children: _mangaDetail!.genres.isNotEmpty
-                                ? _mangaDetail!.genres.map((g) => Chip(
-                                      label: Text(g, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onPrimary)),
-                                      backgroundColor: theme.colorScheme.primary,
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                                    )).toList()
-                                : [Text('정보 없음', style: theme.textTheme.bodyMedium)],
+                                ? _mangaDetail!.genres
+                                    .map((g) => Chip(
+                                          label: Text(g,
+                                              style: theme.textTheme.bodySmall
+                                                  ?.copyWith(
+                                                      color: theme.colorScheme
+                                                          .onPrimary)),
+                                          backgroundColor:
+                                              theme.colorScheme.primary,
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 0),
+                                        ))
+                                    .toList()
+                                : [
+                                    Text('정보 없음',
+                                        style: theme.textTheme.bodyMedium)
+                                  ],
                           ),
-                          _buildInfoRow(Icons.book, '발행상태', _mangaDetail!.releaseStatus.isEmpty ? '정보 없음' : _mangaDetail!.releaseStatus),
+                          _buildInfoRow(
+                              Icons.book,
+                              '발행상태',
+                              _mangaDetail!.releaseStatus.isEmpty
+                                  ? '정보 없음'
+                                  : _mangaDetail!.releaseStatus),
                         ],
                       ),
                     ),
@@ -741,23 +771,27 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
                   physics: const NeverScrollableScrollPhysics(),
                   shrinkWrap: true,
                   itemCount: _mangaDetail!.chapters.length,
-                  separatorBuilder: (context, index) => Divider(height: 1, color: theme.dividerColor.withOpacity(0.2)),
+                  separatorBuilder: (context, index) => Divider(
+                      height: 1, color: theme.dividerColor.withOpacity(0.2)),
                   itemBuilder: (context, index) {
                     final chapter = _mangaDetail!.chapters[index];
                     final chapterNumber = _mangaDetail!.chapters.length - index;
                     final rating = chapter.rating / 10.0;
                     String formattedViews = chapter.views.toString();
                     if (chapter.views >= 10000) {
-                      formattedViews = '${(chapter.views / 10000).toStringAsFixed(1)}만';
+                      formattedViews =
+                          '${(chapter.views / 10000).toStringAsFixed(1)}만';
                     } else if (chapter.views >= 1000) {
-                      formattedViews = '${(chapter.views / 1000).toStringAsFixed(1)}천';
+                      formattedViews =
+                          '${(chapter.views / 1000).toStringAsFixed(1)}천';
                     }
                     return Material(
                       color: Colors.transparent,
                       child: InkWell(
                         borderRadius: BorderRadius.circular(8),
                         onTap: () {
-                          print('상세보기 진입: chapter.id=${chapter.id}, title=${chapter.title}, fullViewUrl=${chapter.fullViewUrl}');
+                          print(
+                              '상세보기 진입: chapter.id=${chapter.id}, title=${chapter.title}, fullViewUrl=${chapter.fullViewUrl}');
                           MangaNavigation.navigateToMangaDetail(
                             context,
                             chapter.id,
@@ -766,7 +800,8 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
                           );
                         },
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 8),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -801,48 +836,71 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
                                     const SizedBox(height: 6),
                                     Row(
                                       children: [
-                                        Icon(Icons.calendar_today, size: 14, color: theme.colorScheme.onSurface.withOpacity(0.6)),
+                                        Icon(Icons.calendar_today,
+                                            size: 14,
+                                            color: theme.colorScheme.onSurface
+                                                .withOpacity(0.6)),
                                         const SizedBox(width: 4),
                                         Text(
                                           chapter.uploadDate,
-                                          style: theme.textTheme.bodySmall?.copyWith(
-                                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                            color: theme.colorScheme.onSurface
+                                                .withOpacity(0.6),
                                           ),
                                         ),
                                         const SizedBox(width: 10),
-                                        Icon(Icons.visibility, size: 14, color: theme.colorScheme.onSurface.withOpacity(0.6)),
+                                        Icon(Icons.visibility,
+                                            size: 14,
+                                            color: theme.colorScheme.onSurface
+                                                .withOpacity(0.6)),
                                         const SizedBox(width: 4),
                                         Text(
                                           formattedViews,
-                                          style: theme.textTheme.bodySmall?.copyWith(
-                                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                            color: theme.colorScheme.onSurface
+                                                .withOpacity(0.6),
                                           ),
                                         ),
                                         const SizedBox(width: 10),
-                                        Icon(Icons.comment, size: 14, color: theme.colorScheme.onSurface.withOpacity(0.6)),
+                                        Icon(Icons.comment,
+                                            size: 14,
+                                            color: theme.colorScheme.onSurface
+                                                .withOpacity(0.6)),
                                         const SizedBox(width: 4),
                                         Text(
                                           chapter.comments.toString(),
-                                          style: theme.textTheme.bodySmall?.copyWith(
-                                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                            color: theme.colorScheme.onSurface
+                                                .withOpacity(0.6),
                                           ),
                                         ),
                                         const SizedBox(width: 10),
-                                        Icon(Icons.thumb_up, size: 14, color: theme.colorScheme.onSurface.withOpacity(0.6)),
+                                        Icon(Icons.thumb_up,
+                                            size: 14,
+                                            color: theme.colorScheme.onSurface
+                                                .withOpacity(0.6)),
                                         const SizedBox(width: 4),
                                         Text(
                                           chapter.likes.toString(),
-                                          style: theme.textTheme.bodySmall?.copyWith(
-                                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                            color: theme.colorScheme.onSurface
+                                                .withOpacity(0.6),
                                           ),
                                         ),
                                         const SizedBox(width: 10),
-                                        Icon(Icons.star, size: 14, color: Colors.amber),
+                                        const Icon(Icons.star,
+                                            size: 14, color: Colors.amber),
                                         const SizedBox(width: 4),
                                         Text(
                                           rating.toStringAsFixed(1),
-                                          style: theme.textTheme.bodySmall?.copyWith(
-                                            color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                            color: theme.colorScheme.onSurface
+                                                .withOpacity(0.6),
                                           ),
                                         ),
                                       ],

@@ -171,8 +171,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             },
                             icon: const Icon(Icons.save),
                             style: IconButton.styleFrom(
-                              backgroundColor: Theme.of(context).colorScheme.primary,
-                              foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                              backgroundColor:
+                                  Theme.of(context).colorScheme.primary,
+                              foregroundColor:
+                                  Theme.of(context).colorScheme.onPrimary,
                             ),
                           ),
                         ],
@@ -299,7 +301,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 '민감한 콘텐츠를 숨깁니다',
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withOpacity(0.6),
                                 ),
                               ),
                             ],
@@ -322,15 +327,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('개발자 도구', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Text('개발자 도구',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: () async {
-                        final targetUrl = currentUrl.endsWith('/') ? '${currentUrl}comic/129241' : '${currentUrl}/comic/129241';
+                        final targetUrl = currentUrl.endsWith('/')
+                            ? '${currentUrl}comic/129241'
+                            : '$currentUrl/comic/129241';
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => CaptchaWebViewPage(url: targetUrl, onCookiesExtracted: (cookies) {}),
+                            builder: (context) => CaptchaWebViewPage(
+                                url: targetUrl,
+                                onCookiesExtracted: (cookies) {}),
                           ),
                         );
                       },
@@ -341,14 +352,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       onPressed: () async {
                         final jar = ref.read(globalCookieJarProvider);
                         final prefs = await SharedPreferences.getInstance();
-                        final baseUrl = prefs.getString('site_base_url') ?? 'https://manatoki468.net';
-                        final targetUrl = baseUrl + '/comic?stx=%EB%B2%A0%EB%A5%B4%EC%84%B8%EB%A5%B4%ED%81%AC';
+                        final baseUrl = prefs.getString('site_base_url') ??
+                            'https://manatoki468.net';
+                        final targetUrl =
+                            '$baseUrl/comic?stx=%EB%B2%A0%EB%A5%B4%EC%84%B8%EB%A5%B4%ED%81%AC';
                         final controller = WebViewController()
                           ..setJavaScriptMode(JavaScriptMode.unrestricted);
                         await syncDioCookiesToWebView(targetUrl, jar); // 쿠키 동기화
                         await controller.loadRequest(Uri.parse(targetUrl));
                         await Future.delayed(const Duration(seconds: 3));
-                        final html = await controller.runJavaScriptReturningResult('document.documentElement.outerHTML');
+                        final html =
+                            await controller.runJavaScriptReturningResult(
+                                'document.documentElement.outerHTML');
                         final parsed = parseMangaListFromHtml(html.toString());
                         if (context.mounted) {
                           showDialog(
@@ -366,18 +381,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                           final item = parsed[idx];
                                           return ListTile(
                                             title: Text(item.title),
-                                            subtitle: Text(item.href, style: const TextStyle(fontSize: 11)),
+                                            subtitle: Text(item.href,
+                                                style: const TextStyle(
+                                                    fontSize: 11)),
                                             onTap: () async {
                                               final uri = Uri.parse(item.href);
                                               if (await canLaunchUrl(uri)) {
-                                                launchUrl(uri, mode: LaunchMode.externalApplication);
+                                                launchUrl(uri,
+                                                    mode: LaunchMode
+                                                        .externalApplication);
                                               }
                                             },
                                           );
                                         },
                                       ),
                                     ),
-                              actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('닫기'))],
+                              actions: [
+                                TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: const Text('닫기'))
+                              ],
                             ),
                           );
                         }
@@ -426,7 +449,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       await apiService.clearCache();
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('쿠키가 삭제되었습니다..'), duration: Duration(seconds: 2)),
+                          const SnackBar(
+                              content: Text('쿠키가 삭제되었습니다..'),
+                              duration: Duration(seconds: 2)),
                         );
                       }
                     },
@@ -446,7 +471,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 class CaptchaWebViewPage extends StatefulWidget {
   final String url;
   final ValueChanged<String> onCookiesExtracted;
-  const CaptchaWebViewPage({super.key, required this.url, required this.onCookiesExtracted});
+  const CaptchaWebViewPage(
+      {super.key, required this.url, required this.onCookiesExtracted});
 
   @override
   State<CaptchaWebViewPage> createState() => _CaptchaWebViewPageState();
@@ -488,16 +514,17 @@ class _CaptchaWebViewPageState extends State<CaptchaWebViewPage> {
               return;
             }
 
-            final html = await _controller.runJavaScriptReturningResult('document.documentElement.outerHTML');
+            final html = await _controller.runJavaScriptReturningResult(
+                'document.documentElement.outerHTML');
             final htmlStr = html.toString().toLowerCase();
 
             // HTML 내용이 변경되었는지 확인
             if (htmlStr != _lastHtml) {
               _lastHtml = htmlStr;
-              
+
               // 첫 페이지 로드에서 챌린지를 보았는지 확인
               if (!_hasSeenChallenge) {
-                if (htmlStr.contains('challenge-form') || 
+                if (htmlStr.contains('challenge-form') ||
                     htmlStr.contains('cf-please-wait') ||
                     htmlStr.contains('turnstile')) {
                   _hasSeenChallenge = true;
@@ -509,7 +536,7 @@ class _CaptchaWebViewPageState extends State<CaptchaWebViewPage> {
                 }
               } else {
                 // 챌린지를 본 후에 챌린지 요소가 없으면 인증 완료
-                if (!htmlStr.contains('challenge-form') && 
+                if (!htmlStr.contains('challenge-form') &&
                     !htmlStr.contains('cf-please-wait') &&
                     !htmlStr.contains('turnstile')) {
                   if (_mounted) {

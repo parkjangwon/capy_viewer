@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:webview_flutter/webview_flutter.dart';
 
 class CookieStore extends StateNotifier<Map<String, String>> {
   CookieStore() : super({});
@@ -36,6 +35,7 @@ class CookieStore extends StateNotifier<Map<String, String>> {
   }
 }
 
-final cookieStoreProvider = StateNotifierProvider<CookieStore, Map<String, String>>((ref) {
+final cookieStoreProvider =
+    StateNotifierProvider<CookieStore, Map<String, String>>((ref) {
   return CookieStore();
-}); 
+});

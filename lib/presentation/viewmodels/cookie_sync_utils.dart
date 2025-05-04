@@ -1,5 +1,4 @@
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:flutter_inappwebview_platform_interface/flutter_inappwebview_platform_interface.dart' show WebUri;
 import 'package:cookie_jar/cookie_jar.dart';
 import 'dart:io' as io;
 
@@ -9,7 +8,8 @@ Future<void> syncWebViewCookiesToDio(String url, CookieJar jar) async {
     final cookie = io.Cookie(c.name ?? '', c.value ?? '');
     if (c.domain != null) cookie.domain = c.domain!;
     if (c.path != null) cookie.path = c.path!;
-    if (c.expiresDate != null) cookie.expires = DateTime.fromMillisecondsSinceEpoch(c.expiresDate!);
+    if (c.expiresDate != null)
+      cookie.expires = DateTime.fromMillisecondsSinceEpoch(c.expiresDate!);
     if (c.isHttpOnly != null) cookie.httpOnly = c.isHttpOnly!;
     if (c.isSecure != null) cookie.secure = c.isSecure!;
     return cookie;

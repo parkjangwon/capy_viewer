@@ -14,14 +14,15 @@ import '../../../utils/network_image_with_headers.dart';
 import '../manga/manga_navigation.dart';
 
 class RecentAddedScreen extends ConsumerStatefulWidget {
-  const RecentAddedScreen({Key? key}) : super(key: key);
+  const RecentAddedScreen({super.key});
   @override
   ConsumerState<RecentAddedScreen> createState() => _RecentAddedScreenState();
 }
 
 class _RecentAddedScreenState extends ConsumerState<RecentAddedScreen> {
   static const _pageSize = 20;
-  final PagingController<int, RecentAddedItem> _pagingController = PagingController(firstPageKey: 1);
+  final PagingController<int, RecentAddedItem> _pagingController =
+      PagingController(firstPageKey: 1);
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -40,16 +41,20 @@ class _RecentAddedScreenState extends ConsumerState<RecentAddedScreen> {
     try {
       final items = await ref.read(recentAddedPagingProvider(pageKey).future);
       final isSafeMode = await ContentFilter.isSafeModeEnabled();
-      
+
       List<RecentAddedItem> filteredItems = items;
       if (isSafeMode) {
         filteredItems = await Future.wait(
           items.map((item) async {
             final tags = item.genres.join(' ');
-            final isAllowed = await ContentFilter.isContentAllowed(item.title, tags);
+            final isAllowed =
+                await ContentFilter.isContentAllowed(item.title, tags);
             return isAllowed ? item : null;
           }),
-        ).then((results) => results.where((item) => item != null).cast<RecentAddedItem>().toList());
+        ).then((results) => results
+            .where((item) => item != null)
+            .cast<RecentAddedItem>()
+            .toList());
       }
 
       final isLastPage = pageKey == 10;
@@ -97,8 +102,10 @@ class _RecentAddedScreenState extends ConsumerState<RecentAddedScreen> {
             PagedSliverList<int, RecentAddedItem>(
               pagingController: _pagingController,
               builderDelegate: PagedChildBuilderDelegate<RecentAddedItem>(
-                itemBuilder: (context, item, idx) => _RecentAddedListItem(item: item),
-                noItemsFoundIndicatorBuilder: (context) => const Center(child: Text('작품 없음')),
+                itemBuilder: (context, item, idx) =>
+                    _RecentAddedListItem(item: item),
+                noItemsFoundIndicatorBuilder: (context) =>
+                    const Center(child: Text('작품 없음')),
               ),
             ),
           ],
@@ -133,7 +140,8 @@ class _RecentAddedListItem extends ConsumerWidget {
           final mangaIdMatch = RegExp(r'/comic/([0-9]+)').firstMatch(item.url);
           final mangaId = mangaIdMatch?.group(1);
           if (mangaId != null) {
-            MangaNavigation.navigateToMangaDetail(context, mangaId, title: item.title);
+            MangaNavigation.navigateToMangaDetail(context, mangaId,
+                title: item.title);
           } else {
             Fluttertoast.showToast(
               msg: '잘못된 URL 형식입니다',
@@ -150,7 +158,8 @@ class _RecentAddedListItem extends ConsumerWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: FutureBuilder<String?>(
-                  future: getCookieString(ref.read(globalCookieJarProvider), item.url),
+                  future: getCookieString(
+                      ref.read(globalCookieJarProvider), item.url),
                   builder: (context, snapshot) {
                     return NetworkImageWithHeaders(
                       url: item.thumbnailUrl,
@@ -161,7 +170,8 @@ class _RecentAddedListItem extends ConsumerWidget {
                         width: 80,
                         height: 110,
                         color: Colors.grey[300],
-                        child: const Icon(Icons.broken_image, size: 40, color: Colors.grey),
+                        child: const Icon(Icons.broken_image,
+                            size: 40, color: Colors.grey),
                       ),
                     );
                   },
@@ -175,7 +185,10 @@ class _RecentAddedListItem extends ConsumerWidget {
                   children: [
                     Text(
                       item.title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -187,30 +200,39 @@ class _RecentAddedListItem extends ConsumerWidget {
                       children: [
                         Text(
                           item.date,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.deepPurple),
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(color: Colors.deepPurple),
                         ),
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.comment, size: 16, color: Colors.blueGrey),
+                            const Icon(Icons.comment,
+                                size: 16, color: Colors.blueGrey),
                             const SizedBox(width: 2),
-                            Text('${item.comments ?? 0}', style: Theme.of(context).textTheme.bodySmall),
+                            Text('${item.comments ?? 0}',
+                                style: Theme.of(context).textTheme.bodySmall),
                           ],
                         ),
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.thumb_up_alt_outlined, size: 16, color: Colors.pink),
+                            const Icon(Icons.thumb_up_alt_outlined,
+                                size: 16, color: Colors.pink),
                             const SizedBox(width: 2),
-                            Text('${item.likes ?? 0}', style: Theme.of(context).textTheme.bodySmall),
+                            Text('${item.likes ?? 0}',
+                                style: Theme.of(context).textTheme.bodySmall),
                           ],
                         ),
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.remove_red_eye, size: 16, color: Colors.teal),
+                            const Icon(Icons.remove_red_eye,
+                                size: 16, color: Colors.teal),
                             const SizedBox(width: 2),
-                            Text('${item.views ?? 0}', style: Theme.of(context).textTheme.bodySmall),
+                            Text('${item.views ?? 0}',
+                                style: Theme.of(context).textTheme.bodySmall),
                           ],
                         ),
                       ],
@@ -234,12 +256,15 @@ class _RecentAddedListItem extends ConsumerWidget {
                       padding: const EdgeInsets.only(top: 6),
                       child: Wrap(
                         spacing: 4,
-                        children: item.genres.map((g) => Chip(
-                          label: Text(g),
-                          visualDensity: VisualDensity.compact,
-                          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          padding: EdgeInsets.zero,
-                        )).toList(),
+                        children: item.genres
+                            .map((g) => Chip(
+                                  label: Text(g),
+                                  visualDensity: VisualDensity.compact,
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  padding: EdgeInsets.zero,
+                                ))
+                            .toList(),
                       ),
                     ),
                   ],
@@ -254,17 +279,20 @@ class _RecentAddedListItem extends ConsumerWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.deepPurple,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
                     padding: const EdgeInsets.symmetric(horizontal: 0),
                   ),
                   onPressed: () {
                     // 상세보기 버튼 클릭 시 전편보기 링크로 직접 이동
                     // 전체 URL을 전달하여 해당 페이지의 HTML에서 전편보기 링크 추출
                     if (item.url.isNotEmpty) {
+                      print(
+                          '상세보기 진입: item.fullViewUrl=${item.fullViewUrl}, item.title=${item.title}');
                       MangaNavigation.navigateToMangaDetail(
-                        context, 
-                        item.url, 
-                        title: item.title, 
+                        context,
+                        item.fullViewUrl,
+                        title: item.title,
                         isChapterUrl: true,
                         parseFullPage: true, // 전체 페이지를 파싱하여 전편보기 링크 추출
                       );

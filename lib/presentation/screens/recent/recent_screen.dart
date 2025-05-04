@@ -7,8 +7,8 @@ class RecentScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return SafeArea(
-      child: const MangaListScreen(
+    return const SafeArea(
+      child: MangaListScreen(
         title: '',
         items: [],
         emptyIcon: Icons.history_outlined,
@@ -16,4 +16,4 @@ class RecentScreen extends ConsumerWidget {
       ),
     );
   }
-} 
+}

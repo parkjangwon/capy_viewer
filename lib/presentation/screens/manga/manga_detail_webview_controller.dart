@@ -1,9 +1,6 @@
 import 'package:webview_flutter/webview_flutter.dart';
 import 'dart:async';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../viewmodels/global_cookie_provider.dart';
-import '../../../data/providers/site_url_provider.dart';
 
 class MangaDetailWebViewController {
   late final WebViewController controller;
@@ -11,7 +8,7 @@ class MangaDetailWebViewController {
   final NavigationDelegate _navigationDelegate;
   final Completer<bool> _pageLoadedCompleter = Completer<bool>();
   bool _isPageLoaded = false;
-  
+
   MangaDetailWebViewController({
     required NavigationDelegate navigationDelegate,
   }) : _navigationDelegate = navigationDelegate;
@@ -53,20 +50,22 @@ class MangaDetailWebViewController {
         },
       );
     }
-    
+
     // 페이지 로드 후 약간의 지연 추가 (JavaScript 실행 시간 고려)
     await Future.delayed(const Duration(milliseconds: 500));
-    
-    final html = await controller.runJavaScriptReturningResult('document.documentElement.outerHTML');
+
+    final html = await controller
+        .runJavaScriptReturningResult('document.documentElement.outerHTML');
     return html.toString();
   }
 }
 
 // 웹뷰 컨트롤러 Provider
-final mangaDetailWebViewControllerProvider = Provider.autoDispose<MangaDetailWebViewController>((ref) {
+final mangaDetailWebViewControllerProvider =
+    Provider.autoDispose<MangaDetailWebViewController>((ref) {
   // 상태 관리를 위한 상태 객체
   final pageLoadedStateProvider = StateProvider<bool>((ref) => false);
-  
+
   final navigationDelegate = NavigationDelegate(
     onPageStarted: (url) {
       // 페이지 로드 시작 시 상태 초기화
@@ -81,16 +80,17 @@ final mangaDetailWebViewControllerProvider = Provider.autoDispose<MangaDetailWeb
       return NavigationDecision.navigate;
     },
   );
-  
+
   // 컨트롤러 생성
-  final controller = MangaDetailWebViewController(navigationDelegate: navigationDelegate);
-  
+  final controller =
+      MangaDetailWebViewController(navigationDelegate: navigationDelegate);
+
   // 상태 변경 감지
   ref.listen(pageLoadedStateProvider, (previous, current) {
     if (current) {
       controller.notifyPageLoaded();
     }
   });
-  
+
   return controller;
 });

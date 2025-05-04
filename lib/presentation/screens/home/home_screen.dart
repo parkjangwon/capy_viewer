@@ -12,7 +12,7 @@ import '../manga/manga_navigation.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   final VoidCallback? onRecentTap;
-  const HomeScreen({Key? key, this.onRecentTap}) : super(key: key);
+  const HomeScreen({super.key, this.onRecentTap});
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
@@ -78,14 +78,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     Consumer(
                       builder: (context, ref, _) {
-                        final asyncValue = ref.watch(recentAddedPreviewProvider);
+                        final asyncValue =
+                            ref.watch(recentAddedPreviewProvider);
                         return asyncValue.when(
                           data: (items) => _HorizontalCardList(
                             items: items,
                             placeholderCount: 6,
                           ),
-                          loading: () => _HorizontalCardList(placeholderCount: 6),
-                          error: (e, st) => Center(child: Text('불러오기 실패')),
+                          loading: () =>
+                              const _HorizontalCardList(placeholderCount: 6),
+                          error: (e, st) =>
+                              const Center(child: Text('불러오기 실패')),
                         );
                       },
                     ),
@@ -94,23 +97,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       title: '최근에 본 작품',
                       onAction: widget.onRecentTap,
                     ),
-                    _HorizontalCardList(placeholderCount: 6, emptyText: '결과 없음'),
+                    const _HorizontalCardList(
+                        placeholderCount: 6, emptyText: '결과 없음'),
                     const SizedBox(height: 16),
-                    _SectionTitle('주간 베스트'),
-                    _VerticalList(placeholderCount: 10),
+                    const _SectionTitle('주간 베스트'),
+                    const _VerticalList(placeholderCount: 10),
                     const SizedBox(height: 16),
-                    _SectionTitle('일본만화 베스트'),
-                    _VerticalList(placeholderCount: 10),
+                    const _SectionTitle('일본만화 베스트'),
+                    const _VerticalList(placeholderCount: 10),
                     const SizedBox(height: 16),
-                    _VerticalList(placeholderCount: 6),
+                    const _VerticalList(placeholderCount: 6),
                     const SizedBox(height: 16),
-                    _SectionTitle('이름'),
+                    const _SectionTitle('이름'),
                     _NameSelector(),
                     const SizedBox(height: 16),
-                    _SectionTitle('장르'),
+                    const _SectionTitle('장르'),
                     _GenreSelector(),
                     const SizedBox(height: 16),
-                    _SectionTitle('발행'),
+                    const _SectionTitle('발행'),
                     _PublishSelector(),
                     const SizedBox(height: 24),
                   ]),
@@ -154,7 +158,7 @@ class _SectionTitleWithAction extends StatelessWidget {
               onPressed: onAction,
               tooltip: '더 보기',
               padding: const EdgeInsets.only(left: 4),
-              constraints: BoxConstraints(),
+              constraints: const BoxConstraints(),
             ),
         ],
       ),
@@ -166,7 +170,8 @@ class _HorizontalCardList extends StatelessWidget {
   final int placeholderCount;
   final String? emptyText;
   final List<RecentAddedItem>? items;
-  const _HorizontalCardList({this.placeholderCount = 0, this.emptyText, this.items});
+  const _HorizontalCardList(
+      {this.placeholderCount = 0, this.emptyText, this.items});
   @override
   Widget build(BuildContext context) {
     if (items != null && items!.isNotEmpty) {
@@ -186,8 +191,9 @@ class _HorizontalCardList extends StatelessWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: Consumer(builder: (context, ref, _) {
-                      return FutureBuilder<String?>(  
-                        future: getCookieString(ref.read(globalCookieJarProvider), item.url),
+                      return FutureBuilder<String?>(
+                        future: getCookieString(
+                            ref.read(globalCookieJarProvider), item.url),
                         builder: (context, snapshot) {
                           return NetworkImageWithHeaders(
                             url: item.thumbnailUrl,
@@ -199,7 +205,8 @@ class _HorizontalCardList extends StatelessWidget {
                               width: 100,
                               height: 100,
                               color: Colors.grey[300],
-                              child: const Icon(Icons.broken_image, size: 32, color: Colors.grey),
+                              child: const Icon(Icons.broken_image,
+                                  size: 32, color: Colors.grey),
                             ),
                           );
                         },
@@ -209,7 +216,10 @@ class _HorizontalCardList extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     item.title,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(fontWeight: FontWeight.bold),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -223,7 +233,7 @@ class _HorizontalCardList extends StatelessWidget {
     if (placeholderCount == 0 && emptyText != null) {
       return Padding(
         padding: const EdgeInsets.all(12),
-        child: Text(emptyText!, style: TextStyle(color: Colors.grey)),
+        child: Text(emptyText!, style: const TextStyle(color: Colors.grey)),
       );
     }
     return SizedBox(
@@ -256,7 +266,7 @@ class _VerticalList extends StatelessWidget {
       separatorBuilder: (_, __) => const Divider(height: 1),
       itemBuilder: (context, idx) => ListTile(
         title: Text('작품 ${idx + 1}'),
-        subtitle: Text('설명 또는 회차'),
+        subtitle: const Text('설명 또는 회차'),
         dense: true,
         onTap: () {},
       ),
@@ -267,7 +277,24 @@ class _VerticalList extends StatelessWidget {
 class _NameSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final names = ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ', '0-9', 'A-Z'];
+    final names = [
+      'ㄱ',
+      'ㄴ',
+      'ㄷ',
+      'ㄹ',
+      'ㅁ',
+      'ㅂ',
+      'ㅅ',
+      'ㅇ',
+      'ㅈ',
+      'ㅊ',
+      'ㅋ',
+      'ㅌ',
+      'ㅍ',
+      'ㅎ',
+      '0-9',
+      'A-Z'
+    ];
     return Wrap(
       children: names.map((n) => _ChipButton(label: n)).toList(),
     );
@@ -277,7 +304,35 @@ class _NameSelector extends StatelessWidget {
 class _GenreSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final genres = ['17', 'BL', 'SF', 'TS', '개그', '게임', '도박', '드라마', '라노벨', '러브코미디', '먹방', '백합', '붕탁', '순정', '스릴러', '스포츠', '시대', '애니화', '액션', '음악', '이세계', '일상', '전생', '추리', '판타지', '학원', '호러'];
+    final genres = [
+      '17',
+      'BL',
+      'SF',
+      'TS',
+      '개그',
+      '게임',
+      '도박',
+      '드라마',
+      '라노벨',
+      '러브코미디',
+      '먹방',
+      '백합',
+      '붕탁',
+      '순정',
+      '스릴러',
+      '스포츠',
+      '시대',
+      '애니화',
+      '액션',
+      '음악',
+      '이세계',
+      '일상',
+      '전생',
+      '추리',
+      '판타지',
+      '학원',
+      '호러'
+    ];
     return Wrap(
       children: genres.map((g) => _ChipButton(label: g)).toList(),
     );
@@ -315,10 +370,11 @@ class _ChipButton extends StatelessWidget {
         ),
         backgroundColor: isDark ? Colors.grey[850] : Colors.grey[200],
         shape: const StadiumBorder(),
-        side: BorderSide(color: isDark ? Colors.deepPurple[300]! : Colors.deepPurple[200]!),
+        side: BorderSide(
+            color: isDark ? Colors.deepPurple[300]! : Colors.deepPurple[200]!),
         visualDensity: VisualDensity.compact,
         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
       ),
     );
   }

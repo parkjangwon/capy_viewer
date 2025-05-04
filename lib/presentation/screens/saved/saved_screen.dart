@@ -8,8 +8,8 @@ class SavedScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return SafeArea(
-      child: const MangaListScreen(
+    return const SafeArea(
+      child: MangaListScreen(
         title: '',
         items: [],
         emptyIcon: Icons.bookmark_outline,

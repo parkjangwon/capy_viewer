@@ -22,7 +22,9 @@ class SettingsScreen extends ConsumerWidget {
             subtitle: const Text('클라우드플레어 보안 인증을 테스트합니다.'),
             trailing: ElevatedButton(
               onPressed: () {
-                final targetUrl = baseUrl.endsWith('/') ? '${baseUrl}comic/129241' : '${baseUrl}/comic/129241';
+                final targetUrl = baseUrl.endsWith('/')
+                    ? '${baseUrl}comic/129241'
+                    : '$baseUrl/comic/129241';
                 showDialog(
                   context: context,
                   builder: (context) => CaptchaModal(
@@ -46,4 +48,4 @@ class SettingsScreen extends ConsumerWidget {
       ),
     );
   }
-} 
+}

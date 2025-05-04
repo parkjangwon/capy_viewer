@@ -8,6 +8,7 @@ class RecentAddedItem with _$RecentAddedItem {
   const factory RecentAddedItem({
     required String id,
     required String title,
+    required String fullViewUrl,
     required String url,
     required String thumbnailUrl,
     required String author,
@@ -18,5 +19,6 @@ class RecentAddedItem with _$RecentAddedItem {
     int? comments,
   }) = _RecentAddedItem;
 
-  factory RecentAddedItem.fromJson(Map<String, dynamic> json) => _$RecentAddedItemFromJson(json);
+  factory RecentAddedItem.fromJson(Map<String, dynamic> json) =>
+      _$RecentAddedItemFromJson(json);
 }

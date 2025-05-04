@@ -10,9 +10,9 @@ class MangaCaptchaScreen extends ConsumerStatefulWidget {
   final String url;
 
   const MangaCaptchaScreen({
-    Key? key,
+    super.key,
     required this.url,
-  }) : super(key: key);
+  });
 
   @override
   ConsumerState<MangaCaptchaScreen> createState() => _MangaCaptchaScreenState();
@@ -45,36 +45,35 @@ class _MangaCaptchaScreenState extends ConsumerState<MangaCaptchaScreen> {
           onPageFinished: (url) async {
             if (!_mounted) return;
             setState(() => _isLoading = false);
-            
+
             print('캡챠 화면 URL: $url');
-            
+
             // 마나토키 사이트로 돌아왔는지 확인
             final baseUrl = ref.read(siteUrlServiceProvider);
-            
+
             // 일반 페이지로 돌아왔는지 확인 (캡챠 페이지가 아닌 경우)
-            if (url.contains(baseUrl) && 
-                !url.contains('captcha.php') && 
-                !url.contains('captcha_check.php') && 
+            if (url.contains(baseUrl) &&
+                !url.contains('captcha.php') &&
+                !url.contains('captcha_check.php') &&
                 !url.contains('kcaptcha_image.php')) {
-              
               // HTML 확인하여 캡챠 화면이 없는지 확인
-              final html = await _controller.runJavaScriptReturningResult('document.documentElement.outerHTML');
+              final html = await _controller.runJavaScriptReturningResult(
+                  'document.documentElement.outerHTML');
               final htmlStr = html.toString().toLowerCase();
-              
-              if (!htmlStr.contains('캡챠 인증') && 
-                  !htmlStr.contains('fcaptcha') && 
-                  !htmlStr.contains('kcaptcha_image.php') && 
-                  !htmlStr.contains('captcha_check.php') && 
-                  !htmlStr.contains('captcha_key') && 
+
+              if (!htmlStr.contains('캡챠 인증') &&
+                  !htmlStr.contains('fcaptcha') &&
+                  !htmlStr.contains('kcaptcha_image.php') &&
+                  !htmlStr.contains('captcha_check.php') &&
+                  !htmlStr.contains('captcha_key') &&
                   !htmlStr.contains('자동등록방지')) {
-                
                 print('캡챠 인증 성공: 일반 페이지로 돌아왔습니다.');
                 _captchaVerified = true;
                 if (_mounted) {
                   // 지연을 추가하여 쿠키가 저장되고 적용될 시간 확보
                   await Future.delayed(const Duration(milliseconds: 500));
                   await _syncCookies();
-                  
+
                   // 웹뷰 상태 초기화
                   if (_mounted) {
                     await _controller.loadRequest(Uri.parse('about:blank'));
@@ -102,16 +101,17 @@ class _MangaCaptchaScreenState extends ConsumerState<MangaCaptchaScreen> {
               return;
             }
 
-            final html = await _controller.runJavaScriptReturningResult('document.documentElement.outerHTML');
+            final html = await _controller.runJavaScriptReturningResult(
+                'document.documentElement.outerHTML');
             final htmlStr = html.toString().toLowerCase();
 
             // HTML 내용이 변경되었는지 확인
             if (htmlStr != _lastHtml) {
               _lastHtml = htmlStr;
-              
+
               // 첫 페이지 로드에서 챌린지를 보았는지 확인
               if (!_hasSeenChallenge) {
-                if (htmlStr.contains('challenge-form') || 
+                if (htmlStr.contains('challenge-form') ||
                     htmlStr.contains('cf-please-wait') ||
                     htmlStr.contains('turnstile') ||
                     htmlStr.contains('_cf_chl_opt') ||
@@ -131,10 +131,10 @@ class _MangaCaptchaScreenState extends ConsumerState<MangaCaptchaScreen> {
                 }
               } else {
                 // 챌린지를 본 후에 챌린지 요소가 없으면 인증 완료
-                if ((!htmlStr.contains('challenge-form') && 
-                    !htmlStr.contains('cf-please-wait') &&
-                    !htmlStr.contains('turnstile') &&
-                    !htmlStr.contains('_cf_chl_opt')) &&
+                if ((!htmlStr.contains('challenge-form') &&
+                        !htmlStr.contains('cf-please-wait') &&
+                        !htmlStr.contains('turnstile') &&
+                        !htmlStr.contains('_cf_chl_opt')) &&
                     // 마나토키 자체 캡챠도 없어야 함
                     !htmlStr.contains('캡챠 인증') &&
                     !htmlStr.contains('captcha.php') &&
@@ -192,18 +192,20 @@ class _MangaCaptchaScreenState extends ConsumerState<MangaCaptchaScreen> {
         body: Stack(
           children: [
             WebViewWidget(controller: _controller),
-            if (_isLoading) 
+            if (_isLoading)
               const Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     CircularProgressIndicator(),
                     SizedBox(height: 16),
-                    Text('클라우드플레어 보안 인증 중...', 
+                    Text(
+                      '클라우드플레어 보안 인증 중...',
                       style: TextStyle(fontSize: 16),
                     ),
                     SizedBox(height: 8),
-                    Text('인증이 완료되면 자동으로 진행됩니다',
+                    Text(
+                      '인증이 완료되면 자동으로 진행됩니다',
                       style: TextStyle(fontSize: 14, color: Colors.grey),
                     ),
                   ],

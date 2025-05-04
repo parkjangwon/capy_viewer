@@ -79,7 +79,8 @@ class ApiService extends _$ApiService {
       final captchaAttemptKey = 'captcha_attempt_${Uri.parse(url).host}';
       final captchaAttempts = prefs.getInt(captchaAttemptKey) ?? 0;
 
-      if (captchaAttempts > 5) {  // 시도 횟수 제한을 5회로 증가
+      if (captchaAttempts > 5) {
+        // 시도 횟수 제한을 5회로 증가
         final lastAttemptTime = prefs.getInt('captcha_last_attempt_time') ?? 0;
         final now = DateTime.now().millisecondsSinceEpoch;
         // 마지막 시도 후 30초가 지나지 않았으면 스킵 (1분에서 30초로 감소)
@@ -274,7 +275,7 @@ class ApiService extends _$ApiService {
   Future<void> clearCookies() async {
     try {
       await _cookieJar.deleteAll();
-      _lastCaptchaSolvedTime = null;  // 캡차 해결 시간도 초기화
+      _lastCaptchaSolvedTime = null; // 캡차 해결 시간도 초기화
       _logger.i('[SETTINGS] 모든 쿠키 삭제 완료');
     } catch (e, stack) {
       _logger.e('[SETTINGS] 쿠키 삭제 중 오류', error: e, stackTrace: stack);
@@ -374,7 +375,6 @@ class ApiService extends _$ApiService {
             id: id,
             title: title,
             thumbnailUrl: thumbnailUrl,
-            
           );
         }).toList();
 
@@ -432,7 +432,6 @@ class ApiService extends _$ApiService {
             id: id,
             title: title,
             thumbnailUrl: thumbnailUrl,
-            
           );
         }).toList();
 
@@ -488,7 +487,7 @@ class ApiService extends _$ApiService {
         '$baseUrl/bbs/search.php?sfl=wr_subject&stx=${Uri.encodeComponent(query)}&sop=and&where=all&onetable=&page=$page';
 
     _logger.i('[SEARCH] 요청 URL: $searchUrl');
-    
+
     try {
       Response response;
       bool captchaBypassAttempted = false;
@@ -503,7 +502,8 @@ class ApiService extends _$ApiService {
               headers: {
                 'User-Agent': kUserAgent,
                 'Referer': baseUrl,
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                'Accept':
+                    'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
                 'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
               },
             ),
@@ -526,7 +526,7 @@ class ApiService extends _$ApiService {
             }
 
             captchaBypassAttempted = true;
-            continue;  // 캡차 우회 후 검색 재시도
+            continue; // 캡차 우회 후 검색 재시도
           }
 
           // 정상 응답인 경우
@@ -541,7 +541,6 @@ class ApiService extends _$ApiService {
 
           _logger.e('[SEARCH] 예상치 못한 응답: ${response.statusCode}');
           return [];
-
         } on DioException catch (e) {
           if (e.response?.statusCode == 403 && !captchaBypassAttempted) {
             _logger.w('[SEARCH] DioException: 캡차 감지됨, 우회 시도');
@@ -551,7 +550,7 @@ class ApiService extends _$ApiService {
               return [];
             }
             captchaBypassAttempted = true;
-            continue;  // 캡차 우회 후 검색 재시도
+            continue; // 캡차 우회 후 검색 재시도
           }
           rethrow;
         }
@@ -564,7 +563,7 @@ class ApiService extends _$ApiService {
 
   bool _needsCaptcha(Response response) {
     if (response.statusCode == 302 || response.statusCode == 403) return true;
-    if (response.data == null || !(response.data is String)) return false;
+    if (response.data == null || response.data is! String) return false;
 
     final html = response.data as String;
     return html.contains('captcha-bypass') ||

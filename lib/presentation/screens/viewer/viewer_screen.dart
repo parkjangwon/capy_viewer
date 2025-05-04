@@ -95,7 +95,7 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
     return Scaffold(
       appBar: _isAppBarVisible
           ? AppBar(
-              title: Text('만화 보기'),
+              title: const Text('만화 보기'),
               actions: [
                 IconButton(
                   icon: const Icon(Icons.fullscreen),

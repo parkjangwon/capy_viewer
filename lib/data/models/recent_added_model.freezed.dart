@@ -22,6 +22,7 @@ RecentAddedItem _$RecentAddedItemFromJson(Map<String, dynamic> json) {
 mixin _$RecentAddedItem {
   String get id => throw _privateConstructorUsedError;
   String get title => throw _privateConstructorUsedError;
+  String get fullViewUrl => throw _privateConstructorUsedError;
   String get url => throw _privateConstructorUsedError;
   String get thumbnailUrl => throw _privateConstructorUsedError;
   String get author => throw _privateConstructorUsedError;
@@ -46,6 +47,7 @@ abstract class $RecentAddedItemCopyWith<$Res> {
   $Res call(
       {String id,
       String title,
+      String fullViewUrl,
       String url,
       String thumbnailUrl,
       String author,
@@ -71,6 +73,7 @@ class _$RecentAddedItemCopyWithImpl<$Res, $Val extends RecentAddedItem>
   $Res call({
     Object? id = null,
     Object? title = null,
+    Object? fullViewUrl = null,
     Object? url = null,
     Object? thumbnailUrl = null,
     Object? author = null,
@@ -88,6 +91,10 @@ class _$RecentAddedItemCopyWithImpl<$Res, $Val extends RecentAddedItem>
       title: null == title
           ? _value.title
           : title // ignore: cast_nullable_to_non_nullable
+              as String,
+      fullViewUrl: null == fullViewUrl
+          ? _value.fullViewUrl
+          : fullViewUrl // ignore: cast_nullable_to_non_nullable
               as String,
       url: null == url
           ? _value.url
@@ -136,6 +143,7 @@ abstract class _$$RecentAddedItemImplCopyWith<$Res>
   $Res call(
       {String id,
       String title,
+      String fullViewUrl,
       String url,
       String thumbnailUrl,
       String author,
@@ -159,6 +167,7 @@ class __$$RecentAddedItemImplCopyWithImpl<$Res>
   $Res call({
     Object? id = null,
     Object? title = null,
+    Object? fullViewUrl = null,
     Object? url = null,
     Object? thumbnailUrl = null,
     Object? author = null,
@@ -176,6 +185,10 @@ class __$$RecentAddedItemImplCopyWithImpl<$Res>
       title: null == title
           ? _value.title
           : title // ignore: cast_nullable_to_non_nullable
+              as String,
+      fullViewUrl: null == fullViewUrl
+          ? _value.fullViewUrl
+          : fullViewUrl // ignore: cast_nullable_to_non_nullable
               as String,
       url: null == url
           ? _value.url
@@ -219,6 +232,7 @@ class _$RecentAddedItemImpl implements _RecentAddedItem {
   const _$RecentAddedItemImpl(
       {required this.id,
       required this.title,
+      required this.fullViewUrl,
       required this.url,
       required this.thumbnailUrl,
       required this.author,
@@ -236,6 +250,8 @@ class _$RecentAddedItemImpl implements _RecentAddedItem {
   final String id;
   @override
   final String title;
+  @override
+  final String fullViewUrl;
   @override
   final String url;
   @override
@@ -261,7 +277,7 @@ class _$RecentAddedItemImpl implements _RecentAddedItem {
 
   @override
   String toString() {
-    return 'RecentAddedItem(id: $id, title: $title, url: $url, thumbnailUrl: $thumbnailUrl, author: $author, genres: $genres, date: $date, views: $views, likes: $likes, comments: $comments)';
+    return 'RecentAddedItem(id: $id, title: $title, fullViewUrl: $fullViewUrl, url: $url, thumbnailUrl: $thumbnailUrl, author: $author, genres: $genres, date: $date, views: $views, likes: $likes, comments: $comments)';
   }
 
   @override
@@ -271,6 +287,8 @@ class _$RecentAddedItemImpl implements _RecentAddedItem {
             other is _$RecentAddedItemImpl &&
             (identical(other.id, id) || other.id == id) &&
             (identical(other.title, title) || other.title == title) &&
+            (identical(other.fullViewUrl, fullViewUrl) ||
+                other.fullViewUrl == fullViewUrl) &&
             (identical(other.url, url) || other.url == url) &&
             (identical(other.thumbnailUrl, thumbnailUrl) ||
                 other.thumbnailUrl == thumbnailUrl) &&
@@ -289,6 +307,7 @@ class _$RecentAddedItemImpl implements _RecentAddedItem {
       runtimeType,
       id,
       title,
+      fullViewUrl,
       url,
       thumbnailUrl,
       author,
@@ -317,6 +336,7 @@ abstract class _RecentAddedItem implements RecentAddedItem {
   const factory _RecentAddedItem(
       {required final String id,
       required final String title,
+      required final String fullViewUrl,
       required final String url,
       required final String thumbnailUrl,
       required final String author,
@@ -333,6 +353,8 @@ abstract class _RecentAddedItem implements RecentAddedItem {
   String get id;
   @override
   String get title;
+  @override
+  String get fullViewUrl;
   @override
   String get url;
   @override

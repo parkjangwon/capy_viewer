@@ -11,6 +11,7 @@ _$RecentAddedItemImpl _$$RecentAddedItemImplFromJson(
     _$RecentAddedItemImpl(
       id: json['id'] as String,
       title: json['title'] as String,
+      fullViewUrl: json['fullViewUrl'] as String,
       url: json['url'] as String,
       thumbnailUrl: json['thumbnailUrl'] as String,
       author: json['author'] as String,
@@ -27,6 +28,7 @@ Map<String, dynamic> _$$RecentAddedItemImplToJson(
     <String, dynamic>{
       'id': instance.id,
       'title': instance.title,
+      'fullViewUrl': instance.fullViewUrl,
       'url': instance.url,
       'thumbnailUrl': instance.thumbnailUrl,
       'author': instance.author,

@@ -27,9 +27,7 @@ mixin _$MangaDetail {
   List<String> get genres => throw _privateConstructorUsedError;
   String get releaseStatus => throw _privateConstructorUsedError;
   List<MangaChapter> get chapters => throw _privateConstructorUsedError;
-  String get previousChapterId =>
-      throw _privateConstructorUsedError; // 전편보기 링크의 만화 ID
-  String? get fullViewUrl => throw _privateConstructorUsedError;
+  String get previousChapterId => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
@@ -51,8 +49,7 @@ abstract class $MangaDetailCopyWith<$Res> {
       List<String> genres,
       String releaseStatus,
       List<MangaChapter> chapters,
-      String previousChapterId,
-      String? fullViewUrl});
+      String previousChapterId});
 }
 
 /// @nodoc
@@ -76,7 +73,6 @@ class _$MangaDetailCopyWithImpl<$Res, $Val extends MangaDetail>
     Object? releaseStatus = null,
     Object? chapters = null,
     Object? previousChapterId = null,
-    Object? fullViewUrl = freezed,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -111,10 +107,6 @@ class _$MangaDetailCopyWithImpl<$Res, $Val extends MangaDetail>
           ? _value.previousChapterId
           : previousChapterId // ignore: cast_nullable_to_non_nullable
               as String,
-      fullViewUrl: freezed == fullViewUrl
-          ? _value.fullViewUrl
-          : fullViewUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
     ) as $Val);
   }
 }
@@ -135,8 +127,7 @@ abstract class _$$MangaDetailImplCopyWith<$Res>
       List<String> genres,
       String releaseStatus,
       List<MangaChapter> chapters,
-      String previousChapterId,
-      String? fullViewUrl});
+      String previousChapterId});
 }
 
 /// @nodoc
@@ -158,7 +149,6 @@ class __$$MangaDetailImplCopyWithImpl<$Res>
     Object? releaseStatus = null,
     Object? chapters = null,
     Object? previousChapterId = null,
-    Object? fullViewUrl = freezed,
   }) {
     return _then(_$MangaDetailImpl(
       id: null == id
@@ -193,10 +183,6 @@ class __$$MangaDetailImplCopyWithImpl<$Res>
           ? _value.previousChapterId
           : previousChapterId // ignore: cast_nullable_to_non_nullable
               as String,
-      fullViewUrl: freezed == fullViewUrl
-          ? _value.fullViewUrl
-          : fullViewUrl // ignore: cast_nullable_to_non_nullable
-              as String?,
     ));
   }
 }
@@ -212,8 +198,7 @@ class _$MangaDetailImpl implements _MangaDetail {
       final List<String> genres = const <String>[],
       this.releaseStatus = '',
       final List<MangaChapter> chapters = const <MangaChapter>[],
-      this.previousChapterId = '',
-      this.fullViewUrl})
+      this.previousChapterId = ''})
       : _genres = genres,
         _chapters = chapters;
 
@@ -253,13 +238,10 @@ class _$MangaDetailImpl implements _MangaDetail {
   @override
   @JsonKey()
   final String previousChapterId;
-// 전편보기 링크의 만화 ID
-  @override
-  final String? fullViewUrl;
 
   @override
   String toString() {
-    return 'MangaDetail(id: $id, title: $title, thumbnailUrl: $thumbnailUrl, author: $author, genres: $genres, releaseStatus: $releaseStatus, chapters: $chapters, previousChapterId: $previousChapterId, fullViewUrl: $fullViewUrl)';
+    return 'MangaDetail(id: $id, title: $title, thumbnailUrl: $thumbnailUrl, author: $author, genres: $genres, releaseStatus: $releaseStatus, chapters: $chapters, previousChapterId: $previousChapterId)';
   }
 
   @override
@@ -277,9 +259,7 @@ class _$MangaDetailImpl implements _MangaDetail {
                 other.releaseStatus == releaseStatus) &&
             const DeepCollectionEquality().equals(other._chapters, _chapters) &&
             (identical(other.previousChapterId, previousChapterId) ||
-                other.previousChapterId == previousChapterId) &&
-            (identical(other.fullViewUrl, fullViewUrl) ||
-                other.fullViewUrl == fullViewUrl));
+                other.previousChapterId == previousChapterId));
   }
 
   @JsonKey(ignore: true)
@@ -293,8 +273,7 @@ class _$MangaDetailImpl implements _MangaDetail {
       const DeepCollectionEquality().hash(_genres),
       releaseStatus,
       const DeepCollectionEquality().hash(_chapters),
-      previousChapterId,
-      fullViewUrl);
+      previousChapterId);
 
   @JsonKey(ignore: true)
   @override
@@ -319,8 +298,7 @@ abstract class _MangaDetail implements MangaDetail {
       final List<String> genres,
       final String releaseStatus,
       final List<MangaChapter> chapters,
-      final String previousChapterId,
-      final String? fullViewUrl}) = _$MangaDetailImpl;
+      final String previousChapterId}) = _$MangaDetailImpl;
 
   factory _MangaDetail.fromJson(Map<String, dynamic> json) =
       _$MangaDetailImpl.fromJson;
@@ -341,8 +319,6 @@ abstract class _MangaDetail implements MangaDetail {
   List<MangaChapter> get chapters;
   @override
   String get previousChapterId;
-  @override // 전편보기 링크의 만화 ID
-  String? get fullViewUrl;
   @override
   @JsonKey(ignore: true)
   _$$MangaDetailImplCopyWith<_$MangaDetailImpl> get copyWith =>

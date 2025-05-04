@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import '../captcha_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
@@ -108,15 +106,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         }
       }
       final parsed = parseMangaListFromHtml(html);
-      final newItems = parsed.map((item) => MangaTitle(
-        id: item.href,
-        title: item.title,
-        thumbnailUrl: item.thumbnailUrl,
-        author: item.author,
-        release: '',
-        period: item.period,
-        updateDate: item.updateDate,
-      )).toList();
+      final newItems = parsed
+          .map((item) => MangaTitle(
+                id: item.href,
+                title: item.title,
+                thumbnailUrl: item.thumbnailUrl,
+                author: item.author,
+                release: '',
+                period: item.period,
+                updateDate: item.updateDate,
+              ))
+          .toList();
       _pagingController?.appendLastPage(newItems);
     } catch (e) {
       _pagingController?.error = e;
@@ -145,8 +145,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         '검색어를 입력하고 검색 버튼을 눌러주세요',
                         style: TextStyle(
                           fontSize: 16,
-                          color:
-                              theme.colorScheme.onSurface.withOpacity(0.4),
+                          color: theme.colorScheme.onSurface.withOpacity(0.4),
                         ),
                       ),
                     )
