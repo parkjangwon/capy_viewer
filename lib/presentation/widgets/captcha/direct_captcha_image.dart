@@ -429,10 +429,7 @@ class _DirectCaptchaImageState extends ConsumerState<DirectCaptchaImage> {
                     textAlign: TextAlign.center,
                   ),
                 ),
-              ElevatedButton(
-                onPressed: _loadImage,
-                child: const Text('새로고침'),
-              ),
+
             ],
           ),
         );
@@ -491,14 +488,7 @@ class _DirectCaptchaImageState extends ConsumerState<DirectCaptchaImage> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 4),
-                  ElevatedButton(
-                    onPressed: _loadImage,
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(30, 20),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    ),
-                    child: const Text('새로고침', style: TextStyle(fontSize: 10)),
-                  ),
+
                 ],
               ),
             );

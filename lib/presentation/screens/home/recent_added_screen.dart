@@ -273,7 +273,7 @@ class _RecentAddedListItem extends ConsumerWidget {
                       );
                     }
                   },
-                  child: const Text('전편보기', textAlign: TextAlign.center),
+                  child: const Text('상세보기', textAlign: TextAlign.center),
                 ),
               ),
             ],

@@ -228,13 +228,7 @@ class _ManatokiCaptchaWidgetState extends ConsumerState<ManatokiCaptchaWidget> {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16.0),
-          // 캡챠 이미지 URL 표시 (디버깅용)
-          Text(
-            '캡챠 이미지 URL: $effectiveImageUrl',
-            style: const TextStyle(fontSize: 10, color: Colors.grey),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8.0),
+
           // 캡챠 이미지
           Container(
             width: 200,
@@ -281,23 +275,7 @@ class _ManatokiCaptchaWidgetState extends ConsumerState<ManatokiCaptchaWidget> {
                   ),
                 ),
                 
-                // 새로고침 버튼
-                Positioned(
-                  right: 4,
-                  bottom: 4,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.7),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.refresh, size: 16),
-                      padding: const EdgeInsets.all(4),
-                      constraints: const BoxConstraints(),
-                      onPressed: () => setState(() {}),
-                    ),
-                  ),
-                ),
+
               ],
             ),
           ),
@@ -311,7 +289,6 @@ class _ManatokiCaptchaWidgetState extends ConsumerState<ManatokiCaptchaWidget> {
               border: const OutlineInputBorder(),
             ),
             textAlign: TextAlign.center,
-            maxLength: 6,
             keyboardType: TextInputType.text,
             autofocus: true,
           ),
@@ -330,15 +307,6 @@ class _ManatokiCaptchaWidgetState extends ConsumerState<ManatokiCaptchaWidget> {
                       ),
                     )
                   : const Text('확인'),
-            ),
-          ),
-          const SizedBox(height: 8.0),
-          // 취소 버튼
-          SizedBox(
-            width: double.infinity,
-            child: TextButton(
-              onPressed: () => widget.onCaptchaComplete(false),
-              child: const Text('취소'),
             ),
           ),
         ],

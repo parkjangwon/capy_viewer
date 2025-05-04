@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'manga_detail_screen.dart';
-import 'manga_detail_test_screen.dart';
 
 /// 만화 상세 화면으로 이동하는 유틸리티 함수
 class MangaNavigation {
