@@ -11,6 +11,7 @@ import '../../viewmodels/cookie_sync_utils.dart';
 import '../../../data/providers/site_url_provider.dart';
 import '../../../utils/content_filter.dart';
 import '../../../utils/network_image_with_headers.dart';
+import '../manga/manga_navigation.dart';
 
 class RecentAddedScreen extends ConsumerStatefulWidget {
   const RecentAddedScreen({Key? key}) : super(key: key);
@@ -128,11 +129,19 @@ class _RecentAddedListItem extends ConsumerWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
         onTap: () {
-          Fluttertoast.showToast(
-            msg: '클릭됨: ${item.url}',
-            toastLength: Toast.LENGTH_SHORT,
-            gravity: ToastGravity.BOTTOM,
-          );
+          // URL에서 만화 ID 추출
+          final mangaIdMatch = RegExp(r'/comic/([0-9]+)').firstMatch(item.url);
+          final mangaId = mangaIdMatch?.group(1);
+          
+          if (mangaId != null) {
+            MangaNavigation.navigateToMangaDetail(context, mangaId, title: item.title);
+          } else {
+            Fluttertoast.showToast(
+              msg: '잘못된 URL 형식입니다',
+              toastLength: Toast.LENGTH_SHORT,
+              gravity: ToastGravity.BOTTOM,
+            );
+          }
         },
         child: Padding(
           padding: const EdgeInsets.all(12),
@@ -250,11 +259,19 @@ class _RecentAddedListItem extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 0),
                   ),
                   onPressed: () {
-                    Fluttertoast.showToast(
-                      msg: '전편보기: ${item.url}',
-                      toastLength: Toast.LENGTH_SHORT,
-                      gravity: ToastGravity.BOTTOM,
-                    );
+                    // URL에서 만화 ID 추출
+                    final mangaIdMatch = RegExp(r'/comic/([0-9]+)').firstMatch(item.url);
+                    final mangaId = mangaIdMatch?.group(1);
+                    
+                    if (mangaId != null) {
+                      MangaNavigation.navigateToMangaDetail(context, mangaId, title: item.title);
+                    } else {
+                      Fluttertoast.showToast(
+                        msg: '잘못된 URL 형식입니다',
+                        toastLength: Toast.LENGTH_SHORT,
+                        gravity: ToastGravity.BOTTOM,
+                      );
+                    }
                   },
                   child: const Text('전편보기', textAlign: TextAlign.center),
                 ),

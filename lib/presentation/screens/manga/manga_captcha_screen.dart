@@ -45,8 +45,47 @@ class _MangaCaptchaScreenState extends ConsumerState<MangaCaptchaScreen> {
           onPageFinished: (url) async {
             if (!_mounted) return;
             setState(() => _isLoading = false);
+            
+            print('캡챠 화면 URL: $url');
+            
+            // 마나토키 사이트로 돌아왔는지 확인
+            final baseUrl = ref.read(siteUrlServiceProvider);
+            
+            // 일반 페이지로 돌아왔는지 확인 (캡챠 페이지가 아닌 경우)
+            if (url.contains(baseUrl) && 
+                !url.contains('captcha.php') && 
+                !url.contains('captcha_check.php') && 
+                !url.contains('kcaptcha_image.php')) {
+              
+              // HTML 확인하여 캡챠 화면이 없는지 확인
+              final html = await _controller.runJavaScriptReturningResult('document.documentElement.outerHTML');
+              final htmlStr = html.toString().toLowerCase();
+              
+              if (!htmlStr.contains('캡챠 인증') && 
+                  !htmlStr.contains('fcaptcha') && 
+                  !htmlStr.contains('kcaptcha_image.php') && 
+                  !htmlStr.contains('captcha_check.php') && 
+                  !htmlStr.contains('captcha_key') && 
+                  !htmlStr.contains('자동등록방지')) {
+                
+                print('캡챠 인증 성공: 일반 페이지로 돌아왔습니다.');
+                _captchaVerified = true;
+                if (_mounted) {
+                  // 지연을 추가하여 쿠키가 저장되고 적용될 시간 확보
+                  await Future.delayed(const Duration(milliseconds: 500));
+                  await _syncCookies();
+                  
+                  // 웹뷰 상태 초기화
+                  if (_mounted) {
+                    await _controller.loadRequest(Uri.parse('about:blank'));
+                    Navigator.of(context).pop(true);
+                  }
+                  return;
+                }
+              }
+            }
 
-            // about:blank 페이지는 캡차 인증 과정에서 여러 번 발생할 수 있음
+            // about:blank 페이지는 캡챠 인증 과정에서 여러 번 발생할 수 있음
             if (url.startsWith('about:')) {
               if (url == 'about:blank') {
                 _blankCount++;
@@ -75,7 +114,11 @@ class _MangaCaptchaScreenState extends ConsumerState<MangaCaptchaScreen> {
                 if (htmlStr.contains('challenge-form') || 
                     htmlStr.contains('cf-please-wait') ||
                     htmlStr.contains('turnstile') ||
-                    htmlStr.contains('_cf_chl_opt')) {
+                    htmlStr.contains('_cf_chl_opt') ||
+                    // 마나토키 자체 캡챠 확인
+                    htmlStr.contains('캡챠 인증') ||
+                    htmlStr.contains('captcha.php') ||
+                    htmlStr.contains('fcaptcha')) {
                   _hasSeenChallenge = true;
                 } else {
                   // 챌린지가 없으면 바로 종료
@@ -88,10 +131,14 @@ class _MangaCaptchaScreenState extends ConsumerState<MangaCaptchaScreen> {
                 }
               } else {
                 // 챌린지를 본 후에 챌린지 요소가 없으면 인증 완료
-                if (!htmlStr.contains('challenge-form') && 
+                if ((!htmlStr.contains('challenge-form') && 
                     !htmlStr.contains('cf-please-wait') &&
                     !htmlStr.contains('turnstile') &&
-                    !htmlStr.contains('_cf_chl_opt')) {
+                    !htmlStr.contains('_cf_chl_opt')) &&
+                    // 마나토키 자체 캡챠도 없어야 함
+                    !htmlStr.contains('캡챠 인증') &&
+                    !htmlStr.contains('captcha.php') &&
+                    !htmlStr.contains('fcaptcha')) {
                   _captchaVerified = true;
                   if (_mounted) {
                     // 쿠키 동기화 후 결과 반환

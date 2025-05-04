@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'manatoki_captcha_helper.dart';
+import '../../../data/providers/site_url_provider.dart';
 
-class CaptchaPage extends StatefulWidget {
+class CaptchaPage extends ConsumerStatefulWidget {
   final String url;
   final Function(String) onHtmlReceived;
 
@@ -13,21 +15,22 @@ class CaptchaPage extends StatefulWidget {
   });
 
   @override
-  State<CaptchaPage> createState() => _CaptchaPageState();
+  ConsumerState<CaptchaPage> createState() => _CaptchaPageState();
 }
 
-class _CaptchaPageState extends State<CaptchaPage> {
+class _CaptchaPageState extends ConsumerState<CaptchaPage> {
   late InAppWebViewController _webViewController;
   bool _isLoading = true;
 
   Future<void> _handleManatokiCaptcha(String url) async {
     if (ManatokiCaptchaHelper.isManatokiCaptchaUrl(url)) {
       final wrId = ManatokiCaptchaHelper.extractWrId(url);
+      final baseUrl = ref.read(siteUrlServiceProvider);
       final result = await ManatokiCaptchaHelper.showCaptchaDialog(
         context: context,
         captchaUrl: url,
-        formActionUrl: 'https://manatoki468.net/bbs/captcha_check.php',
-        redirectUrl: 'https://manatoki468.net/comic/$wrId',
+        formActionUrl: '$baseUrl/bbs/captcha_check.php',
+        redirectUrl: '$baseUrl/comic/$wrId',
       );
 
       if (result != null) {

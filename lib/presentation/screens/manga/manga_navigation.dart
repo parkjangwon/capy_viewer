@@ -11,18 +11,10 @@ class MangaNavigation {
   static void navigateToMangaDetail(BuildContext context, String mangaId, {String? title}) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) => MangaDetailScreen(mangaId: mangaId),
+        builder: (context) => MangaDetailTestScreen(mangaId: mangaId),
       ),
     );
   }
   
-  /// 만화 상세 테스트 화면으로 이동
-  /// [context] 현재 컨텍스트
-  static void navigateToMangaDetailTest(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const MangaDetailTestScreen(),
-      ),
-    );
-  }
+
 }
