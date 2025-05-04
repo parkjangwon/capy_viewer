@@ -1,7 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'chapter.freezed.dart';
-part 'chapter.g.dart';세
+part 'chapter.g.dart';
 
 @freezed
 class Chapter with _$Chapter {

@@ -259,12 +259,16 @@ class _RecentAddedListItem extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 0),
                   ),
                   onPressed: () {
-                    // URL에서 만화 ID 추출
-                    final mangaIdMatch = RegExp(r'/comic/([0-9]+)').firstMatch(item.url);
-                    final mangaId = mangaIdMatch?.group(1);
-                    
-                    if (mangaId != null) {
-                      MangaNavigation.navigateToMangaDetail(context, mangaId, title: item.title);
+                    // 상세보기 버튼 클릭 시 전편보기 링크로 직접 이동
+                    // 전체 URL을 전달하여 해당 페이지의 HTML에서 전편보기 링크 추출
+                    if (item.url.isNotEmpty) {
+                      MangaNavigation.navigateToMangaDetail(
+                        context, 
+                        item.url, 
+                        title: item.title, 
+                        isChapterUrl: true,
+                        parseFullPage: true, // 전체 페이지를 파싱하여 전편보기 링크 추출
+                      );
                     } else {
                       Fluttertoast.showToast(
                         msg: '잘못된 URL 형식입니다',

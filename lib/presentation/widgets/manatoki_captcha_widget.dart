@@ -3,12 +3,16 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../utils/manatoki_captcha_helper.dart';
-import '../../../data/providers/site_url_provider.dart';
-import '../../../presentation/viewmodels/global_cookie_provider.dart';
 import 'package:cookie_jar/cookie_jar.dart';
+import 'dart:io' as io;
+import '../../../presentation/viewmodels/global_cookie_provider.dart';
+import '../../../data/providers/site_url_provider.dart';
 import 'package:http/http.dart' as http;
 import 'captcha/direct_captcha_image.dart';
+import '../../../presentation/viewmodels/cookie_sync_utils.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:flutter_inappwebview_platform_interface/flutter_inappwebview_platform_interface.dart';
+import '../../../utils/manatoki_captcha_helper.dart';
 
 /// 마나토끼 캡챠 위젯
 class ManatokiCaptchaWidget extends ConsumerStatefulWidget {
@@ -77,11 +81,13 @@ class _ManatokiCaptchaWidgetState extends ConsumerState<ManatokiCaptchaWidget> {
       
       // 필수 쿠키 추가
       if (!allCookies.any((c) => c.name == 'PHPSESSID')) {
-        allCookies.add(Cookie('PHPSESSID', 'sess_${DateTime.now().millisecondsSinceEpoch}'));
+        final phpCookie = io.Cookie('PHPSESSID', 'sess_${DateTime.now().millisecondsSinceEpoch}');
+        allCookies.add(phpCookie);
       }
       
       if (!allCookies.any((c) => c.name == 'cf_clearance')) {
-        allCookies.add(Cookie('cf_clearance', 'Smlpj2_ehK4z7yGnbr7P1B9rkj2OcJKcqfnJbwRwt-1746323245-0'));
+        final cfCookie = io.Cookie('cf_clearance', 'Smlpj2_ehK4z7yGnbr7P1B9rkj2OcJKcqfnJbwRwt-1746323245-0');
+        allCookies.add(cfCookie);
       }
       
       // 쿠키 문자열 생성
@@ -153,10 +159,17 @@ class _ManatokiCaptchaWidgetState extends ConsumerState<ManatokiCaptchaWidget> {
       final cookieString = cookies.map((c) => '${c.name}=${c.value}').join('; ');
       
       // 폼 데이터 준비
-      final formData = FormData.fromMap({
-        ...widget.captchaInfo.hiddenInputs,
-        'captcha_key': _captchaController.text,
-      });
+      final Map<String, dynamic> formFields = {};
+      
+      // hiddenInputs가 있는 경우에만 추가
+      if (widget.captchaInfo.hiddenInputs != null) {
+        formFields.addAll(widget.captchaInfo.hiddenInputs);
+      }
+      
+      // 캡챠 키 추가
+      formFields['captcha_key'] = _captchaController.text;
+      
+      final formData = FormData.fromMap(formFields);
       
       // 캡챠 제출
       final response = await dio.post(
@@ -174,12 +187,91 @@ class _ManatokiCaptchaWidgetState extends ConsumerState<ManatokiCaptchaWidget> {
       );
       
       // 응답 처리
-      if (response.statusCode == 302 || response.statusCode == 200) {
+      print('캡챠 인증 응답 상태 코드: ${response.statusCode}');
+      
+      // 리다이렉트 여부 확인
+      bool hasRedirect = response.statusCode == 302 && response.headers.value('location') != null;
+      if (hasRedirect) {
+        print('리다이렉트 URL 발견: ${response.headers.value('location')}');
+      }
+      
+      // 응답 본문 확인
+      final responseBody = response.data.toString().toLowerCase();
+      print('캡챠 인증 응답 본문: $responseBody');
+      
+      // 성공 키워드 확인
+      bool hasSuccessKeyword = responseBody.contains('성공') || 
+                             responseBody.contains('success') || 
+                             responseBody.contains('정상') ||
+                             responseBody.isEmpty; // 빈 응답도 성공으로 간주
+      
+      // 실패 키워드 확인
+      bool hasFailureKeyword = responseBody.contains('실패') || 
+                             responseBody.contains('fail') || 
+                             responseBody.contains('오류') ||
+                             responseBody.contains('error');
+      
+      // 성공 판단
+      bool isSuccess = (hasRedirect || response.statusCode == 200) && !hasFailureKeyword;
+      
+      print('캡챠 인증 결과: ' + (isSuccess ? '성공' : '실패'));
+      
+      if (isSuccess) {
         // 성공적으로 캡챠 인증 완료
         if (mounted) {
-          widget.onCaptchaComplete(true);
+          // PHPSESSID 쿠키 확인 및 저장
+          final uri = Uri.parse(baseUrl);
+          final savedCookies = await cookieJar.loadForRequest(uri);
+          print('캡챠 인증 후 저장된 쿠키: ${savedCookies.map((c) => '${c.name}=${c.value}').join('; ')}');
+          
+          // PHPSESSID 쿠키 찾기
+          final phpSessionCookie = savedCookies.firstWhere(
+            (cookie) => cookie.name == 'PHPSESSID',
+            orElse: () => io.Cookie('PHPSESSID', ''),
+          );
+          
+          if (phpSessionCookie.value.isNotEmpty) {
+            print('중요: PHPSESSID 쿠키 발견: ${phpSessionCookie.value}');
+            
+            // 웹뷰와 쿠키 동기화 시도
+            try {
+              // 웹뷰에 쿠키 설정
+              await CookieManager.instance().setCookie(
+                url: WebUri(baseUrl),
+                name: 'PHPSESSID',
+                value: phpSessionCookie.value,
+                domain: Uri.parse(baseUrl).host,
+                path: '/',
+                isSecure: true,
+              );
+              
+              print('웹뷰에 PHPSESSID 쿠키 설정 완료');
+              
+              // 전역 쿠키 저장소에도 저장
+              final globalCookie = io.Cookie('PHPSESSID', phpSessionCookie.value);
+              globalCookie.domain = Uri.parse(baseUrl).host;
+              globalCookie.path = '/';
+              await cookieJar.saveFromResponse(uri, [globalCookie]);
+              
+              print('전역 쿠키 저장소에 PHPSESSID 쿠키 저장 완료');
+            } catch (syncError) {
+              print('쿠키 동기화 오류: $syncError');
+            }
+          } else {
+            print('경고: PHPSESSID 쿠키를 찾을 수 없습니다!');
+          }
+          
+          // 쿠키 동기화 없이 즉시 콜백 호출
+          // 쿠키 동기화 기능은 현재 사용하지 않음
+          print('캡챠 인증 성공, 콜백 호출');
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              widget.onCaptchaComplete(true);
+            }
+          });
         }
       } else {
+        // 인증 실패
         setState(() {
           _isLoading = false;
           _errorMessage = '캡챠 인증에 실패했습니다. 다시 시도해주세요.';

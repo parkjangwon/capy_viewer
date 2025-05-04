@@ -18,6 +18,7 @@ _$MangaDetailImpl _$$MangaDetailImplFromJson(Map<String, dynamic> json) =>
               ?.map((e) => MangaChapter.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const <MangaChapter>[],
+      previousChapterId: json['previousChapterId'] as String? ?? '',
     );
 
 Map<String, dynamic> _$$MangaDetailImplToJson(_$MangaDetailImpl instance) =>
@@ -29,6 +30,7 @@ Map<String, dynamic> _$$MangaDetailImplToJson(_$MangaDetailImpl instance) =>
       'genre': instance.genre,
       'releaseStatus': instance.releaseStatus,
       'chapters': instance.chapters,
+      'previousChapterId': instance.previousChapterId,
     };
 
 _$MangaChapterImpl _$$MangaChapterImplFromJson(Map<String, dynamic> json) =>

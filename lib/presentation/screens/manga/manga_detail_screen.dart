@@ -16,7 +16,15 @@ import '../manga/manga_captcha_screen.dart';
 
 class MangaDetailTestScreen extends ConsumerStatefulWidget {
   final String? mangaId;
-  const MangaDetailTestScreen({Key? key, this.mangaId}) : super(key: key);
+  final String? directUrl; // 직접 접근할 URL (전편보기 버튼이 있는 페이지)
+  final bool parseFullPage; // 전체 페이지를 파싱하여 전편보기 링크 추출
+  
+  const MangaDetailTestScreen({
+    Key? key, 
+    this.mangaId, 
+    this.directUrl, 
+    this.parseFullPage = false
+  }) : super(key: key);
 
   @override
   ConsumerState<MangaDetailTestScreen> createState() => _MangaDetailTestScreenState();
@@ -83,11 +91,21 @@ class _MangaDetailTestScreenState extends ConsumerState<MangaDetailTestScreen> {
       // 쿠키 동기화 생략 (WebView에 직접 접근하기 때문에 필요 없음)
       // await syncDioCookiesToWebView(baseUrl, jar);
       
-      // 만화 상세 페이지 로드
-      // baseUrl에서 끝에 슬래시가 있으면 제거
-      final cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
-      final url = '$cleanBaseUrl/comic/$_mangaId';
-      print('만화 상세 페이지 로드: $url');
+      // 로드할 URL 결정
+      String url;
+      
+      // directUrl이 있는 경우 (전편보기 버튼이 있는 페이지로 직접 접근)
+      if (widget.directUrl != null && widget.directUrl!.isNotEmpty) {
+        url = widget.directUrl!;
+        print('전편보기 버튼이 있는 페이지 로드: $url');
+      } else {
+        // 기존 방식: 만화 ID로 상세 페이지 접근
+        final cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
+        url = '$cleanBaseUrl/comic/$_mangaId';
+        print('만화 상세 페이지 로드: $url');
+      }
+      
+      // 페이지 로드
       await _controller.loadRequest(Uri.parse(url));
     } catch (e) {
       if (!mounted) return;
@@ -174,8 +192,129 @@ class _MangaDetailTestScreenState extends ConsumerState<MangaDetailTestScreen> {
       print('만화 상세 페이지 HTML 파싱 시작: $_mangaId');
       try {
         _htmlContent = htmlStr;
+                // 전편보기 링크가 있는 페이지인 경우 (파싱 후 전편보기 링크로 이동)
+        if (widget.parseFullPage) {
+          print('전편보기 링크 추출 시도...');
+          
+          // HTML 문서 파싱
+          final document = html_parser.parse(htmlStr);
+          
+          // 전편보기 링크 추출
+          String? previousUrl;
+          
+          // 1. 가장 정확한 방법: .pull-right.post-info 내부의 .btn.btn-xs.btn-primary 버튼 검색
+          final postInfoDivs = document.querySelectorAll('.pull-right.post-info');
+          print('- .pull-right.post-info 요소 개수: ${postInfoDivs.length}');
+          
+          for (final postInfo in postInfoDivs) {
+            // 정확히 전편보기 버튼을 찾기
+            final previousButtons = postInfo.querySelectorAll('a.btn-primary, a.btn-xs.btn-primary');
+            print('  - 전편보기 버튼 개수: ${previousButtons.length}');
+            
+            for (final button in previousButtons) {
+              final text = button.text.trim();
+              final href = button.attributes['href'];
+              final rel = button.attributes['rel'];
+              final className = button.attributes['class'] ?? '';
+              
+              print('  - 버튼 검색: text="$text", href=$href, rel=$rel, class=$className');
+              
+              if (text.contains('전편보기') && href != null && href.isNotEmpty) {
+                previousUrl = href;
+                print('  -> 전편보기 버튼 발견: $previousUrl');
+                
+                // rel 속성을 저장하여 나중에 활용
+                if (rel != null && rel.isNotEmpty) {
+                  print('  -> 전편보기 ID (rel 속성): $rel');
+                }
+                break;
+              }
+            }
+            
+            if (previousUrl != null) break;
+            
+            // 전편보기 버튼을 찾지 못한 경우 모든 링크 검색
+            if (previousUrl == null) {
+              final links = postInfo.querySelectorAll('a');
+              print('  - 모든 링크 개수: ${links.length}');
+              
+              for (final link in links) {
+                final text = link.text.trim();
+                final href = link.attributes['href'];
+                final rel = link.attributes['rel'];
+                
+                print('  - 링크 검색: text="$text", href=$href, rel=$rel');
+                
+                if (text.contains('전편보기') && href != null && href.isNotEmpty) {
+                  previousUrl = href;
+                  print('  -> 전편보기 링크 발견: $previousUrl');
+                  break;
+                }
+              }
+            }
+          }
+          
+          // 2. 전체 페이지에서 버튼 클래스로 찾기
+          if (previousUrl == null) {
+            final primaryButtons = document.querySelectorAll('a.btn-primary, a.btn-xs.btn-primary');
+            print('- 전체 페이지 버튼 개수: ${primaryButtons.length}');
+            
+            for (final button in primaryButtons) {
+              final text = button.text.trim();
+              final href = button.attributes['href'];
+              final rel = button.attributes['rel'];
+              
+              print('  - 버튼 검색: text="$text", href=$href, rel=$rel');
+              
+              if (text.contains('전편보기') && href != null && href.isNotEmpty) {
+                previousUrl = href;
+                print('  -> 전편보기 버튼 발견: $previousUrl');
+                break;
+              }
+            }
+          }
+          
+          // 3. 모든 링크 검색 (마지막 수단)
+          if (previousUrl == null) {
+            final allLinks = document.querySelectorAll('a');
+            print('- 모든 링크 개수: ${allLinks.length}');
+            
+            for (final link in allLinks) {
+              final text = link.text.trim();
+              final href = link.attributes['href'];
+              final rel = link.attributes['rel'];
+              
+              print('  - 링크 검색: text="$text", href=$href, rel=$rel');
+              
+              if ((text.contains('전편보기') || text.contains('전편') || text.contains('이전')) && 
+                  href != null && href.isNotEmpty && href.contains('/comic/')) {
+                previousUrl = href;
+                print('  -> 전편보기 관련 링크 발견: $previousUrl');
+                break;
+              }
+            }
+          }
+          
+          // 전편보기 링크를 찾았으면 해당 URL로 이동
+          if (previousUrl != null && previousUrl.isNotEmpty) {
+            print('전편보기 링크로 이동: $previousUrl');
+            
+            // URL이 상대 경로인 경우 절대 경로로 변환
+            if (!previousUrl.startsWith('http')) {
+              final baseUrl = ref.read(siteUrlServiceProvider);
+              final cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl;
+              previousUrl = previousUrl.startsWith('/') ? '$cleanBaseUrl$previousUrl' : '$cleanBaseUrl/$previousUrl';
+            }
+            
+            // 전편보기 링크로 이동
+            await _controller.loadRequest(Uri.parse(previousUrl));
+            return; // 페이지 로드가 완료되면 onPageFinished에서 _getHtmlContent가 다시 호출됨
+          } else {
+            print('전편보기 링크를 찾을 수 없습니다.');
+          }
+        }
         
-        // HTML 파싱
+        // 일반 HTML 파싱 (전편보기 링크를 찾지 못했거나, parseFullPage가 false인 경우)
         final result = parseMangaDetailFromHtml(htmlStr, _mangaId);
         
         if (result.hasCaptcha) {
@@ -437,7 +576,24 @@ class _MangaDetailTestScreenState extends ConsumerState<MangaDetailTestScreen> {
           ),
         ],
       ),
-      body: _isLoading
+      body: Stack(
+        children: [
+          // 웹뷰는 화면에 보이지 않도록 완전히 숨김
+          Positioned(
+            left: -10000, // 화면 바깥으로 이동
+            top: -10000, // 화면 바깥으로 이동
+            child: Opacity(
+              opacity: 0, // 완전히 투명하게 처리
+              child: SizedBox(
+                width: 1, // 최소한의 크기로 설정
+                height: 1, // 최소한의 크기로 설정
+                child: WebViewWidget(controller: _controller),
+              ),
+            ),
+          ),
+          
+          // 실제 사용자에게 보이는 내용
+          _isLoading
           ? const Center(
               child: CircularProgressIndicator(),
             )
@@ -467,18 +623,15 @@ class _MangaDetailTestScreenState extends ConsumerState<MangaDetailTestScreen> {
                             }
                           },
                         )
-                      : Column(
-                          children: [
-                            const Padding(
-                              padding: EdgeInsets.all(16.0),
-                              child: Text('캡챠 인증이 필요합니다. 아래 웹뷰에서 캡챠를 완료해주세요.'),
-                            ),
-                            Expanded(
-                              child: WebViewWidget(controller: _controller),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: ElevatedButton(
+                      : Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.security, size: 48, color: Colors.orange),
+                              const SizedBox(height: 16),
+                              const Text('캡챠 인증이 필요합니다.'),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
                                 onPressed: () {
                                   setState(() {
                                     _showManatokiCaptcha = false;
@@ -488,10 +641,12 @@ class _MangaDetailTestScreenState extends ConsumerState<MangaDetailTestScreen> {
                                 },
                                 child: const Text('캡챠 완료 확인'),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         )
                   : _buildTestContent(),
+        ],
+      ),
     );
   }
 

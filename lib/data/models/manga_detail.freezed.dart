@@ -27,6 +27,7 @@ mixin _$MangaDetail {
   String get genre => throw _privateConstructorUsedError;
   String get releaseStatus => throw _privateConstructorUsedError;
   List<MangaChapter> get chapters => throw _privateConstructorUsedError;
+  String get previousChapterId => throw _privateConstructorUsedError;
 
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
   @JsonKey(ignore: true)
@@ -47,7 +48,8 @@ abstract class $MangaDetailCopyWith<$Res> {
       String author,
       String genre,
       String releaseStatus,
-      List<MangaChapter> chapters});
+      List<MangaChapter> chapters,
+      String previousChapterId});
 }
 
 /// @nodoc
@@ -70,6 +72,7 @@ class _$MangaDetailCopyWithImpl<$Res, $Val extends MangaDetail>
     Object? genre = null,
     Object? releaseStatus = null,
     Object? chapters = null,
+    Object? previousChapterId = null,
   }) {
     return _then(_value.copyWith(
       id: null == id
@@ -100,6 +103,10 @@ class _$MangaDetailCopyWithImpl<$Res, $Val extends MangaDetail>
           ? _value.chapters
           : chapters // ignore: cast_nullable_to_non_nullable
               as List<MangaChapter>,
+      previousChapterId: null == previousChapterId
+          ? _value.previousChapterId
+          : previousChapterId // ignore: cast_nullable_to_non_nullable
+              as String,
     ) as $Val);
   }
 }
@@ -119,7 +126,8 @@ abstract class _$$MangaDetailImplCopyWith<$Res>
       String author,
       String genre,
       String releaseStatus,
-      List<MangaChapter> chapters});
+      List<MangaChapter> chapters,
+      String previousChapterId});
 }
 
 /// @nodoc
@@ -140,6 +148,7 @@ class __$$MangaDetailImplCopyWithImpl<$Res>
     Object? genre = null,
     Object? releaseStatus = null,
     Object? chapters = null,
+    Object? previousChapterId = null,
   }) {
     return _then(_$MangaDetailImpl(
       id: null == id
@@ -170,6 +179,10 @@ class __$$MangaDetailImplCopyWithImpl<$Res>
           ? _value._chapters
           : chapters // ignore: cast_nullable_to_non_nullable
               as List<MangaChapter>,
+      previousChapterId: null == previousChapterId
+          ? _value.previousChapterId
+          : previousChapterId // ignore: cast_nullable_to_non_nullable
+              as String,
     ));
   }
 }
@@ -184,7 +197,8 @@ class _$MangaDetailImpl implements _MangaDetail {
       this.author = '',
       this.genre = '',
       this.releaseStatus = '',
-      final List<MangaChapter> chapters = const <MangaChapter>[]})
+      final List<MangaChapter> chapters = const <MangaChapter>[],
+      this.previousChapterId = ''})
       : _chapters = chapters;
 
   factory _$MangaDetailImpl.fromJson(Map<String, dynamic> json) =>
@@ -215,8 +229,12 @@ class _$MangaDetailImpl implements _MangaDetail {
   }
 
   @override
+  @JsonKey()
+  final String previousChapterId;
+
+  @override
   String toString() {
-    return 'MangaDetail(id: $id, title: $title, thumbnailUrl: $thumbnailUrl, author: $author, genre: $genre, releaseStatus: $releaseStatus, chapters: $chapters)';
+    return 'MangaDetail(id: $id, title: $title, thumbnailUrl: $thumbnailUrl, author: $author, genre: $genre, releaseStatus: $releaseStatus, chapters: $chapters, previousChapterId: $previousChapterId)';
   }
 
   @override
@@ -232,13 +250,23 @@ class _$MangaDetailImpl implements _MangaDetail {
             (identical(other.genre, genre) || other.genre == genre) &&
             (identical(other.releaseStatus, releaseStatus) ||
                 other.releaseStatus == releaseStatus) &&
-            const DeepCollectionEquality().equals(other._chapters, _chapters));
+            const DeepCollectionEquality().equals(other._chapters, _chapters) &&
+            (identical(other.previousChapterId, previousChapterId) ||
+                other.previousChapterId == previousChapterId));
   }
 
   @JsonKey(ignore: true)
   @override
-  int get hashCode => Object.hash(runtimeType, id, title, thumbnailUrl, author,
-      genre, releaseStatus, const DeepCollectionEquality().hash(_chapters));
+  int get hashCode => Object.hash(
+      runtimeType,
+      id,
+      title,
+      thumbnailUrl,
+      author,
+      genre,
+      releaseStatus,
+      const DeepCollectionEquality().hash(_chapters),
+      previousChapterId);
 
   @JsonKey(ignore: true)
   @override
@@ -262,7 +290,8 @@ abstract class _MangaDetail implements MangaDetail {
       final String author,
       final String genre,
       final String releaseStatus,
-      final List<MangaChapter> chapters}) = _$MangaDetailImpl;
+      final List<MangaChapter> chapters,
+      final String previousChapterId}) = _$MangaDetailImpl;
 
   factory _MangaDetail.fromJson(Map<String, dynamic> json) =
       _$MangaDetailImpl.fromJson;
@@ -281,6 +310,8 @@ abstract class _MangaDetail implements MangaDetail {
   String get releaseStatus;
   @override
   List<MangaChapter> get chapters;
+  @override
+  String get previousChapterId;
   @override
   @JsonKey(ignore: true)
   _$$MangaDetailImplCopyWith<_$MangaDetailImpl> get copyWith =>

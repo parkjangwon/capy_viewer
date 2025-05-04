@@ -13,6 +13,7 @@ class MangaDetail with _$MangaDetail {
     @Default('') String genre,
     @Default('') String releaseStatus,
     @Default(<MangaChapter>[]) List<MangaChapter> chapters,
+    @Default('') String previousChapterId, // 전편보기 링크의 만화 ID
   }) = _MangaDetail;
 
   factory MangaDetail.fromJson(Map<String, dynamic> json) =>
