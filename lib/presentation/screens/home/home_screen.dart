@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'recent_added_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/models/recent_added_model.dart';
+import '../../../data/models/weekly_best_model.dart';
 import '../../viewmodels/recent_added_provider.dart';
+import '../../viewmodels/weekly_best_provider.dart';
 import '../../viewmodels/global_cookie_provider.dart';
 import '../../viewmodels/cookie_sync_utils.dart';
 import '../../../data/providers/site_url_provider.dart';
@@ -101,12 +103,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         placeholderCount: 6, emptyText: '결과 없음'),
                     const SizedBox(height: 16),
                     const _SectionTitle('주간 베스트'),
-                    const _VerticalList(placeholderCount: 10),
-                    const SizedBox(height: 16),
-                    const _SectionTitle('일본만화 베스트'),
-                    const _VerticalList(placeholderCount: 10),
-                    const SizedBox(height: 16),
-                    const _VerticalList(placeholderCount: 6),
+                    const _WeeklyBestList(),
                     const SizedBox(height: 16),
                     const _SectionTitle('이름'),
                     _NameSelector(),
@@ -266,6 +263,103 @@ class _HorizontalCardList extends StatelessWidget {
             color: Colors.grey[300],
             borderRadius: BorderRadius.circular(8),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WeeklyBestList extends ConsumerWidget {
+  const _WeeklyBestList();
+  
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final weeklyBestAsync = ref.watch(weeklyBestProvider);
+    
+    return weeklyBestAsync.when(
+      data: (items) {
+        if (items.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Center(child: Text('주간 베스트 목록이 없습니다')),
+          );
+        }
+        
+        return ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: items.length,
+          separatorBuilder: (_, __) => const Divider(height: 1),
+          itemBuilder: (context, idx) {
+            final item = items[idx];
+            return ListTile(
+              leading: Text(
+                '${idx + 1}',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              title: Text(item.title),
+              dense: true,
+              onTap: () {
+                // 만화 읽기 알림창 표시
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('만화 읽기'),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('제목: ${item.title}'),
+                        const SizedBox(height: 8),
+                        Text('URL: ${item.url}'),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('확인'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+      loading: () => ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: 10,
+        separatorBuilder: (_, __) => const Divider(height: 1),
+        itemBuilder: (context, idx) => ListTile(
+          title: Container(
+            height: 16,
+            width: 200,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          subtitle: Container(
+            height: 12,
+            width: 100,
+            margin: const EdgeInsets.only(top: 4),
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          dense: true,
+        ),
+      ),
+      error: (error, stack) => Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Center(
+          child: Text('주간 베스트 로딩 오류: ${error.toString().substring(0, error.toString().length > 50 ? 50 : error.toString().length)}...'),
         ),
       ),
     );
