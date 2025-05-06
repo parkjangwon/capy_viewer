@@ -15,6 +15,7 @@ import '../manga/manga_navigation.dart';
 import '../../viewmodels/recent_added_provider.dart';
 import '../home/home_screen.dart';
 import '../../../data/models/recent_added_model.dart';
+import '../../../utils/content_filter.dart';
 
 const _publishOptions = [
   '전체', '주간', '격주', '월간', '단편', '단행본', '완결'
@@ -181,74 +182,85 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Wrap(
-              spacing: 16,
-              runSpacing: 8,
-              children: [
-                _FilterDropdown(
-                  label: '발행',
-                  value: _publishValue,
-                  items: _publishOptions,
-                  onChanged: (v) => setState(() => _publishValue = v!),
-                ),
-                _FilterDropdown(
-                  label: '초성',
-                  value: _jaumValue,
-                  items: _jaumOptions,
-                  onChanged: (v) => setState(() => _jaumValue = v!),
-                ),
-                _FilterDropdown(
-                  label: '정렬',
-                  value: _sortValue,
-                  optionMapList: _sortOptions,
-                  onChanged: (v) => setState(() => _sortValue = v!),
-                  minWidth: 110,
-                ),
-                OutlinedButton(
-                  onPressed: () async {
-                    final result = await showModalBottomSheet<List<String>>(
-                      context: context,
-                      isScrollControlled: true,
-                      builder: (context) => GenreSelectSheet(
-                        allGenres: _genreOptions,
-                        selected: _selectedGenres,
-                      ),
-                    );
-                    if (result != null) setState(() => _selectedGenres = result);
-                  },
-                  style: OutlinedButton.styleFrom(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    side: BorderSide(color: Theme.of(context).colorScheme.outline),
-                    backgroundColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.2),
-                    minimumSize: const Size(120, 48),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                    alignment: Alignment.center,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.standard,
-                  ),
-                  child: SizedBox(
-                    height: 24,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.category_outlined, size: 18),
-                        const SizedBox(width: 4),
-                        Text(
-                          _selectedGenres.isEmpty || _selectedGenres.contains('전체')
-                            ? '장르 전체'
-                            : '장르: ' + _selectedGenres.join(', '),
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        const SizedBox(width: 2),
-                        const Icon(Icons.arrow_drop_down),
-                      ],
+            child: FutureBuilder<bool>(
+              future: ContentFilter.isSafeModeEnabled(),
+              builder: (context, snapshot) {
+                final safeMode = snapshot.data ?? false;
+                // 안심 모드일 때 제외할 장르
+                final restrictedTags = ['17', 'BL', 'TS', '붕탁', '백합', '러브코미디'];
+                final filteredGenres = safeMode
+                  ? _genreOptions.where((g) => g == '전체' || !restrictedTags.contains(g)).toList()
+                  : _genreOptions;
+                return Wrap(
+                  spacing: 16,
+                  runSpacing: 8,
+                  children: [
+                    _FilterDropdown(
+                      label: '발행',
+                      value: _publishValue,
+                      items: _publishOptions,
+                      onChanged: (v) => setState(() => _publishValue = v!),
                     ),
-                  ),
-                ),
-              ],
+                    _FilterDropdown(
+                      label: '초성',
+                      value: _jaumValue,
+                      items: _jaumOptions,
+                      onChanged: (v) => setState(() => _jaumValue = v!),
+                    ),
+                    _FilterDropdown(
+                      label: '정렬',
+                      value: _sortValue,
+                      optionMapList: _sortOptions,
+                      onChanged: (v) => setState(() => _sortValue = v!),
+                      minWidth: 110,
+                    ),
+                    OutlinedButton(
+                      onPressed: () async {
+                        final result = await showModalBottomSheet<List<String>>(
+                          context: context,
+                          isScrollControlled: true,
+                          builder: (context) => GenreSelectSheet(
+                            allGenres: filteredGenres,
+                            selected: _selectedGenres,
+                          ),
+                        );
+                        if (result != null) setState(() => _selectedGenres = result);
+                      },
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        side: BorderSide(color: Theme.of(context).colorScheme.outline),
+                        backgroundColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.2),
+                        minimumSize: const Size(120, 48),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                        alignment: Alignment.center,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.standard,
+                      ),
+                      child: SizedBox(
+                        height: 24,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.category_outlined, size: 18),
+                            const SizedBox(width: 4),
+                            Text(
+                              _selectedGenres.isEmpty || _selectedGenres.contains('전체')
+                                ? '장르 전체'
+                                : '장르: ' + _selectedGenres.join(', '),
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                            const SizedBox(width: 2),
+                            const Icon(Icons.arrow_drop_down),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
           Padding(
