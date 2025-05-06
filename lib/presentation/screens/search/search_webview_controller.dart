@@ -12,8 +12,38 @@ class SearchWebViewController {
     _isInitialized = true;
   }
 
-  Future<void> loadSearch(String baseUrl, String query) async {
-    final url = '$baseUrl/bbs/search.php?sfl=wr_subject&stx=${Uri.encodeComponent(query)}&sop=and&where=all&onetable=&page=1';
+  Future<void> loadSearch(String baseUrl, {String? title, String? artist, String? publish, String? jaum, String? tag, String? sort}) async {
+    final params = <String, String>{};
+    if ((title ?? '').isNotEmpty) {
+      params['stx'] = title!;
+      params['sfl'] = 'wr_subject';
+    }
+    if ((artist ?? '').isNotEmpty) {
+      params['artist'] = artist!;
+    }
+    if ((publish ?? '').isNotEmpty && publish != '전체') {
+      params['publish'] = publish!;
+    }
+    if ((jaum ?? '').isNotEmpty && jaum != '전체') {
+      params['jaum'] = jaum!;
+    }
+    if ((tag ?? '').isNotEmpty && tag != '전체') {
+      params['tag'] = tag!;
+    }
+    if ((sort ?? '').isNotEmpty && sort != 'wr_datetime') {
+      params['sst'] = sort!;
+      params['sod'] = 'desc';
+    } else if ((sort ?? '').isNotEmpty && sort == 'wr_datetime') {
+      params['sst'] = 'wr_datetime';
+      params['sod'] = 'desc';
+    }
+    // 기본값 보장
+    params['sop'] = 'and';
+    params['where'] = 'all';
+    params['onetable'] = '';
+    params['page'] = '1';
+    final query = params.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&');
+    final url = '$baseUrl/comic?$query';
     await controller.loadRequest(Uri.parse(url));
   }
 

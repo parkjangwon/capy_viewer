@@ -105,15 +105,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     const _SectionTitle('주간 베스트'),
                     const _WeeklyBestList(),
                     const SizedBox(height: 16),
-                    const _SectionTitle('이름'),
-                    _NameSelector(),
-                    const SizedBox(height: 16),
-                    const _SectionTitle('장르'),
-                    _GenreSelector(),
-                    const SizedBox(height: 16),
-                    const _SectionTitle('발행'),
-                    _PublishSelector(),
-                    const SizedBox(height: 24),
                   ]),
                 ),
               ),
@@ -382,81 +373,6 @@ class _VerticalList extends StatelessWidget {
         dense: true,
         onTap: () {},
       ),
-    );
-  }
-}
-
-class _NameSelector extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final names = [
-      'ㄱ',
-      'ㄴ',
-      'ㄷ',
-      'ㄹ',
-      'ㅁ',
-      'ㅂ',
-      'ㅅ',
-      'ㅇ',
-      'ㅈ',
-      'ㅊ',
-      'ㅋ',
-      'ㅌ',
-      'ㅍ',
-      'ㅎ',
-      '0-9',
-      'A-Z'
-    ];
-    return Wrap(
-      children: names.map((n) => _ChipButton(label: n)).toList(),
-    );
-  }
-}
-
-class _GenreSelector extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final genres = [
-      '17',
-      'BL',
-      'SF',
-      'TS',
-      '개그',
-      '게임',
-      '도박',
-      '드라마',
-      '라노벨',
-      '러브코미디',
-      '먹방',
-      '백합',
-      '붕탁',
-      '순정',
-      '스릴러',
-      '스포츠',
-      '시대',
-      '애니화',
-      '액션',
-      '음악',
-      '이세계',
-      '일상',
-      '전생',
-      '추리',
-      '판타지',
-      '학원',
-      '호러'
-    ];
-    return Wrap(
-      children: genres.map((g) => _ChipButton(label: g)).toList(),
-    );
-  }
-}
-
-class _PublishSelector extends StatelessWidget {
-  static const publish = ['미분류', '주간', '격주', '월간', '단편', '단행본', '완결'];
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      children: publish.map((p) => _ChipButton(label: p)).toList(),
     );
   }
 }
