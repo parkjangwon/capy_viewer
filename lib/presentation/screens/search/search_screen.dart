@@ -177,8 +177,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Scaffold(
-      body: Column(
+    return SafeArea(
+      child: Column(
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
@@ -224,7 +224,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             selected: _selectedGenres,
                           ),
                         );
-                        if (result != null) setState(() => _selectedGenres = result);
+                        if (result != null) {
+                          Future.microtask(() {
+                            setState(() => _selectedGenres = result);
+                          });
+                        }
                       },
                       style: OutlinedButton.styleFrom(
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -554,6 +558,7 @@ class _GenreSelectSheetState extends State<GenreSelectSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            const SizedBox(height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -564,6 +569,7 @@ class _GenreSelectSheetState extends State<GenreSelectSheet> {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
             const Divider(),
             Expanded(
               child: ListView(
