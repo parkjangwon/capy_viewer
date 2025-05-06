@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
@@ -9,7 +8,6 @@ import '../../../presentation/viewmodels/global_cookie_provider.dart';
 import '../../../data/providers/site_url_provider.dart';
 import 'package:http/http.dart' as http;
 import 'captcha/direct_captcha_image.dart';
-import '../../../presentation/viewmodels/cookie_sync_utils.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_inappwebview_platform_interface/flutter_inappwebview_platform_interface.dart';
 import '../../../utils/manatoki_captcha_helper.dart';

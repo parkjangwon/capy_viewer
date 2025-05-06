@@ -3,6 +3,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'manatoki_captcha_helper.dart';
 import '../../../data/providers/site_url_provider.dart';
+import '../../screens/settings/settings_screen.dart';
 
 class CaptchaPage extends ConsumerStatefulWidget {
   final String url;
@@ -43,6 +44,7 @@ class _CaptchaPageState extends ConsumerState<CaptchaPage> {
 
   @override
   Widget build(BuildContext context) {
+    final baseUrl = ref.read(siteUrlServiceProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('보안 검증'),
@@ -105,6 +107,30 @@ class _CaptchaPageState extends ConsumerState<CaptchaPage> {
             const Center(
               child: CircularProgressIndicator(),
             ),
+          // 캡챠 인증 필요 화면 (방패 아이콘이 표시될 때)
+          Positioned(
+            bottom: 20,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: ElevatedButton(
+                onPressed: () {
+                  final targetUrl = baseUrl.endsWith('/')
+                      ? '${baseUrl}comic/129241'
+                      : '$baseUrl/comic/129241';
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => CaptchaWebViewPage(
+                          url: targetUrl,
+                          onCookiesExtracted: (cookies) {}),
+                    ),
+                  );
+                },
+                child: const Text('캡차 인증하기'),
+              ),
+            ),
+          ),
         ],
       ),
     );
