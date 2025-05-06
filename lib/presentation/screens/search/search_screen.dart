@@ -61,6 +61,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   String _currentJaum = '';
   String _currentGenre = '';
   String _currentSort = 'wr_datetime';
+  int _searchSession = 0;
 
   void _onSearch() {
     setState(() {
@@ -74,12 +75,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         _currentGenre = _selectedGenres.join(',');
       }
       _currentSort = _sortValue;
+
       _pagingController?.dispose();
+      _pagingController = null;
+      _webViewInitialized = false;
+      _searchSession++;
+
       if (_currentSearch.isNotEmpty || _currentPublish.isNotEmpty || _currentJaum.isNotEmpty || _currentGenre.isNotEmpty) {
         _pagingController = PagingController<int, MangaTitle>(firstPageKey: 0)
           ..addPageRequestListener(_fetchPage);
-      } else {
-        _pagingController = null;
       }
     });
   }
@@ -287,6 +291,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                       _pagingController!.refresh();
                     },
                     child: PagedListView<int, MangaTitle>(
+                      key: ValueKey(_searchSession),
                       pagingController: _pagingController!,
                       builderDelegate: PagedChildBuilderDelegate<MangaTitle>(
                         itemBuilder: (context, item, index) => MangaListItem(

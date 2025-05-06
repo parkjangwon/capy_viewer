@@ -44,6 +44,7 @@ class SearchWebViewController {
     params['page'] = '1';
     final query = params.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&');
     final url = '$baseUrl/comic?$query';
+    print('[검색 URL] $url');
     await controller.loadRequest(Uri.parse(url));
   }
 
