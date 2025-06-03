@@ -4,7 +4,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../../presentation/screens/home/home_screen.dart';
 import '../../presentation/screens/search/search_screen.dart';
 import '../../presentation/screens/settings/settings_screen.dart';
-import '../../presentation/screens/viewer/viewer_screen.dart';
+import '../../presentation/screens/viewer/manga_viewer_screen.dart';
 
 part 'router.g.dart';
 
@@ -69,9 +69,9 @@ GoRouter router(RouterRef ref) {
       ),
       GoRoute(
         path: '/viewer/:titleId/:chapterId',
-        builder: (context, state) => ViewerScreen(
-          titleId: state.pathParameters['titleId']!,
-          chapterId: state.pathParameters['chapterId']!,
+        builder: (context, state) => MangaViewerScreen(
+          chapterId: state.pathParameters['chapterId'] ?? '',
+          title: state.pathParameters['titleId'] ?? '',
         ),
       ),
     ],

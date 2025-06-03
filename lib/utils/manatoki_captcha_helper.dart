@@ -13,6 +13,16 @@ class ManatokiCaptchaInfo {
     required this.captchaImageUrl,
     required this.hiddenInputs,
   });
+  
+  /// Map으로 변환
+  Map<String, dynamic> toMap() {
+    return {
+      'formAction': formAction,
+      'redirectUrl': redirectUrl,
+      'captchaImageUrl': captchaImageUrl,
+      'hiddenInputs': hiddenInputs,
+    };
+  }
 }
 
 /// 마나토끼 캡챠 감지 및 정보 추출 헬퍼

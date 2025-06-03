@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -7,13 +6,13 @@ import '../../../data/models/manga_detail.dart';
 import '../../../data/providers/site_url_provider.dart';
 import '../../../utils/manga_detail_parser.dart';
 import '../../../utils/manatoki_captcha_helper.dart';
-import '../../../utils/cookie_utils.dart';
+
 import '../../../utils/network_image_with_headers.dart';
 import '../../widgets/manatoki_captcha_widget.dart';
 import '../../viewmodels/global_cookie_provider.dart';
-import '../../viewmodels/cookie_sync_utils.dart';
+
 import '../manga/manga_captcha_screen.dart';
-import '../manga/manga_navigation.dart';
+import '../viewer/manga_viewer_screen.dart';
 
 class MangaDetailScreen extends ConsumerStatefulWidget {
   final String? mangaId;
@@ -32,7 +31,7 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
   bool _isLoading = true;
   bool _isError = false;
   String _errorMessage = '';
-  String _htmlContent = '';
+
   MangaDetail? _mangaDetail;
   bool _showManatokiCaptcha = false;
   ManatokiCaptchaInfo? _captchaInfo;
@@ -196,7 +195,6 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
       // HTML 파싱 시작
       print('만화 상세 페이지 HTML 파싱 시작: $_mangaId');
       try {
-        _htmlContent = htmlStr;
         // 전편보기 링크가 있는 페이지인 경우 (파싱 후 전편보기 링크로 이동)
         if (widget.parseFullPage) {
           print('전편보기 링크 추출 시도...');
@@ -791,12 +789,14 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
                         borderRadius: BorderRadius.circular(8),
                         onTap: () {
                           print(
-                              '상세보기 진입: chapter.id=${chapter.id}, title=${chapter.title}, fullViewUrl=${chapter.fullViewUrl}');
-                          MangaNavigation.navigateToMangaDetail(
-                            context,
-                            chapter.id,
-                            title: chapter.title,
-                            fullViewUrl: chapter.fullViewUrl,
+                              '뷰어 진입: chapter.id=${chapter.id}, title=${chapter.title}, fullViewUrl=${chapter.fullViewUrl}');
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => MangaViewerScreen(
+                                chapterId: chapter.id,
+                                title: chapter.title,
+                              ),
+                            ),
                           );
                         },
                         child: Padding(

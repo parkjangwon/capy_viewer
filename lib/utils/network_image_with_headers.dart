@@ -311,6 +311,7 @@ class NetworkImageWithHeaders extends ConsumerWidget {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.done &&
             snapshot.data != null) {
+          print('[NetworkImageWithHeaders] 이미지 로딩 성공: $url');
           return Image.memory(
             snapshot.data!,
             width: width,
@@ -318,13 +319,42 @@ class NetworkImageWithHeaders extends ConsumerWidget {
             fit: fit,
           );
         } else if (snapshot.connectionState == ConnectionState.done) {
+          // Diagnostic error widget for debugging black screen issues
+          final errorMsg = '이미지 로딩 실패!\nURL: $url\n에러: ${(snapshot.error ?? 'Unknown error').toString()}';
+          print('[NetworkImageWithHeaders] $errorMsg');
           return errorWidget ??
               Container(
                 width: width,
                 height: height,
-                color: Colors.grey[300],
-                child: const Icon(Icons.broken_image,
-                    size: 40, color: Colors.grey),
+                color: Colors.red[100],
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.broken_image, size: 40, color: Colors.red),
+                    const SizedBox(height: 8),
+                    Text('이미지 로딩 오류', style: const TextStyle(color: Colors.red)),
+                    Padding(
+                      padding: const EdgeInsets.all(4.0),
+                      child: Text(
+                        'URL: $url',
+                        style: const TextStyle(fontSize: 10, color: Colors.black87),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 2,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(4.0),
+                      child: Text(
+                        '에러: ${(snapshot.error ?? 'Unknown error').toString()}',
+                        style: const TextStyle(fontSize: 10, color: Colors.black54),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 2,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
+                ),
               );
         } else {
           return Container(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../data/models/manga_title.dart';
+import 'package:go_router/go_router.dart';
 
 class MangaGrid extends StatelessWidget {
   final List<MangaTitle> items;
@@ -42,22 +43,32 @@ class MangaGridItem extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () {
-          // TODO: Implement navigation to manga detail
+          if (manga.id.isNotEmpty) {
+            context.push('/manga/${manga.id}', extra: manga);
+          }
         },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(
-              child: Image.network(
-                manga.thumbnailUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                    child: const Icon(Icons.error_outline),
-                  );
-                },
-              ),
+              child: manga.thumbnailUrl.isNotEmpty
+                  ? Image.network(
+                      manga.thumbnailUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest,
+                          child: const Icon(Icons.error_outline),
+                        );
+                      },
+                    )
+                  : Container(
+                      color:
+                          Theme.of(context).colorScheme.surfaceContainerHighest,
+                      child: const Icon(Icons.image_not_supported),
+                    ),
             ),
             Padding(
               padding: const EdgeInsets.all(8),
@@ -65,7 +76,7 @@ class MangaGridItem extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    manga.title,
+                    manga.title.isNotEmpty ? manga.title : '제목 없음',
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
@@ -93,4 +104,4 @@ class MangaGridItem extends StatelessWidget {
       ),
     );
   }
-} 
+}

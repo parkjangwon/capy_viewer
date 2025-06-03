@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
-import 'recent_added_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cookie_jar/cookie_jar.dart';
+
 import '../../../data/models/recent_added_model.dart';
-import '../../../data/models/weekly_best_model.dart';
+import '../../../data/providers/site_url_provider.dart';
+import '../../../utils/network_image_with_headers.dart';
 import '../../viewmodels/recent_added_provider.dart';
 import '../../viewmodels/weekly_best_provider.dart';
 import '../../viewmodels/global_cookie_provider.dart';
 import '../../viewmodels/cookie_sync_utils.dart';
-import '../../../data/providers/site_url_provider.dart';
-import '../../../utils/network_image_with_headers.dart';
-import 'package:cookie_jar/cookie_jar.dart';
-import '../manga/manga_navigation.dart';
+import '../viewer/manga_viewer_screen.dart';
+import 'recent_added_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   final VoidCallback? onRecentTap;
@@ -105,6 +105,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     const _SectionTitle('주간 베스트'),
                     const _WeeklyBestList(),
                     const SizedBox(height: 16),
+                    // 만화 보기 테스트 버튼
+                    _MangaViewerTestButton(ref: ref),
+                    const SizedBox(height: 16),
                   ]),
                 ),
               ),
@@ -171,66 +174,74 @@ class _HorizontalCardList extends StatelessWidget {
           separatorBuilder: (_, __) => const SizedBox(width: 8),
           itemBuilder: (context, idx) {
             final item = items![idx];
-            return InkWell(
-              onTap: () {
-                // 홈 화면의 최근 추가된 작품 클릭 시 만화 읽기 알림 표시
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('알림'),
-                    content: const Text('만화 읽기'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('확인'),
+            return Consumer(
+              builder: (context, ref, child) {
+                return InkWell(
+                  onTap: () {
+                    final baseUrl = ref.read(siteUrlServiceProvider);
+                    final viewerUrl = item.fullViewUrl.isNotEmpty
+                        ? (item.fullViewUrl.startsWith('http')
+                            ? item.fullViewUrl
+                            : '$baseUrl${item.fullViewUrl}')
+                        : (item.url.startsWith('http')
+                            ? item.url
+                            : '$baseUrl${item.url}');
+                    debugPrint(
+                        '[썸네일] 뷰어로 이동: viewerUrl=$viewerUrl, title=${item.title}');
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => MangaViewerScreen(
+                          chapterId: item.fullViewUrl.isNotEmpty
+                              ? item.fullViewUrl.split('/').last
+                              : item.url.split('/').last,
+                          title: item.title,
+                        ),
                       ),
-                    ],
+                    );
+                  },
+                  child: SizedBox(
+                    width: 100,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: FutureBuilder<String?>(
+                            future: getCookieString(
+                                ref.read(globalCookieJarProvider), item.url),
+                            builder: (context, snapshot) {
+                              return NetworkImageWithHeaders(
+                                url: item.thumbnailUrl,
+                                width: 100,
+                                height: 100,
+                                fit: BoxFit.cover,
+                                cookie: snapshot.data,
+                                errorWidget: Container(
+                                  width: 100,
+                                  height: 100,
+                                  color: Colors.grey[300],
+                                  child: const Icon(Icons.broken_image,
+                                      size: 32, color: Colors.grey),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          item.title,
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(fontWeight: FontWeight.bold),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
                   ),
                 );
               },
-              child: SizedBox(
-                width: 100,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Consumer(builder: (context, ref, _) {
-                        return FutureBuilder<String?>(
-                          future: getCookieString(
-                              ref.read(globalCookieJarProvider), item.url),
-                          builder: (context, snapshot) {
-                            return NetworkImageWithHeaders(
-                              url: item.thumbnailUrl,
-                              width: 100,
-                              height: 100,
-                              fit: BoxFit.cover,
-                              cookie: snapshot.data,
-                              errorWidget: Container(
-                                width: 100,
-                                height: 100,
-                                color: Colors.grey[300],
-                                child: const Icon(Icons.broken_image,
-                                    size: 32, color: Colors.grey),
-                              ),
-                            );
-                          },
-                        );
-                      }),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      item.title,
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
             );
           },
         ),
@@ -238,35 +249,21 @@ class _HorizontalCardList extends StatelessWidget {
     }
     if (placeholderCount == 0 && emptyText != null) {
       return Padding(
-        padding: const EdgeInsets.all(12),
-        child: Text(emptyText!, style: const TextStyle(color: Colors.grey)),
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Center(child: Text(emptyText!)),
       );
     }
-    return SizedBox(
-      height: 120,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: placeholderCount,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, idx) => Container(
-          width: 80,
-          decoration: BoxDecoration(
-            color: Colors.grey[300],
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-      ),
-    );
+    return const SizedBox.shrink();
   }
 }
 
 class _WeeklyBestList extends ConsumerWidget {
   const _WeeklyBestList();
-  
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final weeklyBestAsync = ref.watch(weeklyBestProvider);
-    
+
     return weeklyBestAsync.when(
       data: (items) {
         if (items.isEmpty) {
@@ -275,7 +272,7 @@ class _WeeklyBestList extends ConsumerWidget {
             child: Center(child: Text('주간 베스트 목록이 없습니다')),
           );
         }
-        
+
         return ListView.separated(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -350,7 +347,8 @@ class _WeeklyBestList extends ConsumerWidget {
       error: (error, stack) => Padding(
         padding: const EdgeInsets.all(16.0),
         child: Center(
-          child: Text('주간 베스트 로딩 오류: ${error.toString().substring(0, error.toString().length > 50 ? 50 : error.toString().length)}...'),
+          child: Text(
+              '주간 베스트 로딩 오류: ${error.toString().substring(0, error.toString().length > 50 ? 50 : error.toString().length)}...'),
         ),
       ),
     );
@@ -372,6 +370,46 @@ class _VerticalList extends StatelessWidget {
         subtitle: const Text('설명 또는 회차'),
         dense: true,
         onTap: () {},
+      ),
+    );
+  }
+}
+
+// 만화 보기 테스트 버튼 위젯
+class _MangaViewerTestButton extends StatelessWidget {
+  final WidgetRef ref;
+
+  const _MangaViewerTestButton({required this.ref});
+
+  @override
+  Widget build(BuildContext context) {
+    final baseUrl = ref.read(siteUrlServiceProvider);
+    // 예시 URL - 실제 사이트의 만화 URL로 변경해야 함
+    // 이중 슬래시 방지를 위해 baseUrl이 '/'로 끝나는지 확인
+    final testMangaUrl = baseUrl.endsWith('/')
+        ? '${baseUrl}comic/22570334'
+        : '$baseUrl/comic/22570334';
+
+    return Center(
+      child: ElevatedButton(
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => MangaViewerScreen(
+                chapterId: '22570334',
+                title: '고블린 슬레이어 97화',
+              ),
+            ),
+          );
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Theme.of(context).primaryColor,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        ),
+        child: const Text(
+          '만화 보기 테스트',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
       ),
     );
   }

@@ -18,6 +18,7 @@ import '../../presentation/viewmodels/navigator_provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../presentation/viewmodels/global_cookie_provider.dart';
+import 'package:http/http.dart' as http;
 part 'api_service.g.dart';
 
 // 모든 요청에 사용할 User-Agent (WebView & Dio 공용)
@@ -35,6 +36,7 @@ class ApiService extends _$ApiService {
   String? _sessionId;
   late final GlobalKey<NavigatorState> _navigatorKey;
   String? _lastRequestUrl;
+  final _baseUrl = 'https://manatoki.net';
 
   @override
   ApiService build({bool forceRefresh = false}) {
@@ -192,6 +194,18 @@ class ApiService extends _$ApiService {
 
       _lastRequestUrl = url;
 
+      // 요청 정보 로그
+      _logger.i('[REQUEST] 요청 URL: $url');
+      _logger.i(
+          '[REQUEST] 요청 헤더: \\n${(_dio.options.headers..addAll((options?.headers ?? {})))}');
+      try {
+        final cookieList = await _cookieJar.loadForRequest(Uri.parse(url));
+        _logger.i(
+            '[REQUEST] 요청 쿠키: ${cookieList.map((c) => "${c.name}=${c.value}").join('; ')}');
+      } catch (e) {
+        _logger.w('[REQUEST] 쿠키 로드 실패: $e');
+      }
+
       final response = await _dio.get<T>(
         url,
         options: options ??
@@ -202,6 +216,31 @@ class ApiService extends _$ApiService {
               },
             ),
       );
+
+      // 응답 정보 로그
+      _logger.i('[RESPONSE] 상태코드: ${response.statusCode}');
+      _logger.i('[RESPONSE] 전체 헤더: ${response.headers.map}');
+      if (response.headers.map['set-cookie'] != null) {
+        _logger
+            .i('[RESPONSE] Set-Cookie: ${response.headers.map['set-cookie']}');
+      }
+      if (response.extra['cookies'] != null) {
+        _logger.i('[RESPONSE] 응답 쿠키: ${response.extra['cookies']}');
+      }
+      if (response.data is String) {
+        final html = response.data as String;
+        if (html.trim() == '' ||
+            html.trim() == '<html><head></head><body></body></html>') {
+          _logger.w('[RESPONSE] HTML이 비어있음 또는 최소 구조만 존재');
+        }
+        if (_isBlockedPage(html)) {
+          _logger.w('[RESPONSE] 차단/Forbidden 페이지 감지됨');
+        }
+        // HTML 일부 미리보기 로그
+        final preview =
+            html.length > 500 ? html.substring(0, 500) + '...' : html;
+        _logger.d('[RESPONSE] HTML 미리보기: $preview');
+      }
 
       // 요청 성공 후 _lastRequestUrl 초기화
       _lastRequestUrl = null;
@@ -269,6 +308,17 @@ class ApiService extends _$ApiService {
         html.contains('_cf_chl_opt') ||
         html.contains('cf-browser-verification') ||
         html.contains('challenge-form');
+  }
+
+  // 차단/Forbidden 페이지 탐지
+  bool _isBlockedPage(String html) {
+    final minimalHtml = html.trim() == '' ||
+        html.trim() == '<html><head></head><body></body></html>';
+    final forbidden = html.contains('Access Denied') ||
+        html.contains('Forbidden') ||
+        html.contains('차단') ||
+        html.contains('이용이 제한');
+    return minimalHtml || forbidden;
   }
 
   /// 앱 내 쿠키 삭제
@@ -674,8 +724,126 @@ class ApiService extends _$ApiService {
 
   /// 마나토끼 최근 추가된 작품 페이지 HTML (page: 1~10)
   Future<String> fetchRecentAddedPage(int page) async {
-    final url = '/bbs/page.php?hid=update&page=$page';
-    final response = await _dio.get(url);
-    return response.data as String;
+    try {
+      _logger.i('[API] 최근 업데이트 페이지 로드 시작: page=$page');
+      final response = await _request<String>(
+        '/bbs/page.php',
+        queryParameters: {
+          'hid': 'update',
+          'page': page.toString(),
+        },
+        bypassCaptchaOnBlocked: true, // 캡차 우회 시도 활성화
+      );
+
+      if (response.data == null || response.data!.isEmpty) {
+        _logger.e('[API] 최근 업데이트 데이터가 비어있습니다');
+        throw Exception('최근 업데이트 데이터를 가져오는데 실패했습니다');
+      }
+
+      // HTML 로그 추가 (일부만 출력)
+      final htmlPreview = response.data!.length > 500
+          ? response.data!.substring(0, 500) + '...'
+          : response.data!;
+      _logger.i('[API] 최근 업데이트 HTML 로그 (일부): $htmlPreview');
+
+      // HTML 응답에서 제목 추출 시도
+      final titleMatch =
+          RegExp(r'<title>(.*?)</title>').firstMatch(response.data!);
+      if (titleMatch != null) {
+        _logger.i('[API] 페이지 제목: ${titleMatch.group(1)}');
+      }
+
+      return response.data!;
+    } catch (e, stack) {
+      _logger.e('[API] 최근 업데이트 페이지 로드 실패', error: e, stackTrace: stack);
+      rethrow;
+    }
+  }
+
+  Future<String> fetchMangaList() async {
+    try {
+      final response =
+          await http.get(Uri.parse('$_baseUrl/bbs/board.php?bo_table=manga'));
+      if (response.statusCode == 200) {
+        return response.body;
+      } else {
+        throw Exception('Failed to load manga list: ${response.statusCode}');
+      }
+    } catch (e, stack) {
+      _logger.e('만화 목록 로딩 실패', error: e, stackTrace: stack);
+      throw Exception('만화 목록 로딩 실패: $e');
+    }
+  }
+
+  Future<String> fetchMangaDetail(String mangaId) async {
+    try {
+      final response = await http.get(
+          Uri.parse('$_baseUrl/bbs/board.php?bo_table=manga&wr_id=$mangaId'));
+      if (response.statusCode == 200) {
+        return response.body;
+      } else {
+        throw Exception('Failed to load manga detail: ${response.statusCode}');
+      }
+    } catch (e, stack) {
+      _logger.e('만화 상세 정보 로딩 실패', error: e, stackTrace: stack);
+      throw Exception('만화 상세 정보 로딩 실패: $e');
+    }
+  }
+
+  Future<String> fetchSearchResults({
+    String? title,
+    String? artist,
+    String? publish,
+    String? jaum,
+    String? tag,
+    String? sort,
+  }) async {
+    try {
+      final queryParams = <String, String>{};
+
+      if (title != null && title.isNotEmpty) {
+        queryParams['stx'] = title;
+      }
+
+      if (artist != null && artist.isNotEmpty) {
+        queryParams['sfl'] = 'wr_1';
+        queryParams['stx'] = artist;
+      }
+
+      if (publish != null && publish.isNotEmpty && publish != '전체') {
+        queryParams['wr_2'] = publish;
+      }
+
+      if (jaum != null && jaum.isNotEmpty && jaum != '전체') {
+        queryParams['wr_3'] = jaum;
+      }
+
+      if (tag != null && tag.isNotEmpty && tag != '전체') {
+        queryParams['wr_4'] = tag;
+      }
+
+      if (sort != null && sort.isNotEmpty) {
+        if (sort == 'wr_datetime') {
+          queryParams['sst'] = 'wr_datetime';
+          queryParams['sod'] = 'desc';
+        } else {
+          queryParams['sst'] = sort;
+        }
+      }
+
+      final uri = Uri.parse('$_baseUrl/bbs/board.php?bo_table=manga')
+          .replace(queryParameters: queryParams);
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        return response.body;
+      } else {
+        throw Exception(
+            'Failed to load search results: ${response.statusCode}');
+      }
+    } catch (e, stack) {
+      _logger.e('검색 결과 로딩 실패', error: e, stackTrace: stack);
+      throw Exception('검색 결과 로딩 실패: $e');
+    }
   }
 }

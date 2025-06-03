@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import '../../data/models/manga_detail.dart';
 import '../screens/manga/manga_detail_webview_controller.dart';
 import '../../utils/manga_detail_parser.dart';
@@ -6,7 +7,19 @@ import '../../data/providers/site_url_provider.dart';
 
 final mangaDetailControllerProvider =
     Provider.autoDispose<MangaDetailWebViewController>((ref) {
-  return MangaDetailWebViewController();
+  final navigationDelegate = NavigationDelegate(
+    onPageStarted: (url) {
+      print('페이지 로드 시작: $url');
+    },
+    onPageFinished: (url) {
+      print('페이지 로드 완료: $url');
+    },
+    onNavigationRequest: (request) {
+      return NavigationDecision.navigate;
+    },
+  );
+
+  return MangaDetailWebViewController(navigationDelegate: navigationDelegate);
 });
 
 final mangaDetailProvider =

@@ -9,6 +9,7 @@ import 'presentation/screens/saved/saved_screen.dart';
 import 'presentation/screens/settings/settings_screen.dart';
 import 'presentation/viewmodels/theme_provider.dart';
 import 'presentation/viewmodels/navigator_provider.dart';
+import 'presentation/viewmodels/manga_viewer_view_model.dart';
 
 void main() {
   runApp(const ProviderScope(child: MyApp()));
@@ -20,9 +21,10 @@ class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final navKey = ref.watch(navigatorKeyProvider);
-
     final themeMode = ref.watch(themeProvider);
-    
+    final hiddenWebView =
+        ref.watch(globalInAppWebViewWidgetProvider); // 숨겨진 WebView
+
     return MaterialApp(
       navigatorKey: navKey,
       title: 'MangaView',
@@ -42,7 +44,12 @@ class MyApp extends ConsumerWidget {
         ),
         useMaterial3: true,
       ),
-      home: const MainScreen(),
+      home: Stack(
+        children: [
+          const MainScreen(),
+          hiddenWebView, // 이제 Directionality가 보장됨
+        ],
+      ),
     );
   }
 }
@@ -56,7 +63,7 @@ class MainScreen extends ConsumerStatefulWidget {
 
 class _MainScreenState extends ConsumerState<MainScreen> {
   int _selectedIndex = 0;
-  
+
   @override
   void initState() {
     super.initState();
@@ -149,4 +156,4 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       ),
     );
   }
-} 
+}

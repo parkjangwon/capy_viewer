@@ -17,7 +17,7 @@ MangaDetailParseResult parseMangaDetailFromHtml(String html, String mangaId) {
   final document = html_parser.parse(html);
 
   // 캡챠 확인
-  final hasCaptcha = _checkForCaptcha(html);
+  final hasCaptcha = checkForCaptcha(html);
   print('캡챠 확인 결과: $hasCaptcha');
   if (hasCaptcha) {
     print('캡챠 감지됨: 빈 데이터 반환');
@@ -828,7 +828,7 @@ List<MangaChapter> _findChapterLinksInDocument(Document document) {
   return chapters;
 }
 
-bool _checkForCaptcha(String html) {
+bool checkForCaptcha(String html) {
   final htmlLower = html.toLowerCase();
 
   // 클라우드플레어 캡차 확인
