@@ -42,6 +42,7 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _isOverscrolling = false;
   double _overscrollStart = 0;
+  String _currentTitle = ''; // 현재 페이지의 실제 제목
 
   @override
   void initState() {
@@ -193,12 +194,21 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
       final htmlString = html.toString();
       print('[뷰어] HTML 길이: ${htmlString.length}');
 
-      // 네비게이션 링크 파싱
-      _parseNavigationLinks(htmlString);
-
       // HTML 파싱
       print('[뷰어] HTML 파싱 시작');
       final document = html_parser.parse(htmlString);
+
+      // 현재 페이지의 제목 파싱
+      final titleElement = document.querySelector('.toon-title');
+      if (titleElement != null) {
+        final title = titleElement.attributes['title'];
+        if (title != null) {
+          setState(() {
+            _currentTitle = title;
+          });
+          print('[뷰어] 현재 페이지 제목: $_currentTitle');
+        }
+      }
 
       // 네비게이션 링크 파싱
       _parseNavigationLinks(htmlString);
@@ -430,6 +440,7 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
           if (options[i].attributes['selected'] != null) {
             currentIndex = i;
             print('[파서] 현재 회차 인덱스: $i');
+            // 현재 회차 정보는 _getHtmlContent에서 처리하므로 여기서는 처리하지 않음
             break;
           }
         }
@@ -661,11 +672,13 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
                   backgroundColor: Colors.transparent,
                   elevation: 0,
                   title: Text(
-                    widget.title,
+                    _currentTitle.isNotEmpty ? _currentTitle : widget.title,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                   leading: IconButton(
                     icon: const Icon(Icons.arrow_back),
