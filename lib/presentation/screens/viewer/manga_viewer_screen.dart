@@ -58,19 +58,87 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
   String? _currentTitle;
   Timer? _loadingTimer;
   bool _showError = false;
+  final ScrollController _scrollController = ScrollController();
+  bool _isOverscrolling = false;
+  double _overscrollStart = 0;
+  Timer? _overscrollTimer;
 
   @override
   void initState() {
     super.initState();
     _initWebView();
     _loadChapterList();
+    _setupScrollController();
   }
 
   @override
   void dispose() {
     _hideTimer?.cancel();
     _loadingTimer?.cancel();
+    _overscrollTimer?.cancel();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _setupScrollController() {
+    _scrollController.addListener(() {
+      // 현재 스크롤 위치 로깅
+      print('[스크롤] 현재 위치: ${_scrollController.position.pixels}');
+      print('[스크롤] 최대 위치: ${_scrollController.position.maxScrollExtent}');
+      print('[스크롤] 최소 위치: ${_scrollController.position.minScrollExtent}');
+
+      if (_scrollController.position.outOfRange) {
+        print('[스크롤] 범위 초과 감지');
+
+        if (!_isOverscrolling) {
+          final overscroll = _scrollController.position.pixels -
+              (_scrollController.position.pixels < 0
+                  ? _scrollController.position.minScrollExtent
+                  : _scrollController.position.maxScrollExtent);
+
+          print('[스크롤] 오버스크롤 거리: $overscroll');
+
+          if (overscroll.abs() > 50) {
+            // 50픽셀 이상 오버스크롤하면 시작
+            print('[스크롤] 오버스크롤 시작');
+            setState(() {
+              _isOverscrolling = true;
+              _overscrollStart = _scrollController.position.pixels;
+            });
+          }
+        } else {
+          final overscrollDistance =
+              (_scrollController.position.pixels - _overscrollStart).abs();
+          print('[스크롤] 현재 당긴 거리: $overscrollDistance');
+
+          if (overscrollDistance > 150) {
+            // 150픽셀 이상 당기면 페이지 전환
+            print('[스크롤] 페이지 전환 시도');
+            _isOverscrolling = false;
+
+            if (_scrollController.position.pixels <
+                _scrollController.position.minScrollExtent) {
+              print('[스크롤] 이전화로 이동');
+              if (_prevChapterUrl != null) {
+                _navigateToUrl(_prevChapterUrl);
+              }
+            } else {
+              print('[스크롤] 다음화로 이동');
+              if (_nextChapterUrl != null) {
+                _navigateToUrl(_nextChapterUrl);
+              }
+            }
+          }
+        }
+      } else {
+        if (_isOverscrolling) {
+          print('[스크롤] 오버스크롤 상태 초기화');
+          setState(() {
+            _isOverscrolling = false;
+          });
+        }
+      }
+    });
   }
 
   Future<void> _initWebView() async {
@@ -138,76 +206,6 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
     try {
       print('[뷰어] HTML 콘텐츠 가져오기 시작');
 
-      // 자바스크립트로 이미지 URL 배열 가져오기 시도
-      try {
-        final jsResult = await _controller!.runJavaScriptReturningResult('''
-          function getImageUrls() {
-            const urls = [];
-            document.querySelectorAll('article[itemprop="articleBody"] img').forEach(img => {
-              let url = null;
-              
-              // data- 속성에서 URL 찾기
-              for (const attrName of Object.keys(img.dataset)) {
-                const value = img.dataset[attrName];
-                if (value && value.includes('://') && !value.includes('loading-image.gif') && !value.includes('/tokinbtoki/')) {
-                  url = value;
-                  break;
-                }
-              }
-              
-              // data-original 속성 확인
-              if (!url) {
-                const dataOriginal = img.getAttribute('data-original');
-                if (dataOriginal && !dataOriginal.includes('loading-image.gif') && !dataOriginal.includes('/tokinbtoki/')) {
-                  url = dataOriginal;
-                }
-              }
-              
-              // src 속성은 마지막 옵션으로 사용
-              if (!url) {
-                const src = img.getAttribute('src');
-                if (src && !src.includes('loading-image.gif') && !src.includes('/tokinbtoki/')) {
-                  url = src;
-                }
-              }
-              
-              if (url) {
-                urls.push(url);
-              }
-            });
-            return JSON.stringify(urls);
-          }
-          getImageUrls();
-        ''');
-
-        final List<dynamic> urls = jsResult != null
-            ? List<dynamic>.from(json.decode(jsResult.toString()))
-            : [];
-
-        if (urls.isNotEmpty) {
-          print('[뷰어] JavaScript에서 이미지 URL ${urls.length}개 찾음');
-
-          // URL 정규화
-          final baseUrl = ref.read(siteUrlServiceProvider);
-          final normalizedUrls = urls.map((url) {
-            if (url.toString().startsWith('http')) return url.toString();
-            return url.toString().startsWith('/')
-                ? baseUrl + url.toString()
-                : '$baseUrl/$url';
-          }).toList();
-
-          setState(() {
-            _imageUrls = normalizedUrls.cast<String>();
-            _isLoading = false;
-            _showError = false;
-          });
-          _loadingTimer?.cancel();
-          return;
-        }
-      } catch (e) {
-        print('[뷰어] JavaScript 이미지 URL 가져오기 실패: $e');
-      }
-
       final html = await _controller!.runJavaScriptReturningResult(
         'document.documentElement.outerHTML',
       );
@@ -216,6 +214,9 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
 
       final htmlString = html.toString();
       print('[뷰어] HTML 길이: ${htmlString.length}');
+
+      // 네비게이션 링크 파싱
+      _parseNavigationLinks(htmlString);
 
       // HTML 파싱
       print('[뷰어] HTML 파싱 시작');
@@ -229,37 +230,6 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
           setState(() {
             _currentTitle = currentTitle;
           });
-        }
-      }
-
-      // 네비게이션 링크 파싱 (최초 1회만)
-      if (_prevChapterUrl == null) {
-        final navDiv = document.querySelector('.toon-nav');
-        if (navDiv != null) {
-          // 이전화 링크
-          final prevBtn = navDiv.querySelector('.btn_prev');
-          if (prevBtn != null) {
-            final href = prevBtn.attributes['href'];
-            if (href != null && !href.contains('javascript:alert')) {
-              _prevChapterUrl = href;
-            }
-          }
-
-          // 목록 링크
-          final listLink = navDiv.querySelector('a i.fa-list')?.parent;
-          if (listLink != null) {
-            _listUrl = listLink.attributes['href'];
-            print('[뷰어] 목록 링크 찾음: $_listUrl');
-          }
-
-          // 다음화 링크
-          final nextBtn = navDiv.querySelector('.btn_next');
-          if (nextBtn != null) {
-            final href = nextBtn.attributes['href'];
-            if (href != null && !href.contains('javascript:alert')) {
-              _nextChapterUrl = href;
-            }
-          }
         }
       }
 
@@ -477,31 +447,30 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
   void _navigateToUrl(String? url) {
     if (url == null) return;
 
+    print('[네비게이션] URL 처리 시작: $url');
+
     final baseUrl = ref.read(siteUrlServiceProvider);
     String fullUrl;
+    String chapterId;
 
     // URL 정규화
     if (url.startsWith('http')) {
       fullUrl = url;
-    } else if (url.startsWith('/comic/')) {
-      fullUrl = '$baseUrl${url.substring(1)}';
-    } else if (url.startsWith('comic/')) {
-      fullUrl = '$baseUrl/$url';
+      // URL에서 chapter ID 추출
+      final idMatch = RegExp(r'/comic/(\d+)').firstMatch(url);
+      chapterId = idMatch?.group(1) ?? '';
     } else {
-      // 숫자만 있는 경우 (chapterId)
-      if (RegExp(r'^\d+$').hasMatch(url)) {
-        fullUrl = '$baseUrl/comic/$url';
-      } else {
-        fullUrl = '$baseUrl${url.startsWith('/') ? url : '/$url'}';
-      }
+      // ID만 있는 경우
+      chapterId = url.replaceAll(RegExp(r'[^0-9]'), '');
+      fullUrl = '$baseUrl/comic/$chapterId';
     }
 
-    // URL에서 chapterId 추출
-    final idMatch = RegExp(r'/comic/(\d+)').firstMatch(fullUrl);
-    final chapterId = idMatch?.group(1);
+    print('[네비게이션] 정규화된 URL: $fullUrl');
+    print('[네비게이션] Chapter ID: $chapterId');
 
-    if (chapterId != null) {
-      Navigator.of(context).pushReplacement(
+    if (chapterId.isNotEmpty) {
+      Navigator.pushReplacement(
+        context,
         MaterialPageRoute(
           builder: (_) => MangaViewerScreen(
             chapterId: chapterId,
@@ -509,6 +478,81 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
           ),
         ),
       );
+    }
+  }
+
+  // HTML에서 네비게이션 링크 파싱
+  void _parseNavigationLinks(String htmlString) {
+    print('[파서] 네비게이션 링크 파싱 시작');
+
+    final document = html_parser.parse(htmlString);
+    final navDiv = document.querySelector('.toon-nav');
+
+    if (navDiv != null) {
+      print('[파서] .toon-nav 찾음');
+      print('[파서] HTML: ${navDiv.outerHtml}');
+
+      // select 태그에서 현재 회차와 이전/다음 회차 찾기
+      final select = navDiv.querySelector('select[name="wr_id"]');
+      if (select != null) {
+        final options = select.querySelectorAll('option');
+        print('[파서] 전체 회차 수: ${options.length}');
+
+        // 현재 선택된 회차 찾기
+        int currentIndex = -1;
+        for (var i = 0; i < options.length; i++) {
+          if (options[i].attributes['selected'] != null) {
+            currentIndex = i;
+            print('[파서] 현재 회차 인덱스: $i');
+            break;
+          }
+        }
+
+        if (currentIndex != -1) {
+          // 이전화 설정
+          if (currentIndex < options.length - 1) {
+            final nextValue = options[currentIndex + 1].attributes['value'];
+            if (nextValue != null) {
+              _prevChapterUrl = nextValue;
+              print('[파서] 이전화 ID: $_prevChapterUrl');
+            }
+          }
+
+          // 다음화 설정
+          if (currentIndex > 0) {
+            final prevValue = options[currentIndex - 1].attributes['value'];
+            if (prevValue != null) {
+              _nextChapterUrl = prevValue;
+              print('[파서] 다음화 ID: $_nextChapterUrl');
+            }
+          }
+        }
+      }
+
+      // a 태그에서도 확인 (백업)
+      if (_prevChapterUrl == null) {
+        final prevBtn = navDiv.querySelector('#goPrevBtn');
+        if (prevBtn != null) {
+          final href = prevBtn.attributes['href'];
+          if (href != null && !href.contains('javascript:')) {
+            _prevChapterUrl = href;
+            print('[파서] a 태그에서 이전화 링크 찾음: $_prevChapterUrl');
+          }
+        }
+      }
+
+      if (_nextChapterUrl == null) {
+        final nextBtn = navDiv.querySelector('#goNextBtn');
+        if (nextBtn != null) {
+          final href = nextBtn.attributes['href'];
+          if (href != null && !href.contains('javascript:')) {
+            _nextChapterUrl = href;
+            print('[파서] a 태그에서 다음화 링크 찾음: $_nextChapterUrl');
+          }
+        }
+      }
+    } else {
+      print('[파서] .toon-nav를 찾을 수 없음');
     }
   }
 
@@ -615,21 +659,68 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
             )
           else if (!_showManatokiCaptcha)
             SingleChildScrollView(
+              controller: _scrollController,
+              physics: const AlwaysScrollableScrollPhysics(), // 스크롤 물리 속성 추가
               child: Column(
-                children: _imageUrls.map((url) {
-                  return NetworkImageWithHeaders(
-                    url: url,
-                    width: MediaQuery.of(context).size.width,
-                    height: MediaQuery.of(context).size.width * 1.4,
-                    fit: BoxFit.fitWidth,
-                    errorWidget: const Center(
-                      child: Text(
-                        '이미지를 불러올 수 없습니다.',
-                        style: TextStyle(color: Colors.white),
+                children: [
+                  // 이전화로 당기기 인디케이터
+                  if (_isOverscrolling &&
+                      _scrollController.position.pixels <
+                          _scrollController.position.minScrollExtent &&
+                      _prevChapterUrl != null)
+                    Container(
+                      height: 100,
+                      alignment: Alignment.center,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.keyboard_arrow_up,
+                              color: Colors.white70, size: 36),
+                          const SizedBox(height: 8),
+                          Text(
+                            '이전화로 이동하기',
+                            style: const TextStyle(color: Colors.white70),
+                          ),
+                        ],
                       ),
                     ),
-                  );
-                }).toList(),
+                  // 이미지 목록
+                  ..._imageUrls.map((url) {
+                    return NetworkImageWithHeaders(
+                      url: url,
+                      width: MediaQuery.of(context).size.width,
+                      height: MediaQuery.of(context).size.width * 1.4,
+                      fit: BoxFit.fitWidth,
+                      errorWidget: const Center(
+                        child: Text(
+                          '이미지를 불러올 수 없습니다.',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                  // 다음화로 당기기 인디케이터
+                  if (_isOverscrolling &&
+                      _scrollController.position.pixels >
+                          _scrollController.position.maxScrollExtent &&
+                      _nextChapterUrl != null)
+                    Container(
+                      height: 100,
+                      alignment: Alignment.center,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            '다음화로 이동하기',
+                            style: const TextStyle(color: Colors.white70),
+                          ),
+                          const SizedBox(height: 8),
+                          const Icon(Icons.keyboard_arrow_down,
+                              color: Colors.white70, size: 36),
+                        ],
+                      ),
+                    ),
+                ],
               ),
             ),
 
@@ -648,22 +739,7 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
           if (!_showManatokiCaptcha && !_isLoading)
             Positioned.fill(
               child: GestureDetector(
-                onTapUp: (details) {
-                  final screenWidth = MediaQuery.of(context).size.width;
-                  final tapPosition = details.globalPosition.dx;
-
-                  if (tapPosition < screenWidth / 3) {
-                    if (_prevChapterUrl != null) {
-                      _navigateToUrl(_prevChapterUrl);
-                    }
-                  } else if (tapPosition > (screenWidth * 2 / 3)) {
-                    if (_nextChapterUrl != null) {
-                      _navigateToUrl(_nextChapterUrl);
-                    }
-                  } else {
-                    _toggleNavigationBar();
-                  }
-                },
+                onTapUp: (details) => _toggleNavigationBar(),
                 behavior: HitTestBehavior.translucent,
                 child: const SizedBox.expand(),
               ),
@@ -719,7 +795,8 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.skip_previous),
-                    color: Colors.white,
+                    color:
+                        _prevChapterUrl == null ? Colors.white38 : Colors.white,
                     onPressed: _prevChapterUrl == null
                         ? null
                         : () => _navigateToUrl(_prevChapterUrl),
@@ -727,19 +804,20 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.list),
-                    color: Colors.white,
-                    onPressed: _listUrl == null ? null : _showChapterList,
-                    tooltip: '회차 목록',
+                    color: Colors.white38,
+                    onPressed: null, // 회차 목록 비활성화
+                    tooltip: '회차 목록 (준비중)',
                   ),
                   IconButton(
                     icon: const Icon(Icons.comment),
-                    color: Colors.white,
-                    onPressed: null,
-                    tooltip: '댓글',
+                    color: Colors.white38,
+                    onPressed: null, // 댓글 비활성화
+                    tooltip: '댓글 (준비중)',
                   ),
                   IconButton(
                     icon: const Icon(Icons.skip_next),
-                    color: Colors.white,
+                    color:
+                        _nextChapterUrl == null ? Colors.white38 : Colors.white,
                     onPressed: _nextChapterUrl == null
                         ? null
                         : () => _navigateToUrl(_nextChapterUrl),
