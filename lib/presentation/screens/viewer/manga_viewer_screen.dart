@@ -544,8 +544,41 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // 메인 콘텐츠 영역 (스크롤 뷰)
-          if (_showManatokiCaptcha && _captchaInfo != null)
+          // 메인 콘텐츠 영역
+          if (_isLoading ||
+              (_imageUrls.isEmpty && !_showManatokiCaptcha && !_showError))
+            Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                  const SizedBox(height: 24),
+                  const Column(
+                    children: [
+                      Text(
+                        '페이지를 가져오고 있습니다',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        '잠시만 기다려주세요...',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            )
+          else if (_showManatokiCaptcha && _captchaInfo != null)
             ManatokiCaptchaWidget(
               captchaInfo: _captchaInfo!,
               onCaptchaComplete: (success) {
@@ -558,27 +591,26 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
                 }
               },
             )
-          else if (_isLoading)
-            const Center(
+          else if (_imageUrls.isEmpty && !_showManatokiCaptcha && _showError)
+            Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    '이미지를 불러오는 중...',
+                  const Text(
+                    '이미지를 찾을 수 없습니다.',
                     style: TextStyle(color: Colors.white),
                   ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.arrow_back),
+                    label: const Text('뒤로 가기'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white24,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
                 ],
-              ),
-            )
-          else if (_imageUrls.isEmpty && !_showManatokiCaptcha && _showError)
-            const Center(
-              child: Text(
-                '이미지를 찾을 수 없습니다.',
-                style: TextStyle(color: Colors.white),
               ),
             )
           else if (!_showManatokiCaptcha)
