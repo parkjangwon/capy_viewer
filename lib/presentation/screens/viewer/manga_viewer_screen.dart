@@ -1,25 +1,14 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-
 import 'package:html/parser.dart' as html_parser;
 
 import '../../../data/providers/site_url_provider.dart';
-
-import '../../../utils/manga_chapter_parser.dart';
 import '../../../utils/manatoki_captcha_helper.dart';
-
-import '../../../data/models/manga_chapter.dart';
 import '../../../utils/network_image_with_headers.dart';
-
 import '../../widgets/manatoki_captcha_widget.dart';
-
-import '../../../core/logger.dart';
-
 import '../../viewmodels/global_cookie_provider.dart';
 
 /// 만화 뷰어 화면
@@ -39,7 +28,6 @@ class MangaViewerScreen extends ConsumerStatefulWidget {
 }
 
 class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
-  final Logger _logger = Logger();
   WebViewController? _controller;
   List<String> _imageUrls = [];
   bool _isLoading = true;
@@ -49,25 +37,16 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
   Timer? _hideTimer;
   String? _prevChapterUrl;
   String? _nextChapterUrl;
-  String? _listUrl;
-  final _animationDuration = const Duration(milliseconds: 200);
-  final PageController _pageController = PageController();
-  List<MangaChapter> _chapters = [];
-  MangaChapter? _currentChapter;
-  bool _isLoadingChapters = false;
-  String? _currentTitle;
   Timer? _loadingTimer;
   bool _showError = false;
   final ScrollController _scrollController = ScrollController();
   bool _isOverscrolling = false;
   double _overscrollStart = 0;
-  Timer? _overscrollTimer;
 
   @override
   void initState() {
     super.initState();
     _initWebView();
-    _loadChapterList();
     _setupScrollController();
   }
 
@@ -75,7 +54,6 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
   void dispose() {
     _hideTimer?.cancel();
     _loadingTimer?.cancel();
-    _overscrollTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -222,16 +200,8 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
       print('[뷰어] HTML 파싱 시작');
       final document = html_parser.parse(htmlString);
 
-      // 제목 파싱
-      final titleElement = document.querySelector('.page-header .pull-left h3');
-      if (titleElement != null) {
-        final currentTitle = titleElement.text.trim();
-        if (currentTitle.isNotEmpty) {
-          setState(() {
-            _currentTitle = currentTitle;
-          });
-        }
-      }
+      // 네비게이션 링크 파싱
+      _parseNavigationLinks(htmlString);
 
       // 마나토끼 캡차 확인
       if (ManatokiCaptchaHelper.isCaptchaRequired(htmlString)) {
@@ -400,50 +370,6 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
     }
   }
 
-  Future<void> _loadChapterList() async {
-    if (_isLoadingChapters) return;
-    setState(() => _isLoadingChapters = true);
-
-    try {
-      final baseUrl = ref.read(siteUrlServiceProvider);
-      final cookieJar = ref.read(globalCookieJarProvider);
-      final cookies = await cookieJar.loadForRequest(Uri.parse(baseUrl));
-      final cookieString =
-          cookies.map((c) => '${c.name}=${c.value}').join('; ');
-
-      // 현재 회차의 상위 URL로 이동하여 회차 목록을 가져옵니다
-      final response = await _controller?.runJavaScriptReturningResult(
-        'document.documentElement.outerHTML',
-      );
-
-      if (response != null) {
-        final html = response.toString();
-        final chapters =
-            MangaChapterParser.parseChapterList(html, widget.chapterId);
-
-        if (mounted) {
-          setState(() {
-            _chapters = chapters;
-            _currentChapter = chapters.firstWhere(
-              (chapter) => chapter.id == widget.chapterId,
-              orElse: () => MangaChapter(
-                id: widget.chapterId,
-                title: widget.title,
-                url: '/comic/${widget.chapterId}',
-              ),
-            );
-          });
-        }
-      }
-    } catch (e) {
-      print('회차 목록 로딩 오류: $e');
-    } finally {
-      if (mounted) {
-        setState(() => _isLoadingChapters = false);
-      }
-    }
-  }
-
   void _navigateToUrl(String? url) {
     if (url == null) return;
 
@@ -556,32 +482,6 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
     }
   }
 
-  void _showChapterList() {
-    if (_listUrl == null) return;
-
-    final baseUrl = ref.read(siteUrlServiceProvider);
-    String fullUrl;
-
-    // URL 정규화
-    if (_listUrl!.startsWith('http')) {
-      fullUrl = _listUrl!;
-    } else if (_listUrl!.startsWith('/comic/')) {
-      fullUrl = '$baseUrl${_listUrl!.substring(1)}';
-    } else if (_listUrl!.startsWith('comic/')) {
-      fullUrl = '$baseUrl/$_listUrl!';
-    } else {
-      fullUrl =
-          '$baseUrl${_listUrl!.startsWith('/') ? _listUrl! : '/$_listUrl!'}';
-    }
-
-    // 목록 페이지로 이동
-    Navigator.pop(context);
-    Navigator.pushNamed(context, '/detail', arguments: {
-      'url': fullUrl,
-      'title': widget.title,
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -660,7 +560,7 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
           else if (!_showManatokiCaptcha)
             SingleChildScrollView(
               controller: _scrollController,
-              physics: const AlwaysScrollableScrollPhysics(), // 스크롤 물리 속성 추가
+              physics: const AlwaysScrollableScrollPhysics(),
               child: Column(
                 children: [
                   // 이전화로 당기기 인디케이터
@@ -761,7 +661,7 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
                   backgroundColor: Colors.transparent,
                   elevation: 0,
                   title: Text(
-                    _currentTitle ?? widget.title,
+                    widget.title,
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
