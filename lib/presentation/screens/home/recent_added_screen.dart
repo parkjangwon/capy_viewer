@@ -12,6 +12,7 @@ import '../../../data/providers/site_url_provider.dart';
 import '../../../utils/content_filter.dart';
 import '../../../utils/network_image_with_headers.dart';
 import '../manga/manga_navigation.dart';
+import '../viewer/manga_viewer_screen.dart';
 
 class RecentAddedScreen extends ConsumerStatefulWidget {
   const RecentAddedScreen({super.key});
@@ -136,18 +137,16 @@ class _RecentAddedListItem extends ConsumerWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(8),
         onTap: () {
-          // 카드 영역 클릭 시 만화 읽기 알림 표시
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('알림'),
-              content: const Text('만화 읽기'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('확인'),
-                ),
-              ],
+          final baseUrl = ref.read(siteUrlServiceProvider);
+          final viewerUrl =
+              item.url.startsWith('http') ? item.url : '$baseUrl${item.url}';
+          debugPrint('[최근추가] 뷰어로 이동: url=$viewerUrl');
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => MangaViewerScreen(
+                chapterId: viewerUrl,
+                title: item.title,
+              ),
             ),
           );
         },

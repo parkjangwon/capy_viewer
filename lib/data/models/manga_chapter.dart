@@ -1,18 +1,40 @@
 /// 만화 회차 정보 모델
 class MangaChapter {
+  final String id;
   final String title;
   final String url;
   final String uploadDate;
-  final String views;
-  final String rating;
-  final String comments;
+  final int views;
+  final bool isCurrent;
 
-  const MangaChapter({
+  MangaChapter({
+    required this.id,
     required this.title,
     required this.url,
-    required this.uploadDate,
-    required this.views,
-    required this.rating,
-    required this.comments,
+    this.uploadDate = '',
+    this.views = 0,
+    this.isCurrent = false,
   });
+
+  factory MangaChapter.fromJson(Map<String, dynamic> json) {
+    return MangaChapter(
+      id: json['id'] as String,
+      title: json['title'] as String,
+      url: json['url'] as String,
+      uploadDate: json['uploadDate'] as String? ?? '',
+      views: json['views'] as int? ?? 0,
+      isCurrent: json['isCurrent'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'url': url,
+      'uploadDate': uploadDate,
+      'views': views,
+      'isCurrent': isCurrent,
+    };
+  }
 }

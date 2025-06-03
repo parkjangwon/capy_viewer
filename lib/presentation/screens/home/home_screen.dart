@@ -9,6 +9,7 @@ import '../../viewmodels/recent_added_provider.dart';
 import '../../viewmodels/weekly_best_provider.dart';
 import '../../viewmodels/global_cookie_provider.dart';
 import '../../viewmodels/cookie_sync_utils.dart';
+import '../manga/manga_navigation.dart';
 import '../viewer/manga_viewer_screen.dart';
 import 'recent_added_screen.dart';
 
@@ -179,21 +180,14 @@ class _HorizontalCardList extends StatelessWidget {
                 return InkWell(
                   onTap: () {
                     final baseUrl = ref.read(siteUrlServiceProvider);
-                    final viewerUrl = item.fullViewUrl.isNotEmpty
-                        ? (item.fullViewUrl.startsWith('http')
-                            ? item.fullViewUrl
-                            : '$baseUrl${item.fullViewUrl}')
-                        : (item.url.startsWith('http')
-                            ? item.url
-                            : '$baseUrl${item.url}');
-                    debugPrint(
-                        '[썸네일] 뷰어로 이동: viewerUrl=$viewerUrl, title=${item.title}');
+                    final viewerUrl = item.url.startsWith('http')
+                        ? item.url
+                        : '$baseUrl${item.url}';
+                    debugPrint('[썸네일] 뷰어로 이동: url=$viewerUrl');
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => MangaViewerScreen(
-                          chapterId: item.fullViewUrl.isNotEmpty
-                              ? item.fullViewUrl.split('/').last
-                              : item.url.split('/').last,
+                          chapterId: viewerUrl,
                           title: item.title,
                         ),
                       ),
@@ -291,26 +285,13 @@ class _WeeklyBestList extends ConsumerWidget {
               title: Text(item.title),
               dense: true,
               onTap: () {
-                // 만화 읽기 알림창 표시
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('만화 읽기'),
-                    content: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('제목: ${item.title}'),
-                        const SizedBox(height: 8),
-                        Text('URL: ${item.url}'),
-                      ],
+                final chapterId = item.url.split('/').last;
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => MangaViewerScreen(
+                      chapterId: chapterId,
+                      title: item.title,
                     ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('확인'),
-                      ),
-                    ],
                   ),
                 );
               },

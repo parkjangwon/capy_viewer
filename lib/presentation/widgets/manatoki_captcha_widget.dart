@@ -381,6 +381,25 @@ class _ManatokiCaptchaWidgetState extends ConsumerState<ManatokiCaptchaWidget> {
                     ),
                   ),
                 ),
+                // 새로고침 버튼 추가
+                Positioned(
+                  right: 4,
+                  top: 4,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.refresh,
+                          color: Colors.white, size: 20),
+                      padding: const EdgeInsets.all(4),
+                      constraints: const BoxConstraints(),
+                      onPressed: () => setState(() {}),
+                      tooltip: '새로고침',
+                    ),
+                  ),
+                ),
               ],
             ),
           ),

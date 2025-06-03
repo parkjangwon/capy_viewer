@@ -1,25 +1,25 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+
 import 'package:html/parser.dart' as html_parser;
-import 'package:html/dom.dart' as dom;
-import 'package:cookie_jar/cookie_jar.dart';
-import '../../../data/models/manga_viewer_state.dart';
+
 import '../../../data/providers/site_url_provider.dart';
-import '../../../data/providers/cookie_store_provider.dart';
-import '../../../utils/manga_detail_parser.dart';
+
+import '../../../utils/manga_chapter_parser.dart';
 import '../../../utils/manatoki_captcha_helper.dart';
-import '../../../data/models/manga_page.dart';
+
+import '../../../data/models/manga_chapter.dart';
 import '../../../utils/network_image_with_headers.dart';
-import '../../viewmodels/manga_viewer_view_model.dart';
+
 import '../../widgets/manatoki_captcha_widget.dart';
-import '../../widgets/captcha/unified_captcha_handler.dart';
+
 import '../../../core/logger.dart';
-import '../manga/manga_captcha_screen.dart';
-import '../../../test_manga_parser.dart';
+
 import '../../viewmodels/global_cookie_provider.dart';
 
 /// 만화 뷰어 화면
@@ -40,24 +40,44 @@ class MangaViewerScreen extends ConsumerStatefulWidget {
 
 class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
   final Logger _logger = Logger();
-  WebViewController? _controller; // nullable로 변경
+  WebViewController? _controller;
   List<String> _imageUrls = [];
   bool _isLoading = true;
   bool _showManatokiCaptcha = false;
   ManatokiCaptchaInfo? _captchaInfo;
+  bool _showNavigationBar = false;
+  Timer? _hideTimer;
+  String? _prevChapterUrl;
+  String? _nextChapterUrl;
+  String? _listUrl;
+  final _animationDuration = const Duration(milliseconds: 200);
   final PageController _pageController = PageController();
+  List<MangaChapter> _chapters = [];
+  MangaChapter? _currentChapter;
+  bool _isLoadingChapters = false;
+  String? _currentTitle;
+  Timer? _loadingTimer;
+  bool _showError = false;
 
   @override
   void initState() {
     super.initState();
     _initWebView();
+    _loadChapterList();
+  }
+
+  @override
+  void dispose() {
+    _hideTimer?.cancel();
+    _loadingTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _initWebView() async {
     final cookieManager = WebViewCookieManager();
     await cookieManager.clearCookies();
 
-    final baseUrl = 'https://manatoki468.net';
+    final baseUrl = ref.read(siteUrlServiceProvider);
     final cookieJar = ref.read(globalCookieJarProvider);
     final cookies = await cookieJar.loadForRequest(Uri.parse(baseUrl));
 
@@ -83,14 +103,111 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
       _controller = controller;
     });
 
-    // URL 로드는 컨트롤러 설정 후에 수행
-    await controller.loadRequest(
-        Uri.parse('https://manatoki468.net/comic/${widget.chapterId}'));
+    // URL 정규화
+    String fullUrl;
+    if (widget.chapterId.startsWith('http')) {
+      fullUrl = widget.chapterId;
+    } else if (widget.chapterId.startsWith('/comic/')) {
+      fullUrl = '$baseUrl${widget.chapterId.substring(1)}';
+    } else if (widget.chapterId.startsWith('comic/')) {
+      fullUrl = '$baseUrl/${widget.chapterId}';
+    } else {
+      fullUrl = '$baseUrl/comic/${widget.chapterId}';
+    }
+
+    print('[뷰어] 로드할 URL: $fullUrl');
+    await controller.loadRequest(Uri.parse(fullUrl));
   }
 
   Future<void> _getHtmlContent() async {
+    _loadingTimer?.cancel();
+
+    setState(() {
+      _isLoading = true;
+      _showError = false;
+    });
+
+    _loadingTimer = Timer(const Duration(seconds: 10), () {
+      if (mounted && _imageUrls.isEmpty && !_showManatokiCaptcha) {
+        setState(() {
+          _showError = true;
+        });
+      }
+    });
+
     try {
       print('[뷰어] HTML 콘텐츠 가져오기 시작');
+
+      // 자바스크립트로 이미지 URL 배열 가져오기 시도
+      try {
+        final jsResult = await _controller!.runJavaScriptReturningResult('''
+          function getImageUrls() {
+            const urls = [];
+            document.querySelectorAll('article[itemprop="articleBody"] img').forEach(img => {
+              let url = null;
+              
+              // data- 속성에서 URL 찾기
+              for (const attrName of Object.keys(img.dataset)) {
+                const value = img.dataset[attrName];
+                if (value && value.includes('://') && !value.includes('loading-image.gif') && !value.includes('/tokinbtoki/')) {
+                  url = value;
+                  break;
+                }
+              }
+              
+              // data-original 속성 확인
+              if (!url) {
+                const dataOriginal = img.getAttribute('data-original');
+                if (dataOriginal && !dataOriginal.includes('loading-image.gif') && !dataOriginal.includes('/tokinbtoki/')) {
+                  url = dataOriginal;
+                }
+              }
+              
+              // src 속성은 마지막 옵션으로 사용
+              if (!url) {
+                const src = img.getAttribute('src');
+                if (src && !src.includes('loading-image.gif') && !src.includes('/tokinbtoki/')) {
+                  url = src;
+                }
+              }
+              
+              if (url) {
+                urls.push(url);
+              }
+            });
+            return JSON.stringify(urls);
+          }
+          getImageUrls();
+        ''');
+
+        final List<dynamic> urls = jsResult != null
+            ? List<dynamic>.from(json.decode(jsResult.toString()))
+            : [];
+
+        if (urls.isNotEmpty) {
+          print('[뷰어] JavaScript에서 이미지 URL ${urls.length}개 찾음');
+
+          // URL 정규화
+          final baseUrl = ref.read(siteUrlServiceProvider);
+          final normalizedUrls = urls.map((url) {
+            if (url.toString().startsWith('http')) return url.toString();
+            return url.toString().startsWith('/')
+                ? baseUrl + url.toString()
+                : '$baseUrl/$url';
+          }).toList();
+
+          setState(() {
+            _imageUrls = normalizedUrls.cast<String>();
+            _isLoading = false;
+            _showError = false;
+          });
+          _loadingTimer?.cancel();
+          return;
+        }
+      } catch (e) {
+        print('[뷰어] JavaScript 이미지 URL 가져오기 실패: $e');
+      }
+
       final html = await _controller!.runJavaScriptReturningResult(
         'document.documentElement.outerHTML',
       );
@@ -99,6 +216,52 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
 
       final htmlString = html.toString();
       print('[뷰어] HTML 길이: ${htmlString.length}');
+
+      // HTML 파싱
+      print('[뷰어] HTML 파싱 시작');
+      final document = html_parser.parse(htmlString);
+
+      // 제목 파싱
+      final titleElement = document.querySelector('.page-header .pull-left h3');
+      if (titleElement != null) {
+        final currentTitle = titleElement.text.trim();
+        if (currentTitle.isNotEmpty) {
+          setState(() {
+            _currentTitle = currentTitle;
+          });
+        }
+      }
+
+      // 네비게이션 링크 파싱 (최초 1회만)
+      if (_prevChapterUrl == null) {
+        final navDiv = document.querySelector('.toon-nav');
+        if (navDiv != null) {
+          // 이전화 링크
+          final prevBtn = navDiv.querySelector('.btn_prev');
+          if (prevBtn != null) {
+            final href = prevBtn.attributes['href'];
+            if (href != null && !href.contains('javascript:alert')) {
+              _prevChapterUrl = href;
+            }
+          }
+
+          // 목록 링크
+          final listLink = navDiv.querySelector('a i.fa-list')?.parent;
+          if (listLink != null) {
+            _listUrl = listLink.attributes['href'];
+            print('[뷰어] 목록 링크 찾음: $_listUrl');
+          }
+
+          // 다음화 링크
+          final nextBtn = navDiv.querySelector('.btn_next');
+          if (nextBtn != null) {
+            final href = nextBtn.attributes['href'];
+            if (href != null && !href.contains('javascript:alert')) {
+              _nextChapterUrl = href;
+            }
+          }
+        }
+      }
 
       // 마나토끼 캡차 확인
       if (ManatokiCaptchaHelper.isCaptchaRequired(htmlString)) {
@@ -119,57 +282,94 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
         }
       }
 
-      // HTML 파싱
-      print('[뷰어] HTML 파싱 시작');
-      final document = html_parser.parse(htmlString);
-      List<dom.Element> foundImages = [];
-
-      // 1. article 태그를 찾습니다
+      // 이미지 파싱
       final article = document.querySelector('article[itemprop="articleBody"]');
-      print('[뷰어] article 태그 찾음: ${article != null}');
-
       if (article != null) {
-        // 2. article 내의 모든 img 태그를 순서대로 찾습니다
         final images = article.querySelectorAll('img');
-        print('[뷰어] 이미지 태그 개수: ${images.length}');
-        foundImages = images.toList();
-      }
+        print('[뷰어] 찾은 이미지 태그 개수: ${images.length}');
 
-      // 3. 이미지 URL 추출 및 필터링
-      final urls = foundImages
-          .map((img) {
-            // data- 속성 확인
-            final dataUrl = img.attributes.entries
-                .where((attr) =>
-                    (attr.key as String).startsWith('data-') &&
-                    attr.value.contains('://'))
-                .map((attr) => attr.value)
-                .firstOrNull;
+        final urls = <String>[];
+        for (final img in images) {
+          print('[뷰어] 이미지 태그 속성: ${img.attributes}');
 
-            // src 속성 확인
-            final src = dataUrl ?? img.attributes['src'] ?? '';
-            if (src.isNotEmpty && !src.contains('/tokinbtoki/')) {
-              print('[뷰어] 이미지 URL 발견: $src');
-              return src;
+          String? imageUrl;
+
+          // data- 속성에서 URL 찾기
+          for (final attr in img.attributes.entries) {
+            if ((attr.key as String).startsWith('data-') &&
+                attr.value.contains('://') &&
+                !attr.value.contains('loading-image.gif') &&
+                !attr.value.contains('/tokinbtoki/')) {
+              imageUrl = attr.value;
+              print('[뷰어] data- 속성에서 URL 찾음: $imageUrl');
+              break;
             }
-            return '';
-          })
-          .where((url) => url.isNotEmpty)
-          .toList();
+          }
 
-      print('[뷰어] 필터링된 이미지 URL 개수: ${urls.length}');
+          // data-original 속성 확인
+          if (imageUrl == null) {
+            final dataOriginal = img.attributes['data-original'];
+            if (dataOriginal != null &&
+                !dataOriginal.contains('loading-image.gif') &&
+                !dataOriginal.contains('/tokinbtoki/')) {
+              imageUrl = dataOriginal;
+              print('[뷰어] data-original 속성에서 URL 찾음: $imageUrl');
+            }
+          }
 
-      if (urls.isNotEmpty) {
+          // src 속성 확인
+          if (imageUrl == null) {
+            final src = img.attributes['src'];
+            if (src != null &&
+                !src.contains('loading-image.gif') &&
+                !src.contains('/tokinbtoki/')) {
+              imageUrl = src;
+              print('[뷰어] src 속성에서 URL 찾음: $imageUrl');
+            }
+          }
+
+          if (imageUrl != null && imageUrl.isNotEmpty) {
+            // 상대 경로를 절대 경로로 변환
+            if (!imageUrl.startsWith('http')) {
+              final baseUrl = ref.read(siteUrlServiceProvider);
+              imageUrl = imageUrl.startsWith('/')
+                  ? baseUrl + imageUrl
+                  : '$baseUrl/$imageUrl';
+            }
+            urls.add(imageUrl);
+          }
+        }
+
+        print('[뷰어] 최종 이미지 URL 개수: ${urls.length}');
+        print('[뷰어] 이미지 URL 목록:');
+        for (var i = 0; i < urls.length; i++) {
+          print('[뷰어] ${i + 1}번째 이미지: ${urls[i]}');
+        }
+
+        if (urls.isNotEmpty) {
+          setState(() {
+            _imageUrls = urls;
+            _isLoading = false;
+          });
+          print('[뷰어] 상태 업데이트 완료');
+        } else {
+          print('[뷰어] 이미지를 찾을 수 없음');
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      } else {
+        print('[뷰어] article 태그를 찾을 수 없음');
         setState(() {
-          _imageUrls = urls;
           _isLoading = false;
         });
-        print('[뷰어] 상태 업데이트 완료');
-      } else {
-        print('[뷰어] 이미지를 찾을 수 없음');
       }
     } catch (e, stack) {
       print('[뷰어] HTML 파싱 중 오류 발생: $e\n$stack');
+      setState(() {
+        _isLoading = false;
+        _showError = true;
+      });
     }
   }
 
@@ -209,38 +409,142 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
     }
   }
 
+  // 네비게이션 바 토글
+  void _toggleNavigationBar() {
+    setState(() {
+      _showNavigationBar = !_showNavigationBar;
+    });
+
+    // 이전 타이머 취소
+    _hideTimer?.cancel();
+
+    // 네비게이션 바가 보이는 경우에만 타이머 설정
+    if (_showNavigationBar) {
+      _hideTimer = Timer(const Duration(seconds: 3), () {
+        if (mounted) {
+          setState(() {
+            _showNavigationBar = false;
+          });
+        }
+      });
+    }
+  }
+
+  Future<void> _loadChapterList() async {
+    if (_isLoadingChapters) return;
+    setState(() => _isLoadingChapters = true);
+
+    try {
+      final baseUrl = ref.read(siteUrlServiceProvider);
+      final cookieJar = ref.read(globalCookieJarProvider);
+      final cookies = await cookieJar.loadForRequest(Uri.parse(baseUrl));
+      final cookieString =
+          cookies.map((c) => '${c.name}=${c.value}').join('; ');
+
+      // 현재 회차의 상위 URL로 이동하여 회차 목록을 가져옵니다
+      final response = await _controller?.runJavaScriptReturningResult(
+        'document.documentElement.outerHTML',
+      );
+
+      if (response != null) {
+        final html = response.toString();
+        final chapters =
+            MangaChapterParser.parseChapterList(html, widget.chapterId);
+
+        if (mounted) {
+          setState(() {
+            _chapters = chapters;
+            _currentChapter = chapters.firstWhere(
+              (chapter) => chapter.id == widget.chapterId,
+              orElse: () => MangaChapter(
+                id: widget.chapterId,
+                title: widget.title,
+                url: '/comic/${widget.chapterId}',
+              ),
+            );
+          });
+        }
+      }
+    } catch (e) {
+      print('회차 목록 로딩 오류: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingChapters = false);
+      }
+    }
+  }
+
+  void _navigateToUrl(String? url) {
+    if (url == null) return;
+
+    final baseUrl = ref.read(siteUrlServiceProvider);
+    String fullUrl;
+
+    // URL 정규화
+    if (url.startsWith('http')) {
+      fullUrl = url;
+    } else if (url.startsWith('/comic/')) {
+      fullUrl = '$baseUrl${url.substring(1)}';
+    } else if (url.startsWith('comic/')) {
+      fullUrl = '$baseUrl/$url';
+    } else {
+      // 숫자만 있는 경우 (chapterId)
+      if (RegExp(r'^\d+$').hasMatch(url)) {
+        fullUrl = '$baseUrl/comic/$url';
+      } else {
+        fullUrl = '$baseUrl${url.startsWith('/') ? url : '/$url'}';
+      }
+    }
+
+    // URL에서 chapterId 추출
+    final idMatch = RegExp(r'/comic/(\d+)').firstMatch(fullUrl);
+    final chapterId = idMatch?.group(1);
+
+    if (chapterId != null) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => MangaViewerScreen(
+            chapterId: chapterId,
+            title: widget.title,
+          ),
+        ),
+      );
+    }
+  }
+
+  void _showChapterList() {
+    if (_listUrl == null) return;
+
+    final baseUrl = ref.read(siteUrlServiceProvider);
+    String fullUrl;
+
+    // URL 정규화
+    if (_listUrl!.startsWith('http')) {
+      fullUrl = _listUrl!;
+    } else if (_listUrl!.startsWith('/comic/')) {
+      fullUrl = '$baseUrl${_listUrl!.substring(1)}';
+    } else if (_listUrl!.startsWith('comic/')) {
+      fullUrl = '$baseUrl/$_listUrl!';
+    } else {
+      fullUrl =
+          '$baseUrl${_listUrl!.startsWith('/') ? _listUrl! : '/$_listUrl!'}';
+    }
+
+    // 목록 페이지로 이동
+    Navigator.pop(context);
+    Navigator.pushNamed(context, '/detail', arguments: {
+      'url': fullUrl,
+      'title': widget.title,
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.title),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              setState(() {
-                _isLoading = true;
-                _imageUrls = [];
-              });
-              _controller?.reload();
-            },
-          ),
-        ],
-      ),
+      backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // 숨겨진 WebView
-          if (_controller != null) // null 체크 추가
-            Offstage(
-              offstage: true,
-              child: SizedBox(
-                width: 0,
-                height: 0,
-                child: WebViewWidget(controller: _controller!),
-              ),
-            ),
-
-          // 메인 콘텐츠
+          // 메인 콘텐츠 영역 (스크롤 뷰)
           if (_showManatokiCaptcha && _captchaInfo != null)
             ManatokiCaptchaWidget(
               captchaInfo: _captchaInfo!,
@@ -255,30 +559,164 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
               },
             )
           else if (_isLoading)
-            const Center(child: CircularProgressIndicator())
-          else if (_imageUrls.isEmpty)
-            const Center(child: Text('이미지를 찾을 수 없습니다.'))
-          else
-            PageView.builder(
-              controller: _pageController,
-              scrollDirection: Axis.horizontal,
-              itemCount: _imageUrls.length,
-              itemBuilder: (context, index) {
-                return InteractiveViewer(
-                  minScale: 1.0,
-                  maxScale: 3.0,
-                  child: NetworkImageWithHeaders(
-                    url: _imageUrls[index],
+            const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    '이미지를 불러오는 중...',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ],
+              ),
+            )
+          else if (_imageUrls.isEmpty && !_showManatokiCaptcha && _showError)
+            const Center(
+              child: Text(
+                '이미지를 찾을 수 없습니다.',
+                style: TextStyle(color: Colors.white),
+              ),
+            )
+          else if (!_showManatokiCaptcha)
+            SingleChildScrollView(
+              child: Column(
+                children: _imageUrls.map((url) {
+                  return NetworkImageWithHeaders(
+                    url: url,
                     width: MediaQuery.of(context).size.width,
-                    height: MediaQuery.of(context).size.height,
-                    fit: BoxFit.contain,
+                    height: MediaQuery.of(context).size.width * 1.4,
+                    fit: BoxFit.fitWidth,
                     errorWidget: const Center(
-                      child: Text('이미지를 불러올 수 없습니다.'),
+                      child: Text(
+                        '이미지를 불러올 수 없습니다.',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+
+          // 숨겨진 WebView
+          if (_controller != null)
+            Offstage(
+              offstage: true,
+              child: SizedBox(
+                width: 0,
+                height: 0,
+                child: WebViewWidget(controller: _controller!),
+              ),
+            ),
+
+          // 터치 감지 영역
+          if (!_showManatokiCaptcha && !_isLoading)
+            Positioned.fill(
+              child: GestureDetector(
+                onTapUp: (details) {
+                  final screenWidth = MediaQuery.of(context).size.width;
+                  final tapPosition = details.globalPosition.dx;
+
+                  if (tapPosition < screenWidth / 3) {
+                    if (_prevChapterUrl != null) {
+                      _navigateToUrl(_prevChapterUrl);
+                    }
+                  } else if (tapPosition > (screenWidth * 2 / 3)) {
+                    if (_nextChapterUrl != null) {
+                      _navigateToUrl(_nextChapterUrl);
+                    }
+                  } else {
+                    _toggleNavigationBar();
+                  }
+                },
+                behavior: HitTestBehavior.translucent,
+                child: const SizedBox.expand(),
+              ),
+            ),
+
+          // 네비게이션 바 (상단)
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            top: _showNavigationBar && !_showManatokiCaptcha
+                ? 0
+                : -kToolbarHeight - MediaQuery.of(context).padding.top,
+            left: 0,
+            right: 0,
+            child: Container(
+              color: Colors.black.withOpacity(0.7),
+              child: SafeArea(
+                child: AppBar(
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  title: Text(
+                    _currentTitle ?? widget.title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                );
-              },
+                  leading: IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+              ),
             ),
+          ),
+
+          // 네비게이션 바 (하단)
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            bottom: _showNavigationBar && !_showManatokiCaptcha
+                ? 0
+                : -kToolbarHeight - MediaQuery.of(context).padding.bottom,
+            left: 0,
+            right: 0,
+            child: Container(
+              color: Colors.black.withOpacity(0.7),
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).padding.bottom,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.skip_previous),
+                    color: Colors.white,
+                    onPressed: _prevChapterUrl == null
+                        ? null
+                        : () => _navigateToUrl(_prevChapterUrl),
+                    tooltip: '이전화',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.list),
+                    color: Colors.white,
+                    onPressed: _listUrl == null ? null : _showChapterList,
+                    tooltip: '회차 목록',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.comment),
+                    color: Colors.white,
+                    onPressed: null,
+                    tooltip: '댓글',
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.skip_next),
+                    color: Colors.white,
+                    onPressed: _nextChapterUrl == null
+                        ? null
+                        : () => _navigateToUrl(_nextChapterUrl),
+                    tooltip: '다음화',
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
