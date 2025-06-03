@@ -497,177 +497,177 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          // 메인 콘텐츠 영역
-          if (_isLoading ||
-              (_imageUrls.isEmpty && !_showManatokiCaptcha && !_showError))
-            Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                  ),
-                  const SizedBox(height: 24),
-                  const Column(
-                    children: [
-                      Text(
-                        '페이지를 가져오고 있습니다',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        '잠시만 기다려주세요...',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            )
-          else if (_showManatokiCaptcha && _captchaInfo != null)
-            ManatokiCaptchaWidget(
-              captchaInfo: _captchaInfo!,
-              onCaptchaComplete: (success) {
-                if (success) {
-                  _onCaptchaVerified();
-                } else {
-                  setState(() {
-                    _isLoading = false;
-                  });
-                }
-              },
-            )
-          else if (_imageUrls.isEmpty && !_showManatokiCaptcha && _showError)
-            Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    '이미지를 찾을 수 없습니다.',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.arrow_back),
-                    label: const Text('뒤로 가기'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white24,
-                      foregroundColor: Colors.white,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            // 메인 콘텐츠 영역
+            if (_isLoading ||
+                (_imageUrls.isEmpty && !_showManatokiCaptcha && !_showError))
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
-                  ),
-                ],
-              ),
-            )
-          else if (!_showManatokiCaptcha)
-            SingleChildScrollView(
-              controller: _scrollController,
-              physics: const AlwaysScrollableScrollPhysics(),
-              child: Column(
-                children: [
-                  // 이전화로 당기기 인디케이터
-                  if (_isOverscrolling &&
-                      _scrollController.position.pixels <
-                          _scrollController.position.minScrollExtent &&
-                      _prevChapterUrl != null)
-                    Container(
-                      height: 100,
-                      alignment: Alignment.center,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.keyboard_arrow_up,
-                              color: Colors.white70, size: 36),
-                          const SizedBox(height: 8),
-                          Text(
-                            '이전화로 이동하기',
-                            style: const TextStyle(color: Colors.white70),
+                    const SizedBox(height: 24),
+                    const Column(
+                      children: [
+                        Text(
+                          '페이지를 가져오고 있습니다',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
                           ),
-                        ],
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          '잠시만 기다려주세요...',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              )
+            else if (_showManatokiCaptcha && _captchaInfo != null)
+              ManatokiCaptchaWidget(
+                captchaInfo: _captchaInfo!,
+                onCaptchaComplete: (success) {
+                  if (success) {
+                    _onCaptchaVerified();
+                  } else {
+                    setState(() {
+                      _isLoading = false;
+                    });
+                  }
+                },
+              )
+            else if (_imageUrls.isEmpty && !_showManatokiCaptcha && _showError)
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      '이미지를 찾을 수 없습니다.',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.arrow_back),
+                      label: const Text('뒤로 가기'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white24,
+                        foregroundColor: Colors.white,
                       ),
                     ),
-                  // 이미지 목록
-                  ..._imageUrls.map((url) {
-                    return NetworkImageWithHeaders(
-                      url: url,
-                      width: MediaQuery.of(context).size.width,
-                      height: MediaQuery.of(context).size.width * 1.4,
-                      fit: BoxFit.fitWidth,
-                      errorWidget: const Center(
-                        child: Text(
-                          '이미지를 불러올 수 없습니다.',
-                          style: TextStyle(color: Colors.white),
+                  ],
+                ),
+              )
+            else if (!_showManatokiCaptcha)
+              SingleChildScrollView(
+                controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: Column(
+                  children: [
+                    // 이전화로 당기기 인디케이터
+                    if (_isOverscrolling &&
+                        _scrollController.position.pixels <
+                            _scrollController.position.minScrollExtent &&
+                        _prevChapterUrl != null)
+                      Container(
+                        height: 100,
+                        alignment: Alignment.center,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.keyboard_arrow_up,
+                                color: Colors.white70, size: 36),
+                            const SizedBox(height: 8),
+                            Text(
+                              '이전화로 이동하기',
+                              style: const TextStyle(color: Colors.white70),
+                            ),
+                          ],
                         ),
                       ),
-                    );
-                  }).toList(),
-                  // 다음화로 당기기 인디케이터
-                  if (_isOverscrolling &&
-                      _scrollController.position.pixels >
-                          _scrollController.position.maxScrollExtent &&
-                      _nextChapterUrl != null)
-                    Container(
-                      height: 100,
-                      alignment: Alignment.center,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            '다음화로 이동하기',
-                            style: const TextStyle(color: Colors.white70),
+                    // 이미지 목록
+                    ..._imageUrls.map((url) {
+                      return NetworkImageWithHeaders(
+                        url: url,
+                        width: MediaQuery.of(context).size.width,
+                        height: MediaQuery.of(context).size.width * 1.4,
+                        fit: BoxFit.fitWidth,
+                        errorWidget: const Center(
+                          child: Text(
+                            '이미지를 불러올 수 없습니다.',
+                            style: TextStyle(color: Colors.white),
                           ),
-                          const SizedBox(height: 8),
-                          const Icon(Icons.keyboard_arrow_down,
-                              color: Colors.white70, size: 36),
-                        ],
+                        ),
+                      );
+                    }).toList(),
+                    // 다음화로 당기기 인디케이터
+                    if (_isOverscrolling &&
+                        _scrollController.position.pixels >
+                            _scrollController.position.maxScrollExtent &&
+                        _nextChapterUrl != null)
+                      Container(
+                        height: 100,
+                        alignment: Alignment.center,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              '다음화로 이동하기',
+                              style: const TextStyle(color: Colors.white70),
+                            ),
+                            const SizedBox(height: 8),
+                            const Icon(Icons.keyboard_arrow_down,
+                                color: Colors.white70, size: 36),
+                          ],
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
-            ),
 
-          // 숨겨진 WebView
-          if (_controller != null)
-            Offstage(
-              offstage: true,
-              child: SizedBox(
-                width: 0,
-                height: 0,
-                child: WebViewWidget(controller: _controller!),
+            // 숨겨진 WebView
+            if (_controller != null)
+              Offstage(
+                offstage: true,
+                child: SizedBox(
+                  width: 0,
+                  height: 0,
+                  child: WebViewWidget(controller: _controller!),
+                ),
               ),
-            ),
 
-          // 터치 감지 영역
-          if (!_showManatokiCaptcha && !_isLoading)
-            Positioned.fill(
-              child: GestureDetector(
-                onTapUp: (details) => _toggleNavigationBar(),
-                behavior: HitTestBehavior.translucent,
-                child: const SizedBox.expand(),
+            // 터치 감지 영역
+            if (!_showManatokiCaptcha && !_isLoading)
+              Positioned.fill(
+                child: GestureDetector(
+                  onTapUp: (details) => _toggleNavigationBar(),
+                  behavior: HitTestBehavior.translucent,
+                  child: const SizedBox.expand(),
+                ),
               ),
-            ),
 
-          // 네비게이션 바 (상단)
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeInOut,
-            top: _showNavigationBar && !_showManatokiCaptcha
-                ? 0
-                : -kToolbarHeight - MediaQuery.of(context).padding.top,
-            left: 0,
-            right: 0,
-            child: Container(
-              color: Colors.black.withOpacity(0.7),
-              child: SafeArea(
+            // 네비게이션 바 (상단)
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeInOut,
+              top: _showNavigationBar && !_showManatokiCaptcha
+                  ? 0
+                  : -kToolbarHeight,
+              left: 0,
+              right: 0,
+              child: Container(
+                color: Colors.black.withOpacity(0.7),
                 child: AppBar(
                   backgroundColor: Colors.transparent,
                   elevation: 0,
@@ -687,60 +687,59 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
                 ),
               ),
             ),
-          ),
 
-          // 네비게이션 바 (하단)
-          AnimatedPositioned(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeInOut,
-            bottom: _showNavigationBar && !_showManatokiCaptcha
-                ? 0
-                : -kToolbarHeight - MediaQuery.of(context).padding.bottom,
-            left: 0,
-            right: 0,
-            child: Container(
-              color: Colors.black.withOpacity(0.7),
-              padding: EdgeInsets.only(
-                bottom: MediaQuery.of(context).padding.bottom,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.skip_previous),
-                    color:
-                        _prevChapterUrl == null ? Colors.white38 : Colors.white,
-                    onPressed: _prevChapterUrl == null
-                        ? null
-                        : () => _navigateToUrl(_prevChapterUrl),
-                    tooltip: '이전화',
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.list),
-                    color: Colors.white38,
-                    onPressed: null, // 회차 목록 비활성화
-                    tooltip: '회차 목록 (준비중)',
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.comment),
-                    color: Colors.white38,
-                    onPressed: null, // 댓글 비활성화
-                    tooltip: '댓글 (준비중)',
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.skip_next),
-                    color:
-                        _nextChapterUrl == null ? Colors.white38 : Colors.white,
-                    onPressed: _nextChapterUrl == null
-                        ? null
-                        : () => _navigateToUrl(_nextChapterUrl),
-                    tooltip: '다음화',
-                  ),
-                ],
+            // 네비게이션 바 (하단)
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeInOut,
+              bottom: _showNavigationBar && !_showManatokiCaptcha
+                  ? 0
+                  : -kToolbarHeight,
+              left: 0,
+              right: 0,
+              child: Container(
+                color: Colors.black.withOpacity(0.7),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.skip_previous),
+                      color: _prevChapterUrl == null
+                          ? Colors.white38
+                          : Colors.white,
+                      onPressed: _prevChapterUrl == null
+                          ? null
+                          : () => _navigateToUrl(_prevChapterUrl),
+                      tooltip: '이전화',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.list),
+                      color: Colors.white38,
+                      onPressed: null, // 회차 목록 비활성화
+                      tooltip: '회차 목록 (준비중)',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.comment),
+                      color: Colors.white38,
+                      onPressed: null, // 댓글 비활성화
+                      tooltip: '댓글 (준비중)',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.skip_next),
+                      color: _nextChapterUrl == null
+                          ? Colors.white38
+                          : Colors.white,
+                      onPressed: _nextChapterUrl == null
+                          ? null
+                          : () => _navigateToUrl(_nextChapterUrl),
+                      tooltip: '다음화',
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
