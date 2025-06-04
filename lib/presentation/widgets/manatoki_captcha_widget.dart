@@ -338,26 +338,14 @@ class _ManatokiCaptchaWidgetState extends ConsumerState<ManatokiCaptchaWidget> {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Row(
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: () => widget.onCaptchaComplete(false),
-                ),
-                const Expanded(
-                  child: Text(
-                    '캡챠 인증',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                // 우측 여백을 맞추기 위한 더미 위젯
-                const SizedBox(width: 48),
-              ],
+            const Text(
+              '캡챠 인증',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
             Container(

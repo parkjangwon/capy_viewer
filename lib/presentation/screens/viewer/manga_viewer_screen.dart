@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:html/parser.dart' as html_parser;
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:cookie_jar/cookie_jar.dart';
+import 'package:flutter/gestures.dart'; // DragStartBehavior를 위한 import 추가
 
 import '../../../data/providers/site_url_provider.dart';
 import '../../../utils/manatoki_captcha_helper.dart';
-import '../../../utils/network_image_with_headers.dart';
 import '../../widgets/manatoki_captcha_widget.dart';
 import '../../viewmodels/global_cookie_provider.dart';
 
@@ -34,7 +36,6 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
   bool _showManatokiCaptcha = false;
   ManatokiCaptchaInfo? _captchaInfo;
   bool _showNavigationBar = false;
-  Timer? _hideTimer;
   String? _prevChapterUrl;
   String? _nextChapterUrl;
   Timer? _loadingTimer;
@@ -43,6 +44,10 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
   bool _isOverscrolling = false;
   double _overscrollStart = 0;
   String _currentTitle = ''; // 현재 페이지의 실제 제목
+  bool _isInitialLoad = true; // 초기 로드 여부를 추적하는 플래그
+  Timer? _dragTimer;
+  bool _isDragging = false;
+  double _dragOffset = 0;
 
   @override
   void initState() {
@@ -53,9 +58,9 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
 
   @override
   void dispose() {
-    _hideTimer?.cancel();
     _loadingTimer?.cancel();
     _scrollController.dispose();
+    _dragTimer?.cancel();
     super.dispose();
   }
 
@@ -141,11 +146,14 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
     final controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(NavigationDelegate(
-        onPageFinished: (_) => _getHtmlContent(),
+        onPageFinished: (url) {
+          if (mounted) {
+            _loadPageContent();
+          }
+        },
       ))
       ..enableZoom(false);
 
-    // 컨트롤러 설정이 완료된 후에 setState
     setState(() {
       _controller = controller;
     });
@@ -163,28 +171,30 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
     }
 
     print('[뷰어] 로드할 URL: $fullUrl');
+    _isInitialLoad = true; // 새 페이지 로드 시 초기 로드 플래그 설정
     await controller.loadRequest(Uri.parse(fullUrl));
   }
 
-  Future<void> _getHtmlContent() async {
-    _loadingTimer?.cancel();
+  // 페이지 콘텐츠 로드 (HTML 파싱 포함)
+  Future<void> _loadPageContent() async {
+    if (!mounted || !_isInitialLoad) return;
 
+    // 이미 이미지 URL이 로드되어 있다면 다시 로드하지 않음
+    if (_imageUrls.isNotEmpty) {
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+
+    _loadingTimer?.cancel();
     setState(() {
       _isLoading = true;
       _showError = false;
     });
 
-    _loadingTimer = Timer(const Duration(seconds: 10), () {
-      if (mounted && _imageUrls.isEmpty && !_showManatokiCaptcha) {
-        setState(() {
-          _showError = true;
-        });
-      }
-    });
-
     try {
       print('[뷰어] HTML 콘텐츠 가져오기 시작');
-
       final html = await _controller!.runJavaScriptReturningResult(
         'document.documentElement.outerHTML',
       );
@@ -195,7 +205,6 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
       print('[뷰어] HTML 길이: ${htmlString.length}');
 
       // HTML 파싱
-      print('[뷰어] HTML 파싱 시작');
       final document = html_parser.parse(htmlString);
 
       // 현재 페이지의 제목 파싱
@@ -216,8 +225,6 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
       // 마나토끼 캡차 확인
       if (ManatokiCaptchaHelper.isCaptchaRequired(htmlString)) {
         print('[뷰어] 마나토끼 캡차 감지됨');
-
-        // 캡차 정보 추출
         final baseUrl = ref.read(siteUrlServiceProvider);
         final captchaInfo =
             ManatokiCaptchaHelper.extractCaptchaInfo(htmlString, baseUrl);
@@ -240,8 +247,6 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
 
         final urls = <String>[];
         for (final img in images) {
-          print('[뷰어] 이미지 태그 속성: ${img.attributes}');
-
           String? imageUrl;
 
           // data- 속성에서 URL 찾기
@@ -249,9 +254,10 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
             if ((attr.key as String).startsWith('data-') &&
                 attr.value.contains('://') &&
                 !attr.value.contains('loading-image.gif') &&
-                !attr.value.contains('/tokinbtoki/')) {
+                !attr.value.contains('/tokinbtoki/') &&
+                !attr.value.contains('banner') &&
+                !attr.value.contains('ads')) {
               imageUrl = attr.value;
-              print('[뷰어] data- 속성에서 URL 찾음: $imageUrl');
               break;
             }
           }
@@ -261,9 +267,22 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
             final dataOriginal = img.attributes['data-original'];
             if (dataOriginal != null &&
                 !dataOriginal.contains('loading-image.gif') &&
-                !dataOriginal.contains('/tokinbtoki/')) {
+                !dataOriginal.contains('/tokinbtoki/') &&
+                !dataOriginal.contains('banner') &&
+                !dataOriginal.contains('ads')) {
               imageUrl = dataOriginal;
-              print('[뷰어] data-original 속성에서 URL 찾음: $imageUrl');
+            }
+          }
+
+          // data-src 속성 확인
+          if (imageUrl == null) {
+            final dataSrc = img.attributes['data-src'];
+            if (dataSrc != null &&
+                !dataSrc.contains('loading-image.gif') &&
+                !dataSrc.contains('/tokinbtoki/') &&
+                !dataSrc.contains('banner') &&
+                !dataSrc.contains('ads')) {
+              imageUrl = dataSrc;
             }
           }
 
@@ -272,14 +291,14 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
             final src = img.attributes['src'];
             if (src != null &&
                 !src.contains('loading-image.gif') &&
-                !src.contains('/tokinbtoki/')) {
+                !src.contains('/tokinbtoki/') &&
+                !src.contains('banner') &&
+                !src.contains('ads')) {
               imageUrl = src;
-              print('[뷰어] src 속성에서 URL 찾음: $imageUrl');
             }
           }
 
           if (imageUrl != null && imageUrl.isNotEmpty) {
-            // 상대 경로를 절대 경로로 변환
             if (!imageUrl.startsWith('http')) {
               final baseUrl = ref.read(siteUrlServiceProvider);
               imageUrl = imageUrl.startsWith('/')
@@ -290,36 +309,30 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
           }
         }
 
-        print('[뷰어] 최종 이미지 URL 개수: ${urls.length}');
-        print('[뷰어] 이미지 URL 목록:');
-        for (var i = 0; i < urls.length; i++) {
-          print('[뷰어] ${i + 1}번째 이미지: ${urls[i]}');
-        }
-
         if (urls.isNotEmpty) {
           setState(() {
             _imageUrls = urls;
             _isLoading = false;
           });
-          print('[뷰어] 상태 업데이트 완료');
+          print('[뷰어] 이미지 URL 추출 완료: ${urls.length}개');
         } else {
           print('[뷰어] 이미지를 찾을 수 없음');
           setState(() {
+            _showError = true;
             _isLoading = false;
           });
         }
-      } else {
-        print('[뷰어] article 태그를 찾을 수 없음');
+      }
+
+      _isInitialLoad = false; // HTML 파싱이 완료되면 초기 로드 플래그를 false로 설정
+    } catch (e) {
+      print('[뷰어] HTML 파싱 오류: $e');
+      if (mounted) {
         setState(() {
+          _showError = true;
           _isLoading = false;
         });
       }
-    } catch (e, stack) {
-      print('[뷰어] HTML 파싱 중 오류 발생: $e\n$stack');
-      setState(() {
-        _isLoading = false;
-        _showError = true;
-      });
     }
   }
 
@@ -359,62 +372,39 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
     }
   }
 
-  // 네비게이션 바 토글
+  // 네비게이션 바 토글 (HTML 파싱 없이 단순 UI 상태만 변경)
   void _toggleNavigationBar() {
     setState(() {
       _showNavigationBar = !_showNavigationBar;
     });
-
-    // 이전 타이머 취소
-    _hideTimer?.cancel();
-
-    // 네비게이션 바가 보이는 경우에만 타이머 설정
-    if (_showNavigationBar) {
-      _hideTimer = Timer(const Duration(seconds: 3), () {
-        if (mounted) {
-          setState(() {
-            _showNavigationBar = false;
-          });
-        }
-      });
-    }
   }
 
+  // 다른 페이지로 이동
   void _navigateToUrl(String? url) {
-    if (url == null) return;
+    if (url == null || url == '#next') return;
 
     print('[네비게이션] URL 처리 시작: $url');
 
     final baseUrl = ref.read(siteUrlServiceProvider);
     String fullUrl;
-    String chapterId;
 
     // URL 정규화
     if (url.startsWith('http')) {
       fullUrl = url;
-      // URL에서 chapter ID 추출
-      final idMatch = RegExp(r'/comic/(\d+)').firstMatch(url);
-      chapterId = idMatch?.group(1) ?? '';
+    } else if (url.startsWith('/')) {
+      fullUrl = baseUrl + url;
     } else {
-      // ID만 있는 경우
-      chapterId = url.replaceAll(RegExp(r'[^0-9]'), '');
-      fullUrl = '$baseUrl/comic/$chapterId';
+      fullUrl = '$baseUrl/comic/$url';
     }
 
-    print('[네비게이션] 정규화된 URL: $fullUrl');
-    print('[네비게이션] Chapter ID: $chapterId');
-
-    if (chapterId.isNotEmpty) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => MangaViewerScreen(
-            chapterId: chapterId,
-            title: widget.title,
-          ),
-        ),
-      );
-    }
+    print('[네비게이션] 이동할 URL: $fullUrl');
+    setState(() {
+      _imageUrls = [];
+      _isLoading = true;
+      _showError = false;
+      _isInitialLoad = true;
+    });
+    _controller?.loadRequest(Uri.parse(fullUrl));
   }
 
   // HTML에서 네비게이션 링크 파싱
@@ -440,13 +430,12 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
           if (options[i].attributes['selected'] != null) {
             currentIndex = i;
             print('[파서] 현재 회차 인덱스: $i');
-            // 현재 회차 정보는 _getHtmlContent에서 처리하므로 여기서는 처리하지 않음
             break;
           }
         }
 
         if (currentIndex != -1) {
-          // 이전화 설정
+          // 이전화 설정 (더 높은 인덱스)
           if (currentIndex < options.length - 1) {
             final nextValue = options[currentIndex + 1].attributes['value'];
             if (nextValue != null) {
@@ -455,36 +444,13 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
             }
           }
 
-          // 다음화 설정
+          // 다음화 설정 (더 낮은 인덱스)
           if (currentIndex > 0) {
             final prevValue = options[currentIndex - 1].attributes['value'];
             if (prevValue != null) {
               _nextChapterUrl = prevValue;
               print('[파서] 다음화 ID: $_nextChapterUrl');
             }
-          }
-        }
-      }
-
-      // a 태그에서도 확인 (백업)
-      if (_prevChapterUrl == null) {
-        final prevBtn = navDiv.querySelector('#goPrevBtn');
-        if (prevBtn != null) {
-          final href = prevBtn.attributes['href'];
-          if (href != null && !href.contains('javascript:')) {
-            _prevChapterUrl = href;
-            print('[파서] a 태그에서 이전화 링크 찾음: $_prevChapterUrl');
-          }
-        }
-      }
-
-      if (_nextChapterUrl == null) {
-        final nextBtn = navDiv.querySelector('#goNextBtn');
-        if (nextBtn != null) {
-          final href = nextBtn.attributes['href'];
-          if (href != null && !href.contains('javascript:')) {
-            _nextChapterUrl = href;
-            print('[파서] a 태그에서 다음화 링크 찾음: $_nextChapterUrl');
           }
         }
       }
@@ -497,6 +463,16 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
+      appBar: (_isLoading || _showManatokiCaptcha)
+          ? AppBar(
+              backgroundColor: Colors.black,
+              elevation: 0,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            )
+          : null,
       body: SafeArea(
         child: Stack(
           children: [
@@ -518,12 +494,11 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 16,
-                            fontWeight: FontWeight.bold,
                           ),
                         ),
                         SizedBox(height: 8),
                         Text(
-                          '잠시만 기다려주세요...',
+                          '잠시만 기다려주세요',
                           style: TextStyle(
                             color: Colors.white70,
                             fontSize: 14,
@@ -533,8 +508,43 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
                     ),
                   ],
                 ),
-              )
-            else if (_showManatokiCaptcha && _captchaInfo != null)
+              ),
+
+            if (_showError)
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      color: Colors.red,
+                      size: 48,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      '페이지를 불러올 수 없습니다',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          _isLoading = true;
+                          _showError = false;
+                          _isInitialLoad = true;
+                        });
+                        _controller?.reload();
+                      },
+                      child: const Text('다시 시도'),
+                    ),
+                  ],
+                ),
+              ),
+
+            if (_showManatokiCaptcha && _captchaInfo != null)
               ManatokiCaptchaWidget(
                 captchaInfo: _captchaInfo!,
                 onCaptchaComplete: (success) {
@@ -546,201 +556,278 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
                     });
                   }
                 },
-              )
-            else if (_imageUrls.isEmpty && !_showManatokiCaptcha && _showError)
-              Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+              ),
+
+            if (!_isLoading && !_showError && !_showManatokiCaptcha)
+              NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  if (notification is ScrollUpdateNotification) {
+                    final pixels = _scrollController.position.pixels;
+                    if (pixels < 0) {
+                      // 위로 당기는 중
+                      if (!_isDragging && pixels <= -60) {
+                        _startDragTimer(true);
+                      }
+                      _dragOffset = pixels;
+                    } else if (pixels >
+                        _scrollController.position.maxScrollExtent) {
+                      // 아래로 당기는 중
+                      if (!_isDragging &&
+                          pixels >=
+                              _scrollController.position.maxScrollExtent + 60) {
+                        _startDragTimer(false);
+                      }
+                      _dragOffset =
+                          pixels - _scrollController.position.maxScrollExtent;
+                    } else {
+                      // 당기기 취소
+                      _cancelDragTimer();
+                    }
+                  } else if (notification is ScrollEndNotification) {
+                    // 스크롤이 끝나면 타이머 취소
+                    _cancelDragTimer();
+                  }
+                  return false;
+                },
+                child: Stack(
                   children: [
-                    const Text(
-                      '이미지를 찾을 수 없습니다.',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.arrow_back),
-                      label: const Text('뒤로 가기'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white24,
-                        foregroundColor: Colors.white,
+                    GestureDetector(
+                      dragStartBehavior: DragStartBehavior.down,
+                      onTapUp: (details) {
+                        final screenHeight = MediaQuery.of(context).size.height;
+                        final tapY = details.globalPosition.dy;
+
+                        if (tapY < screenHeight * 0.2) {
+                          setState(() {
+                            _showNavigationBar = !_showNavigationBar;
+                          });
+                        } else {
+                          setState(() {
+                            _showNavigationBar = !_showNavigationBar;
+                          });
+                        }
+                      },
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        itemCount: _imageUrls.length,
+                        itemBuilder: (context, index) {
+                          return CachedMangaImage(
+                            url: _imageUrls[index],
+                            width: MediaQuery.of(context).size.width,
+                            height: MediaQuery.of(context).size.height,
+                          );
+                        },
                       ),
                     ),
-                  ],
-                ),
-              )
-            else if (!_showManatokiCaptcha)
-              SingleChildScrollView(
-                controller: _scrollController,
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: Column(
-                  children: [
-                    // 이전화로 당기기 인디케이터
-                    if (_isOverscrolling &&
-                        _scrollController.position.pixels <
-                            _scrollController.position.minScrollExtent &&
-                        _prevChapterUrl != null)
-                      Container(
-                        height: 100,
-                        alignment: Alignment.center,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.keyboard_arrow_up,
-                                color: Colors.white70, size: 36),
-                            const SizedBox(height: 8),
-                            Text(
-                              '이전화로 이동하기',
-                              style: const TextStyle(color: Colors.white70),
+                    if (_isDragging)
+                      Positioned(
+                        top: _dragOffset < 0 ? 20 : null,
+                        bottom: _dragOffset > 0 ? 20 : null,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.8),
+                              borderRadius: BorderRadius.circular(20),
                             ),
-                          ],
-                        ),
-                      ),
-                    // 이미지 목록
-                    ..._imageUrls.map((url) {
-                      return NetworkImageWithHeaders(
-                        url: url,
-                        width: MediaQuery.of(context).size.width,
-                        height: MediaQuery.of(context).size.width * 1.4,
-                        fit: BoxFit.fitWidth,
-                        errorWidget: const Center(
-                          child: Text(
-                            '이미지를 불러올 수 없습니다.',
-                            style: TextStyle(color: Colors.white),
+                            child: Text(
+                              _dragOffset < 0 ? '이전화로 이동하기' : '다음화로 이동하기',
+                              style: const TextStyle(color: Colors.white),
+                            ),
                           ),
                         ),
-                      );
-                    }).toList(),
-                    // 다음화로 당기기 인디케이터
-                    if (_isOverscrolling &&
-                        _scrollController.position.pixels >
-                            _scrollController.position.maxScrollExtent &&
-                        _nextChapterUrl != null)
-                      Container(
-                        height: 100,
-                        alignment: Alignment.center,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              '다음화로 이동하기',
-                              style: const TextStyle(color: Colors.white70),
-                            ),
-                            const SizedBox(height: 8),
-                            const Icon(Icons.keyboard_arrow_down,
-                                color: Colors.white70, size: 36),
-                          ],
-                        ),
                       ),
                   ],
                 ),
               ),
 
-            // 숨겨진 WebView
-            if (_controller != null)
-              Offstage(
-                offstage: true,
-                child: SizedBox(
-                  width: 0,
-                  height: 0,
-                  child: WebViewWidget(controller: _controller!),
-                ),
-              ),
-
-            // 터치 감지 영역
-            if (!_showManatokiCaptcha && !_isLoading)
-              Positioned.fill(
-                child: GestureDetector(
-                  onTapUp: (details) => _toggleNavigationBar(),
-                  behavior: HitTestBehavior.translucent,
-                  child: const SizedBox.expand(),
-                ),
-              ),
-
-            // 네비게이션 바 (상단)
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeInOut,
-              top: _showNavigationBar && !_showManatokiCaptcha
-                  ? 0
-                  : -kToolbarHeight,
-              left: 0,
-              right: 0,
-              child: Container(
-                color: Colors.black.withOpacity(0.7),
-                child: AppBar(
-                  backgroundColor: Colors.transparent,
-                  elevation: 0,
-                  title: Text(
-                    _currentTitle.isNotEmpty ? _currentTitle : widget.title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
+            // 상단 네비게이션 바 (뒤로가기 버튼만)
+            if (_showNavigationBar &&
+                !_isLoading &&
+                !_showError &&
+                !_showManatokiCaptcha)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  color: Colors.black.withOpacity(0.8),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+                  child: SafeArea(
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon:
+                              const Icon(Icons.arrow_back, color: Colors.white),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.keyboard_arrow_up,
+                              color: Colors.white),
+                          onPressed: () {
+                            _scrollController.animateTo(
+                              0,
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.keyboard_arrow_down,
+                              color: Colors.white),
+                          onPressed: () {
+                            _scrollController.animateTo(
+                              _scrollController.position.maxScrollExtent,
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            );
+                          },
+                        ),
+                      ],
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                  leading: IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+
+            // 하단 네비게이션 바
+            if (_showNavigationBar &&
+                !_isLoading &&
+                !_showError &&
+                !_showManatokiCaptcha)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  color: Colors.black.withOpacity(0.8),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back_ios,
+                            color: Colors.white),
+                        onPressed: _prevChapterUrl != null
+                            ? () => _navigateToUrl(_prevChapterUrl)
+                            : null,
+                      ),
+                      Expanded(
+                        child: Text(
+                          _currentTitle.isNotEmpty
+                              ? _currentTitle
+                              : widget.title,
+                          style: const TextStyle(color: Colors.white),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.arrow_forward_ios,
+                            color: Colors.white),
+                        onPressed: _nextChapterUrl != null
+                            ? () => _navigateToUrl(_nextChapterUrl)
+                            : null,
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ),
-
-            // 네비게이션 바 (하단)
-            AnimatedPositioned(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeInOut,
-              bottom: _showNavigationBar && !_showManatokiCaptcha
-                  ? 0
-                  : -kToolbarHeight,
-              left: 0,
-              right: 0,
-              child: Container(
-                color: Colors.black.withOpacity(0.7),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.skip_previous),
-                      color: _prevChapterUrl == null
-                          ? Colors.white38
-                          : Colors.white,
-                      onPressed: _prevChapterUrl == null
-                          ? null
-                          : () => _navigateToUrl(_prevChapterUrl),
-                      tooltip: '이전화',
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.list),
-                      color: Colors.white38,
-                      onPressed: null, // 회차 목록 비활성화
-                      tooltip: '회차 목록 (준비중)',
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.comment),
-                      color: Colors.white38,
-                      onPressed: null, // 댓글 비활성화
-                      tooltip: '댓글 (준비중)',
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.skip_next),
-                      color: _nextChapterUrl == null
-                          ? Colors.white38
-                          : Colors.white,
-                      onPressed: _nextChapterUrl == null
-                          ? null
-                          : () => _navigateToUrl(_nextChapterUrl),
-                      tooltip: '다음화',
-                    ),
-                  ],
-                ),
-              ),
-            ),
           ],
         ),
       ),
+    );
+  }
+
+  void _startDragTimer(bool isPrevious) {
+    if (_isDragging) return;
+
+    setState(() {
+      _isDragging = true;
+    });
+
+    _dragTimer?.cancel();
+    _dragTimer = Timer(const Duration(milliseconds: 700), () {
+      if (_isDragging) {
+        if (isPrevious && _prevChapterUrl != null) {
+          _navigateToUrl(_prevChapterUrl);
+        } else if (!isPrevious && _nextChapterUrl != null) {
+          _navigateToUrl(_nextChapterUrl);
+        }
+      }
+    });
+  }
+
+  void _cancelDragTimer() {
+    _dragTimer?.cancel();
+    if (_isDragging) {
+      setState(() {
+        _isDragging = false;
+        _dragOffset = 0;
+      });
+    }
+  }
+}
+
+/// 캐시된 만화 이미지 위젯
+class CachedMangaImage extends ConsumerWidget {
+  final String url;
+  final double width;
+  final double height;
+
+  const CachedMangaImage({
+    Key? key,
+    required this.url,
+    required this.width,
+    required this.height,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cookieJar = ref.watch(globalCookieJarProvider);
+    final baseUrl = ref.watch(siteUrlServiceProvider);
+
+    return FutureBuilder<List<Cookie>>(
+      future: cookieJar.loadForRequest(Uri.parse(baseUrl)),
+      builder: (context, snapshot) {
+        final cookieString = snapshot.hasData
+            ? snapshot.data!.map((c) => '${c.name}=${c.value}').join('; ')
+            : '';
+
+        return CachedNetworkImage(
+          imageUrl: url,
+          width: width,
+          height: height,
+          fit: BoxFit.fitWidth,
+          httpHeaders: {
+            'Cookie': cookieString,
+            'User-Agent':
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+            'Referer': baseUrl,
+          },
+          placeholder: (context, url) => Container(
+            color: Colors.grey[900],
+            child: const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            ),
+          ),
+          errorWidget: (context, url, error) => const Center(
+            child: Text(
+              '이미지를 불러올 수 없습니다.',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        );
+      },
     );
   }
 }
