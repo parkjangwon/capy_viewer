@@ -12,6 +12,7 @@ import '../../../data/providers/site_url_provider.dart';
 import '../../../utils/manatoki_captcha_helper.dart';
 import '../../widgets/manatoki_captcha_widget.dart';
 import '../../viewmodels/global_cookie_provider.dart';
+import '../../widgets/captcha_modal.dart';
 
 /// 만화 뷰어 화면
 /// 만화 페이지를 표시하고 캡차 처리를 담당합니다.
@@ -607,39 +608,44 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
                           });
                         }
                       },
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        itemCount: _imageUrls.length,
-                        itemBuilder: (context, index) {
-                          return CachedMangaImage(
-                            url: _imageUrls[index],
-                            width: MediaQuery.of(context).size.width,
-                            height: MediaQuery.of(context).size.height,
-                          );
-                        },
+                      child: Stack(
+                        children: [
+                          ListView.builder(
+                            padding: EdgeInsets.zero,
+                            physics: const ClampingScrollPhysics(),
+                            itemCount: _imageUrls.length,
+                            itemBuilder: (context, index) {
+                              return CachedMangaImage(
+                                url: _imageUrls[index],
+                                width: MediaQuery.of(context).size.width,
+                                height: MediaQuery.of(context).size.width * 1.5,
+                              );
+                            },
+                          ),
+                          if (_isDragging)
+                            Positioned(
+                              top: _dragOffset < 0 ? 20 : null,
+                              bottom: _dragOffset > 0 ? 20 : null,
+                              left: 0,
+                              right: 0,
+                              child: Center(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.8),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    _dragOffset < 0 ? '이전화로 이동하기' : '다음화로 이동하기',
+                                    style: const TextStyle(color: Colors.white),
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
-                    if (_isDragging)
-                      Positioned(
-                        top: _dragOffset < 0 ? 20 : null,
-                        bottom: _dragOffset > 0 ? 20 : null,
-                        left: 0,
-                        right: 0,
-                        child: Center(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.8),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              _dragOffset < 0 ? '이전화로 이동하기' : '다음화로 이동하기',
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                          ),
-                        ),
-                      ),
                   ],
                 ),
               ),

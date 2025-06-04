@@ -106,9 +106,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     const _SectionTitle('주간 베스트'),
                     const _WeeklyBestList(),
                     const SizedBox(height: 16),
-                    // 만화 보기 테스트 버튼
-                    _MangaViewerTestButton(ref: ref),
-                    const SizedBox(height: 16),
                   ]),
                 ),
               ),
@@ -351,46 +348,6 @@ class _VerticalList extends StatelessWidget {
         subtitle: const Text('설명 또는 회차'),
         dense: true,
         onTap: () {},
-      ),
-    );
-  }
-}
-
-// 만화 보기 테스트 버튼 위젯
-class _MangaViewerTestButton extends StatelessWidget {
-  final WidgetRef ref;
-
-  const _MangaViewerTestButton({required this.ref});
-
-  @override
-  Widget build(BuildContext context) {
-    final baseUrl = ref.read(siteUrlServiceProvider);
-    // 예시 URL - 실제 사이트의 만화 URL로 변경해야 함
-    // 이중 슬래시 방지를 위해 baseUrl이 '/'로 끝나는지 확인
-    final testMangaUrl = baseUrl.endsWith('/')
-        ? '${baseUrl}comic/22570334'
-        : '$baseUrl/comic/22570334';
-
-    return Center(
-      child: ElevatedButton(
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => MangaViewerScreen(
-                chapterId: '22570334',
-                title: '고블린 슬레이어 97화',
-              ),
-            ),
-          );
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Theme.of(context).primaryColor,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-        ),
-        child: const Text(
-          '만화 보기 테스트',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
       ),
     );
   }

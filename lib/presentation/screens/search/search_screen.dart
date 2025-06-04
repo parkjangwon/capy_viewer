@@ -17,14 +17,55 @@ import '../home/home_screen.dart';
 import '../../../data/models/recent_added_model.dart';
 import '../../../utils/content_filter.dart';
 
-const _publishOptions = [
-  '전체', '주간', '격주', '월간', '단편', '단행본', '완결'
-];
+const _publishOptions = ['전체', '주간', '격주', '월간', '단편', '단행본', '완결'];
 const _jaumOptions = [
-  '전체', 'ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ', 'a-z', '0-9'
+  '전체',
+  'ㄱ',
+  'ㄴ',
+  'ㄷ',
+  'ㄹ',
+  'ㅁ',
+  'ㅂ',
+  'ㅅ',
+  'ㅇ',
+  'ㅈ',
+  'ㅊ',
+  'ㅋ',
+  'ㅌ',
+  'ㅍ',
+  'ㅎ',
+  'a-z',
+  '0-9'
 ];
 const _genreOptions = [
-  '전체', '17', 'BL', 'SF', 'TS', '개그', '게임', '도박', '드라마', '라노벨', '러브코미디', '먹방', '백합', '붕탁', '순정', '스릴러', '스포츠', '시대', '애니화', '액션', '음악', '이세계', '일상', '전생', '추리', '판타지', '학원', '호러'
+  '전체',
+  '17',
+  'BL',
+  'SF',
+  'TS',
+  '개그',
+  '게임',
+  '도박',
+  '드라마',
+  '라노벨',
+  '러브코미디',
+  '먹방',
+  '백합',
+  '붕탁',
+  '순정',
+  '스릴러',
+  '스포츠',
+  '시대',
+  '애니화',
+  '액션',
+  '음악',
+  '이세계',
+  '일상',
+  '전생',
+  '추리',
+  '판타지',
+  '학원',
+  '호러'
 ];
 const _sortOptions = [
   {'label': '기본', 'value': 'wr_datetime'},
@@ -82,7 +123,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       _webViewInitialized = false;
       _searchSession++;
 
-      if (_currentSearch.isNotEmpty || _currentPublish.isNotEmpty || _currentJaum.isNotEmpty || _currentGenre.isNotEmpty) {
+      if (_currentSearch.isNotEmpty ||
+          _currentPublish.isNotEmpty ||
+          _currentJaum.isNotEmpty ||
+          _currentGenre.isNotEmpty) {
         _pagingController = PagingController<int, MangaTitle>(firstPageKey: 0)
           ..addPageRequestListener(_fetchPage);
       }
@@ -112,7 +156,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       await _webViewHelper.initialize();
       _webViewInitialized = true;
     }
-    if (_currentSearch.isEmpty && _currentPublish.isEmpty && _currentJaum.isEmpty && _currentGenre.isEmpty) {
+    if (_currentSearch.isEmpty &&
+        _currentPublish.isEmpty &&
+        _currentJaum.isEmpty &&
+        _currentGenre.isEmpty) {
       _pagingController?.appendLastPage([]);
       return;
     }
@@ -159,15 +206,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         }
       }
       final parsed = parseMangaListFromHtml(html);
-      final newItems = parsed.map((item) => MangaTitle(
-        id: item.href,
-        title: item.title,
-        thumbnailUrl: item.thumbnailUrl,
-        author: item.author,
-        release: '',
-        period: item.period,
-        updateDate: item.updateDate,
-      )).toList();
+      final newItems = parsed
+          .map((item) => MangaTitle(
+                id: item.href,
+                title: item.title,
+                thumbnailUrl: item.thumbnailUrl,
+                author: item.author,
+                release: '',
+                period: item.period,
+                updateDate: item.updateDate,
+              ))
+          .toList();
       _pagingController?.appendLastPage(newItems);
     } catch (e) {
       _pagingController?.error = e;
@@ -189,8 +238,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 // 안심 모드일 때 제외할 장르
                 final restrictedTags = ['17', 'BL', 'TS', '붕탁', '백합', '러브코미디'];
                 final filteredGenres = safeMode
-                  ? _genreOptions.where((g) => g == '전체' || !restrictedTags.contains(g)).toList()
-                  : _genreOptions;
+                    ? _genreOptions
+                        .where((g) => g == '전체' || !restrictedTags.contains(g))
+                        .toList()
+                    : _genreOptions;
                 return Wrap(
                   spacing: 16,
                   runSpacing: 8,
@@ -231,11 +282,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         }
                       },
                       style: OutlinedButton.styleFrom(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        side: BorderSide(color: Theme.of(context).colorScheme.outline),
-                        backgroundColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.2),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        side: BorderSide(
+                            color: Theme.of(context).colorScheme.outline),
+                        backgroundColor: Theme.of(context)
+                            .colorScheme
+                            .surfaceVariant
+                            .withOpacity(0.2),
                         minimumSize: const Size(120, 48),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 0),
                         alignment: Alignment.center,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                         visualDensity: VisualDensity.standard,
@@ -250,9 +307,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                             const Icon(Icons.category_outlined, size: 18),
                             const SizedBox(width: 4),
                             Text(
-                              _selectedGenres.isEmpty || _selectedGenres.contains('전체')
-                                ? '장르 전체'
-                                : '장르: ' + _selectedGenres.join(', '),
+                              _selectedGenres.isEmpty ||
+                                      _selectedGenres.contains('전체')
+                                  ? '장르 전체'
+                                  : '장르: ' + _selectedGenres.join(', '),
                               overflow: TextOverflow.ellipsis,
                               style: Theme.of(context).textTheme.bodyMedium,
                             ),
@@ -273,7 +331,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               children: [
                 DropdownButton<String>(
                   value: _searchType,
-                  items: _searchTypeOptions.map((e) => DropdownMenuItem(value: e['value']!, child: Text(e['label']!))).toList(),
+                  items: _searchTypeOptions
+                      .map((e) => DropdownMenuItem(
+                          value: e['value']!, child: Text(e['label']!)))
+                      .toList(),
                   onChanged: (v) => setState(() => _searchType = v!),
                 ),
                 const SizedBox(width: 8),
@@ -287,21 +348,18 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     onSubmitted: (_) => _onSearch(),
                   ),
                 ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: _onSearch,
-                  child: const Text('검색'),
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(64, 48),
-                  ),
-                ),
               ],
             ),
           ),
           const Divider(height: 1),
           Expanded(
             child: _pagingController == null
-                ? Center(child: Text('검색 조건을 입력하세요', style: TextStyle(fontSize: 16, color: theme.colorScheme.onSurface.withOpacity(0.4))))
+                ? Center(
+                    child: Text('검색 조건을 입력하세요',
+                        style: TextStyle(
+                            fontSize: 16,
+                            color:
+                                theme.colorScheme.onSurface.withOpacity(0.4))))
                 : RefreshIndicator(
                     onRefresh: () async {
                       _pagingController!.refresh();
@@ -314,9 +372,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                           manga: item,
                           onTap: () => _onMangaSelected(context, item),
                         ),
-                        firstPageProgressIndicatorBuilder: (context) => const Center(child: CircularProgressIndicator()),
-                        newPageProgressIndicatorBuilder: (context) => const Padding(padding: EdgeInsets.all(16.0), child: Center(child: CircularProgressIndicator())),
-                        noItemsFoundIndicatorBuilder: (context) => Center(child: Text('검색 결과가 없습니다', style: TextStyle(fontSize: 16, color: theme.colorScheme.onSurface.withOpacity(0.4)))),
+                        firstPageProgressIndicatorBuilder: (context) =>
+                            const Center(child: CircularProgressIndicator()),
+                        newPageProgressIndicatorBuilder: (context) =>
+                            const Padding(
+                                padding: EdgeInsets.all(16.0),
+                                child:
+                                    Center(child: CircularProgressIndicator())),
+                        noItemsFoundIndicatorBuilder: (context) => Center(
+                            child: Text('검색 결과가 없습니다',
+                                style: TextStyle(
+                                    fontSize: 16,
+                                    color: theme.colorScheme.onSurface
+                                        .withOpacity(0.4)))),
                       ),
                     ),
                   ),
@@ -330,9 +398,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     // 검색 결과 아이템 클릭 시 만화 상세 보기 페이지로 이동
     MangaNavigation.navigateToMangaDetail(
       context,
-      manga.id,  // id 필드에 URL 경로가 저장되어 있음
+      manga.id, // id 필드에 URL 경로가 저장되어 있음
       title: manga.title,
-      isChapterUrl: true,  // URL 경로를 전달하므로 true로 설정
+      isChapterUrl: true, // URL 경로를 전달하므로 true로 설정
     );
   }
 }
@@ -378,7 +446,8 @@ class _HorizontalCardList extends StatelessWidget {
   final int placeholderCount;
   final String? emptyText;
   final List<RecentAddedItem>? items;
-  const _HorizontalCardList({this.placeholderCount = 0, this.emptyText, this.items});
+  const _HorizontalCardList(
+      {this.placeholderCount = 0, this.emptyText, this.items});
   @override
   Widget build(BuildContext context) {
     if (items != null && items!.isNotEmpty) {
@@ -423,20 +492,26 @@ class _HorizontalCardList extends StatelessWidget {
                                 width: 100,
                                 height: 100,
                                 fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) => Container(
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Container(
                                   width: 100,
                                   height: 100,
                                   color: Colors.grey[300],
-                                  child: const Icon(Icons.broken_image, size: 32, color: Colors.grey),
+                                  child: const Icon(Icons.broken_image,
+                                      size: 32, color: Colors.grey),
                                 ),
                               )
-                            : const Icon(Icons.photo, size: 32, color: Colors.grey),
+                            : const Icon(Icons.photo,
+                                size: 32, color: Colors.grey),
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       item.title,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(fontWeight: FontWeight.bold),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -493,10 +568,12 @@ class _FilterDropdown extends StatelessWidget {
       constraints: BoxConstraints(minWidth: minWidth),
       child: OutlinedButton(
         style: OutlinedButton.styleFrom(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           side: BorderSide(color: Theme.of(context).colorScheme.outline),
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-          backgroundColor: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.2),
+          backgroundColor:
+              Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.2),
         ),
         onPressed: null,
         child: DropdownButtonHideUnderline(
@@ -508,24 +585,36 @@ class _FilterDropdown extends StatelessWidget {
             style: Theme.of(context).textTheme.bodyMedium,
             dropdownColor: Theme.of(context).colorScheme.surface,
             items: optionMapList != null
-                ? optionMapList!.map((e) => DropdownMenuItem(
-                      value: e['value'],
-                      child: Row(
-                        children: [
-                          Text('$label: ', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
-                          Text(e['label']!),
-                        ],
-                      ),
-                    )).toList()
-                : items!.map((e) => DropdownMenuItem(
-                      value: e,
-                      child: Row(
-                        children: [
-                          Text('$label: ', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
-                          Text(e),
-                        ],
-                      ),
-                    )).toList(),
+                ? optionMapList!
+                    .map((e) => DropdownMenuItem(
+                          value: e['value'],
+                          child: Row(
+                            children: [
+                              Text('$label: ',
+                                  style: TextStyle(
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
+                                      fontWeight: FontWeight.bold)),
+                              Text(e['label']!),
+                            ],
+                          ),
+                        ))
+                    .toList()
+                : items!
+                    .map((e) => DropdownMenuItem(
+                          value: e,
+                          child: Row(
+                            children: [
+                              Text('$label: ',
+                                  style: TextStyle(
+                                      color:
+                                          Theme.of(context).colorScheme.primary,
+                                      fontWeight: FontWeight.bold)),
+                              Text(e),
+                            ],
+                          ),
+                        ))
+                    .toList(),
           ),
         ),
       ),
@@ -536,7 +625,8 @@ class _FilterDropdown extends StatelessWidget {
 class GenreSelectSheet extends StatefulWidget {
   final List<String> allGenres;
   final List<String> selected;
-  const GenreSelectSheet({required this.allGenres, required this.selected, super.key});
+  const GenreSelectSheet(
+      {required this.allGenres, required this.selected, super.key});
   @override
   State<GenreSelectSheet> createState() => _GenreSelectSheetState();
 }
@@ -548,13 +638,16 @@ class _GenreSelectSheetState extends State<GenreSelectSheet> {
     super.initState();
     _tempSelected = List<String>.from(widget.selected);
   }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-          left: 16, right: 16, top: 24),
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            left: 16,
+            right: 16,
+            top: 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -562,7 +655,9 @@ class _GenreSelectSheetState extends State<GenreSelectSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('장르 선택', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Text('장르 선택',
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 TextButton(
                   onPressed: () => Navigator.pop(context, _tempSelected),
                   child: const Text('확인'),
@@ -574,7 +669,8 @@ class _GenreSelectSheetState extends State<GenreSelectSheet> {
             Expanded(
               child: ListView(
                 children: widget.allGenres.map((genre) {
-                  final selected = _tempSelected.contains(genre) || (_tempSelected.isEmpty && genre == '전체');
+                  final selected = _tempSelected.contains(genre) ||
+                      (_tempSelected.isEmpty && genre == '전체');
                   return CheckboxListTile(
                     value: selected,
                     title: Text(genre),

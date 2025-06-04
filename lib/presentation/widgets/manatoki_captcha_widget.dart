@@ -466,7 +466,7 @@ class _ManatokiCaptchaWidgetState extends ConsumerState<ManatokiCaptchaWidget> {
                       border: const OutlineInputBorder(),
                     ),
                     textAlign: TextAlign.center,
-                    keyboardType: TextInputType.text,
+                    keyboardType: TextInputType.number,
                     autofocus: true,
                     onSubmitted: (_) => _isLoading ? null : _submitCaptcha(),
                   ),
