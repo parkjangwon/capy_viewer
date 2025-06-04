@@ -71,59 +71,68 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
       print('[스크롤] 현재 위치: ${_scrollController.position.pixels}');
       print('[스크롤] 최대 위치: ${_scrollController.position.maxScrollExtent}');
       print('[스크롤] 최소 위치: ${_scrollController.position.minScrollExtent}');
+    });
+  }
 
-      if (_scrollController.position.outOfRange) {
-        print('[스크롤] 범위 초과 감지');
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (notification is ScrollUpdateNotification) {
+      final metrics = notification.metrics;
 
-        if (!_isOverscrolling) {
-          final overscroll = _scrollController.position.pixels -
-              (_scrollController.position.pixels < 0
-                  ? _scrollController.position.minScrollExtent
-                  : _scrollController.position.maxScrollExtent);
+      // 오버스크롤 상태 확인
+      if (metrics.outOfRange) {
+        final overscroll = metrics.pixels -
+            (metrics.pixels < 0
+                ? metrics.minScrollExtent
+                : metrics.maxScrollExtent);
 
-          print('[스크롤] 오버스크롤 거리: $overscroll');
+        print('[스크롤] 오버스크롤: $overscroll');
 
-          if (overscroll.abs() > 50) {
-            // 50픽셀 이상 오버스크롤하면 시작
-            print('[스크롤] 오버스크롤 시작');
-            setState(() {
-              _isOverscrolling = true;
-              _overscrollStart = _scrollController.position.pixels;
-            });
-          }
-        } else {
-          final overscrollDistance =
-              (_scrollController.position.pixels - _overscrollStart).abs();
-          print('[스크롤] 현재 당긴 거리: $overscrollDistance');
+        if (!_isDragging && overscroll.abs() > 100) {
+          setState(() {
+            _isDragging = true;
+            _dragOffset = overscroll;
+          });
 
-          if (overscrollDistance > 150) {
-            // 150픽셀 이상 당기면 페이지 전환
-            print('[스크롤] 페이지 전환 시도');
-            _isOverscrolling = false;
-
-            if (_scrollController.position.pixels <
-                _scrollController.position.minScrollExtent) {
-              print('[스크롤] 이전화로 이동');
-              if (_prevChapterUrl != null) {
+          _dragTimer?.cancel();
+          _dragTimer = Timer(const Duration(milliseconds: 500), () {
+            if (_isDragging) {
+              if (overscroll < 0 && _prevChapterUrl != null) {
+                print('[스크롤] 이전화로 이동');
                 _navigateToUrl(_prevChapterUrl);
-              }
-            } else {
-              print('[스크롤] 다음화로 이동');
-              if (_nextChapterUrl != null) {
+              } else if (overscroll > 0 && _nextChapterUrl != null) {
+                print('[스크롤] 다음화로 이동');
                 _navigateToUrl(_nextChapterUrl);
               }
             }
-          }
-        }
-      } else {
-        if (_isOverscrolling) {
-          print('[스크롤] 오버스크롤 상태 초기화');
-          setState(() {
-            _isOverscrolling = false;
           });
         }
+      } else {
+        _cancelDragTimer();
       }
-    });
+    } else if (notification is ScrollEndNotification) {
+      _cancelDragTimer();
+    }
+    return false;
+  }
+
+  void _scrollToTop() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    }
   }
 
   Future<void> _initWebView() async {
@@ -561,35 +570,7 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
 
             if (!_isLoading && !_showError && !_showManatokiCaptcha)
               NotificationListener<ScrollNotification>(
-                onNotification: (notification) {
-                  if (notification is ScrollUpdateNotification) {
-                    final pixels = _scrollController.position.pixels;
-                    if (pixels < 0) {
-                      // 위로 당기는 중
-                      if (!_isDragging && pixels <= -60) {
-                        _startDragTimer(true);
-                      }
-                      _dragOffset = pixels;
-                    } else if (pixels >
-                        _scrollController.position.maxScrollExtent) {
-                      // 아래로 당기는 중
-                      if (!_isDragging &&
-                          pixels >=
-                              _scrollController.position.maxScrollExtent + 60) {
-                        _startDragTimer(false);
-                      }
-                      _dragOffset =
-                          pixels - _scrollController.position.maxScrollExtent;
-                    } else {
-                      // 당기기 취소
-                      _cancelDragTimer();
-                    }
-                  } else if (notification is ScrollEndNotification) {
-                    // 스크롤이 끝나면 타이머 취소
-                    _cancelDragTimer();
-                  }
-                  return false;
-                },
+                onNotification: _handleScrollNotification,
                 child: Stack(
                   children: [
                     GestureDetector(
@@ -611,14 +592,22 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
                       child: Stack(
                         children: [
                           ListView.builder(
+                            controller: _scrollController,
                             padding: EdgeInsets.zero,
-                            physics: const ClampingScrollPhysics(),
+                            physics: const BouncingScrollPhysics(
+                              parent: AlwaysScrollableScrollPhysics(),
+                            ),
                             itemCount: _imageUrls.length,
                             itemBuilder: (context, index) {
-                              return CachedMangaImage(
-                                url: _imageUrls[index],
-                                width: MediaQuery.of(context).size.width,
-                                height: MediaQuery.of(context).size.width * 1.5,
+                              return Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 4.0),
+                                child: CachedMangaImage(
+                                  url: _imageUrls[index],
+                                  width: MediaQuery.of(context).size.width,
+                                  height:
+                                      MediaQuery.of(context).size.width * 1.2,
+                                ),
                               );
                             },
                           ),
@@ -675,25 +664,13 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
                         IconButton(
                           icon: const Icon(Icons.keyboard_arrow_up,
                               color: Colors.white),
-                          onPressed: () {
-                            _scrollController.animateTo(
-                              0,
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          },
+                          onPressed: _scrollToTop,
                         ),
                         const SizedBox(width: 8),
                         IconButton(
                           icon: const Icon(Icons.keyboard_arrow_down,
                               color: Colors.white),
-                          onPressed: () {
-                            _scrollController.animateTo(
-                              _scrollController.position.maxScrollExtent,
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeInOut,
-                            );
-                          },
+                          onPressed: _scrollToBottom,
                         ),
                       ],
                     ),
@@ -752,25 +729,6 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
     );
   }
 
-  void _startDragTimer(bool isPrevious) {
-    if (_isDragging) return;
-
-    setState(() {
-      _isDragging = true;
-    });
-
-    _dragTimer?.cancel();
-    _dragTimer = Timer(const Duration(milliseconds: 700), () {
-      if (_isDragging) {
-        if (isPrevious && _prevChapterUrl != null) {
-          _navigateToUrl(_prevChapterUrl);
-        } else if (!isPrevious && _nextChapterUrl != null) {
-          _navigateToUrl(_nextChapterUrl);
-        }
-      }
-    });
-  }
-
   void _cancelDragTimer() {
     _dragTimer?.cancel();
     if (_isDragging) {
@@ -811,7 +769,7 @@ class CachedMangaImage extends ConsumerWidget {
           imageUrl: url,
           width: width,
           height: height,
-          fit: BoxFit.fitWidth,
+          fit: BoxFit.contain,
           httpHeaders: {
             'Cookie': cookieString,
             'User-Agent':
