@@ -601,12 +601,11 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
                             itemBuilder: (context, index) {
                               return Padding(
                                 padding:
-                                    const EdgeInsets.symmetric(vertical: 4.0),
+                                    const EdgeInsets.symmetric(vertical: 2.0),
                                 child: CachedMangaImage(
                                   url: _imageUrls[index],
                                   width: MediaQuery.of(context).size.width,
-                                  height:
-                                      MediaQuery.of(context).size.width * 1.2,
+                                  height: 0, // height는 이미지 비율에 따라 자동 조정됨
                                 ),
                               );
                             },
@@ -768,8 +767,7 @@ class CachedMangaImage extends ConsumerWidget {
         return CachedNetworkImage(
           imageUrl: url,
           width: width,
-          height: height,
-          fit: BoxFit.contain,
+          fit: BoxFit.fitWidth,
           httpHeaders: {
             'Cookie': cookieString,
             'User-Agent':
@@ -778,6 +776,8 @@ class CachedMangaImage extends ConsumerWidget {
           },
           placeholder: (context, url) => Container(
             color: Colors.grey[900],
+            width: width,
+            height: width * 1.4,
             child: const Center(
               child: CircularProgressIndicator(
                 valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
