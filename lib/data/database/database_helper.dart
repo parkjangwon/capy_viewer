@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 3,
+      version: 5,
       onCreate: _createDB,
       onUpgrade: _onUpgrade,
     );
@@ -43,7 +43,12 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE recent_chapters (
         id TEXT PRIMARY KEY,
-        last_read INTEGER NOT NULL
+        manga_id TEXT NOT NULL,
+        chapter_title TEXT NOT NULL,
+        thumbnail_url TEXT NOT NULL DEFAULT '',
+        last_read INTEGER NOT NULL,
+        last_page INTEGER NOT NULL DEFAULT 0,
+        FOREIGN KEY (manga_id) REFERENCES liked_manga(id) ON DELETE CASCADE
       )
     ''');
 
@@ -93,6 +98,60 @@ class DatabaseHelper {
 
       // 백업 테이블 삭제
       await db.execute('DROP TABLE liked_manga_old');
+    }
+
+    if (oldVersion < 4) {
+      // 버전 3에서 4로 업그레이드: recent_chapters 테이블 수정
+      await db.execute('DROP TABLE IF EXISTS recent_chapters_old');
+      await db
+          .execute('ALTER TABLE recent_chapters RENAME TO recent_chapters_old');
+
+      // 새로운 스키마로 테이블 생성
+      await db.execute('''
+        CREATE TABLE recent_chapters (
+          id TEXT PRIMARY KEY,
+          manga_id TEXT NOT NULL,
+          chapter_title TEXT NOT NULL,
+          last_read INTEGER NOT NULL,
+          last_page INTEGER NOT NULL DEFAULT 0,
+          FOREIGN KEY (manga_id) REFERENCES liked_manga(id) ON DELETE CASCADE
+        )
+      ''');
+
+      // 기존 데이터 마이그레이션
+      await db.execute('''
+        INSERT INTO recent_chapters (id, manga_id, chapter_title, last_read, last_page)
+        SELECT id, '', '', last_read, 0 FROM recent_chapters_old
+      ''');
+
+      // 백업 테이블 삭제
+      await db.execute('DROP TABLE recent_chapters_old');
+    }
+
+    if (oldVersion < 5) {
+      // 버전 4에서 5로 업그레이드: recent_chapters 테이블에 thumbnail_url 필드 추가
+      await db.execute('DROP TABLE IF EXISTS recent_chapters_old');
+      await db
+          .execute('ALTER TABLE recent_chapters RENAME TO recent_chapters_old');
+
+      await db.execute('''
+        CREATE TABLE recent_chapters (
+          id TEXT PRIMARY KEY,
+          manga_id TEXT NOT NULL,
+          chapter_title TEXT NOT NULL,
+          thumbnail_url TEXT NOT NULL DEFAULT '',
+          last_read INTEGER NOT NULL,
+          last_page INTEGER NOT NULL DEFAULT 0,
+          FOREIGN KEY (manga_id) REFERENCES liked_manga(id) ON DELETE CASCADE
+        )
+      ''');
+
+      await db.execute('''
+        INSERT INTO recent_chapters (id, manga_id, chapter_title, thumbnail_url, last_read, last_page)
+        SELECT id, manga_id, chapter_title, '', last_read, last_page FROM recent_chapters_old
+      ''');
+
+      await db.execute('DROP TABLE recent_chapters_old');
     }
   }
 
@@ -161,35 +220,66 @@ class DatabaseHelper {
   }
 
   // 최근 본 작품 관련 메서드
-  Future<List<String>> getRecentChapters() async {
+  Future<List<Map<String, dynamic>>> getRecentChapters({int? limit}) async {
+    print('[데이터베이스] 최근 본 회차 조회 시작');
     final db = await database;
     final result = await db.query(
       'recent_chapters',
-      columns: ['id'],
       orderBy: 'last_read DESC',
+      limit: limit,
     );
-    return result.map((row) => row['id'] as String).toList();
+    print('[데이터베이스] 조회된 회차 수: ${result.length}');
+    return result;
   }
 
-  Future<void> addRecentChapter(String chapterId) async {
+  Future<void> addRecentChapter({
+    required String chapterId,
+    required String mangaId,
+    required String chapterTitle,
+    required String thumbnailUrl,
+    required int lastPage,
+  }) async {
+    print('[데이터베이스] 최근 본 회차 추가: $chapterId');
     final db = await database;
     await db.insert(
       'recent_chapters',
       {
         'id': chapterId,
+        'manga_id': mangaId,
+        'chapter_title': chapterTitle,
+        'thumbnail_url': thumbnailUrl,
         'last_read': DateTime.now().millisecondsSinceEpoch,
+        'last_page': lastPage,
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+    print('[데이터베이스] 회차 추가 완료');
   }
 
-  Future<void> removeRecentChapter(String chapterId) async {
+  Future<void> updateLastPage(String chapterId, int lastPage) async {
+    print('[데이터베이스] 페이지 업데이트: $chapterId - $lastPage');
+    final db = await database;
+    await db.update(
+      'recent_chapters',
+      {
+        'last_page': lastPage,
+        'last_read': DateTime.now().millisecondsSinceEpoch,
+      },
+      where: 'id = ?',
+      whereArgs: [chapterId],
+    );
+    print('[데이터베이스] 페이지 업데이트 완료');
+  }
+
+  Future<void> deleteRecentChapter(String chapterId) async {
+    print('[데이터베이스] 최근 본 회차 삭제: $chapterId');
     final db = await database;
     await db.delete(
       'recent_chapters',
       where: 'id = ?',
       whereArgs: [chapterId],
     );
+    print('[데이터베이스] 회차 삭제 완료');
   }
 
   // 작품 좋아요 관련 메서드

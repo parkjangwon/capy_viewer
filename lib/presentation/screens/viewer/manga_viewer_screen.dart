@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,56 +7,66 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cookie_jar/cookie_jar.dart';
-import 'package:flutter/gestures.dart'; // DragStartBehavior를 위한 import 추가
+import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 
 import '../../../data/providers/site_url_provider.dart';
 import '../../../utils/manatoki_captcha_helper.dart';
 import '../../widgets/manatoki_captcha_widget.dart';
 import '../../viewmodels/global_cookie_provider.dart';
+import '../../../data/database/database_helper.dart';
+import '../../providers/secret_mode_provider.dart';
 
 /// 만화 뷰어 화면
 /// 만화 페이지를 표시하고 캡차 처리를 담당합니다.
 class MangaViewerScreen extends ConsumerStatefulWidget {
-  final String chapterId;
   final String title;
+  final String chapterId;
+  final int initialPage;
 
   const MangaViewerScreen({
-    Key? key,
-    required this.chapterId,
+    super.key,
     required this.title,
-  }) : super(key: key);
+    required this.chapterId,
+    this.initialPage = 0,
+  });
 
   @override
   ConsumerState<MangaViewerScreen> createState() => _MangaViewerScreenState();
 }
 
 class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
-  WebViewController? _controller;
-  List<String> _imageUrls = [];
+  late WebViewController _controller;
+  final _db = DatabaseHelper.instance;
+  String _currentTitle = '';
+  int _currentPage = 0;
+  bool _isInitialized = false;
   bool _isLoading = true;
   bool _showManatokiCaptcha = false;
-  ManatokiCaptchaInfo? _captchaInfo;
+  bool _showError = false;
   bool _showNavigationBar = false;
+  List<String> _imageUrls = [];
   String? _prevChapterUrl;
   String? _nextChapterUrl;
-  Timer? _loadingTimer;
-  bool _showError = false;
-  final ScrollController _scrollController = ScrollController();
-  String _currentTitle = ''; // 현재 페이지의 실제 제목
-  bool _isInitialLoad = true; // 초기 로드 여부를 추적하는 플래그
+  bool _isInitialLoad = true;
   Timer? _dragTimer;
-  bool _isDragging = false;
-  double _dragOffset = 0;
-  bool _isScrollAnimating = false;
-  Timer? _scrollAnimationTimer;
+  Timer? _loadingTimer;
   Timer? _overscrollTimer;
+  Timer? _scrollAnimationTimer;
+  bool _isDragging = false;
+  bool _isScrollAnimating = false;
   bool _isOverscrollTimerActive = false;
+  double _dragOffset = 0;
+  ManatokiCaptchaInfo? _captchaInfo;
+  final ScrollController _scrollController = ScrollController();
+
   static const _overscrollThreshold = 100.0;
   static const _overscrollHoldDuration = Duration(milliseconds: 1500);
 
   @override
   void initState() {
     super.initState();
+    _currentPage = widget.initialPage;
     _initWebView();
     _setupScrollController();
   }
@@ -76,6 +87,14 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
       print('[스크롤] 현재 위치: ${_scrollController.position.pixels}');
       print('[스크롤] 최대 위치: ${_scrollController.position.maxScrollExtent}');
       print('[스크롤] 최소 위치: ${_scrollController.position.minScrollExtent}');
+
+      // 현재 페이지 번호 계산 및 업데이트
+      if (_imageUrls.isNotEmpty) {
+        final viewportHeight = _scrollController.position.viewportDimension;
+        final scrollPosition = _scrollController.position.pixels;
+        final currentPage = (scrollPosition / viewportHeight).floor() + 1;
+        _updateLastPage(currentPage);
+      }
     });
   }
 
@@ -167,6 +186,7 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
   }
 
   Future<void> _initWebView() async {
+    print('[뷰어] 웹뷰 초기화 시작');
     final cookieManager = WebViewCookieManager();
     await cookieManager.clearCookies();
 
@@ -184,22 +204,23 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
       );
     }
 
-    final controller = WebViewController()
+    _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(NavigationDelegate(
-        onPageFinished: (url) {
-          if (mounted) {
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageFinished: (String url) {
             _loadPageContent();
-          }
-        },
-      ))
+          },
+        ),
+      )
       ..enableZoom(false);
 
-    setState(() {
-      _controller = controller;
-    });
+    await _loadUrl();
+  }
 
-    // URL 정규화
+  Future<void> _loadUrl() async {
+    print('[뷰어] URL 로드: ${widget.chapterId}');
+    final baseUrl = ref.read(siteUrlServiceProvider);
     String fullUrl;
     if (widget.chapterId.startsWith('http')) {
       fullUrl = widget.chapterId;
@@ -210,21 +231,26 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
     } else {
       fullUrl = '$baseUrl/comic/${widget.chapterId}';
     }
-
     print('[뷰어] 로드할 URL: $fullUrl');
-    _isInitialLoad = true; // 새 페이지 로드 시 초기 로드 플래그 설정
-    await controller.loadRequest(Uri.parse(fullUrl));
+    await _controller.loadRequest(Uri.parse(fullUrl));
   }
 
-  // 페이지 콘텐츠 로드 (HTML 파싱 포함)
   Future<void> _loadPageContent() async {
     if (!mounted || !_isInitialLoad) return;
+
+    print('[뷰어] 페이지 콘텐츠 로딩 시작');
+    print('[뷰어] 초기 페이지: ${widget.initialPage}');
 
     // 이미 이미지 URL이 로드되어 있다면 다시 로드하지 않음
     if (_imageUrls.isNotEmpty) {
       setState(() {
         _isLoading = false;
       });
+      if (widget.initialPage > 0) {
+        print('[뷰어] 기존 이미지로 페이지 이동 시도');
+        await Future.delayed(const Duration(milliseconds: 1000));
+        await _moveToPage(widget.initialPage);
+      }
       return;
     }
 
@@ -236,7 +262,7 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
 
     try {
       print('[뷰어] HTML 콘텐츠 가져오기 시작');
-      final html = await _controller!.runJavaScriptReturningResult(
+      final html = await _controller.runJavaScriptReturningResult(
         'document.documentElement.outerHTML',
       );
 
@@ -356,6 +382,14 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
             _isLoading = false;
           });
           print('[뷰어] 이미지 URL 추출 완료: ${urls.length}개');
+          await _addToRecentChapters();
+
+          // 이미지 로딩을 위한 지연 후 페이지 이동
+          if (widget.initialPage > 0 && mounted) {
+            print('[뷰어] 새로운 이미지로 페이지 이동 시도');
+            await Future.delayed(const Duration(milliseconds: 2000));
+            await _moveToPage(widget.initialPage);
+          }
         } else {
           print('[뷰어] 이미지를 찾을 수 없음');
           setState(() {
@@ -365,7 +399,7 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
         }
       }
 
-      _isInitialLoad = false; // HTML 파싱이 완료되면 초기 로드 플래그를 false로 설정
+      _isInitialLoad = false;
     } catch (e) {
       print('[뷰어] HTML 파싱 오류: $e');
       if (mounted) {
@@ -377,126 +411,174 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
     }
   }
 
-  void _onCaptchaVerified() async {
-    setState(() {
-      _showManatokiCaptcha = false;
-      _isLoading = true;
-    });
+  Future<void> _moveToPage(int page) async {
+    print('[뷰어] 페이지 이동 시도: $page');
+    if (_imageUrls.isEmpty) {
+      print('[뷰어] 페이지 이동 실패: 이미지 URL이 없음');
+      return;
+    }
+
+    // 페이지 번호가 범위를 벗어나면 마지막 페이지로 이동
+    final targetPage = page >= _imageUrls.length ? _imageUrls.length - 1 : page;
+    print('[뷰어] 목표 페이지: $targetPage (전체 ${_imageUrls.length}페이지)');
+
+    final imageUrl = _imageUrls[targetPage];
+    print('[뷰어] 이동할 이미지 URL: $imageUrl');
+
+    // 이미지가 로드될 때까지 대기
+    bool success = false;
+    int retryCount = 0;
+    const maxRetries = 5;
+
+    while (!success && retryCount < maxRetries && mounted) {
+      try {
+        final result = await _controller.runJavaScriptReturningResult('''
+          (function() {
+            const images = document.querySelectorAll('img');
+            let targetImage = null;
+            let targetIndex = -1;
+            
+            for (let i = 0; i < images.length; i++) {
+              const img = images[i];
+              if (img.src === '$imageUrl' || img.getAttribute('data-original') === '$imageUrl') {
+                targetImage = img;
+                targetIndex = i;
+                break;
+              }
+            }
+            
+            if (targetImage && targetImage.complete) {
+              const rect = targetImage.getBoundingClientRect();
+              if (rect.height > 0) {
+                const offset = targetImage.offsetTop;
+                window.scrollTo({
+                  top: offset,
+                  behavior: 'instant'
+                });
+                return {success: true, index: targetIndex, offset: offset};
+              }
+            }
+            return {success: false, index: targetIndex, offset: 0};
+          })()
+        ''');
+
+        print('[뷰어] 스크롤 결과: $result');
+        final Map<String, dynamic> scrollResult =
+            Map<String, dynamic>.from(result as Map<dynamic, dynamic>);
+
+        success = scrollResult['success'] == true;
+
+        if (success) {
+          print(
+              '[뷰어] 페이지 이동 성공 (인덱스: ${scrollResult['index']}, 오프셋: ${scrollResult['offset']})');
+          _currentPage = targetPage;
+          await _updateLastPage(targetPage);
+          break;
+        } else {
+          print('[뷰어] 이미지 로드 대기 중... (시도 ${retryCount + 1}/$maxRetries)');
+          await Future.delayed(const Duration(milliseconds: 500));
+          retryCount++;
+        }
+      } catch (e) {
+        print('[뷰어] 페이지 이동 오류: $e');
+        retryCount++;
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
+    }
+
+    if (!success) {
+      print('[뷰어] 페이지 이동 실패: 이미지를 찾을 수 없거나 로드되지 않음');
+    }
+  }
+
+  Future<void> _updateCurrentPage() async {
+    try {
+      final result = await _controller.runJavaScriptReturningResult('''
+        (function() {
+          const images = document.querySelectorAll('img');
+          const viewportTop = window.scrollY;
+          const viewportBottom = viewportTop + window.innerHeight;
+          let currentPage = 0;
+
+          for (let i = 0; i < images.length; i++) {
+            const rect = images[i].getBoundingClientRect();
+            const elementTop = rect.top + viewportTop;
+            if (elementTop > viewportTop) {
+              currentPage = i;
+              break;
+            }
+          }
+          return currentPage;
+        })()
+      ''');
+
+      if (result != 'null') {
+        final page = int.tryParse(result.toString()) ?? 0;
+        if (page != _currentPage) {
+          _currentPage = page;
+          await _updateLastPage(page);
+        }
+      }
+    } catch (e) {
+      print('[뷰어] 현재 페이지 업데이트 실패: $e');
+    }
+  }
+
+  Future<void> _addToRecentChapters() async {
+    if (_currentTitle.isNotEmpty) {
+      print('[최근 본 회차] 저장 시도');
+      print('[최근 본 회차] ID: ${widget.chapterId}');
+      print('[최근 본 회차] 작품 ID: ${widget.title}');
+      print('[최근 본 회차] 제목: $_currentTitle');
+
+      // 시크릿 모드 상태 확인
+      final isSecretMode = ref.read(secretModeProvider);
+      if (isSecretMode) {
+        print('[최근 본 회차] 시크릿 모드가 켜져있어 저장하지 않음');
+        return;
+      }
+
+      try {
+        // 썸네일 URL 추출
+        String thumbnailUrl = '';
+        if (_imageUrls.isNotEmpty) {
+          thumbnailUrl = _imageUrls[0];
+        }
+        print('[최근 본 회차] 썸네일 URL: $thumbnailUrl');
+
+        await _db.addRecentChapter(
+          chapterId: widget.chapterId,
+          mangaId: widget.title,
+          chapterTitle: _currentTitle,
+          thumbnailUrl: thumbnailUrl,
+          lastPage: _currentPage,
+        );
+        print('[최근 본 회차] 추가됨: ${widget.chapterId} - $_currentTitle');
+      } catch (e) {
+        print('[최근 본 회차] 추가 실패 상세: $e');
+        print('[최근 본 회차] 추가 실패: $e');
+      }
+    } else {
+      print('[최근 본 회차] 제목이 비어있어 저장하지 않음');
+    }
+  }
+
+  Future<void> _updateLastPage(int pageNumber) async {
+    print('[최근 본 회차] 페이지 업데이트 시도: $pageNumber');
+
+    // 시크릿 모드 상태 확인
+    final isSecretMode = ref.read(secretModeProvider);
+    if (isSecretMode) {
+      print('[최근 본 회차] 시크릿 모드가 켜져있어 페이지 업데이트하지 않음');
+      return;
+    }
 
     try {
-      final cookieManager = WebViewCookieManager();
-      final baseUrl = ref.read(siteUrlServiceProvider);
-      final cookieJar = ref.read(globalCookieJarProvider);
-      final cookies = await cookieJar.loadForRequest(Uri.parse(baseUrl));
-
-      // 기존 쿠키 제거
-      await cookieManager.clearCookies();
-
-      // 새로운 쿠키 설정
-      for (final cookie in cookies) {
-        await cookieManager.setCookie(
-          WebViewCookie(
-            name: cookie.name,
-            value: cookie.value,
-            domain: Uri.parse(baseUrl).host,
-          ),
-        );
-      }
-
-      // 웹뷰 컨트롤러 재초기화
-      await _initWebView();
+      await _db.updateLastPage(widget.chapterId, pageNumber);
+      print('[최근 본 회차] 페이지 업데이트: ${widget.chapterId} - $pageNumber');
     } catch (e) {
-      print('쿠키 동기화 오류: $e');
-      if (_controller != null) {
-        await _controller!.reload();
-      }
-    }
-  }
-
-  // 네비게이션 바 토글 (HTML 파싱 없이 단순 UI 상태만 변경)
-  void _toggleNavigationBar() {
-    setState(() {
-      _showNavigationBar = !_showNavigationBar;
-    });
-  }
-
-  // 다른 페이지로 이동
-  void _navigateToUrl(String? url) {
-    if (url == null || url == '#next') return;
-
-    print('[네비게이션] URL 처리 시작: $url');
-
-    final baseUrl = ref.read(siteUrlServiceProvider);
-    String fullUrl;
-
-    // URL 정규화
-    if (url.startsWith('http')) {
-      fullUrl = url;
-    } else if (url.startsWith('/')) {
-      fullUrl = baseUrl + url;
-    } else {
-      fullUrl = '$baseUrl/comic/$url';
-    }
-
-    print('[네비게이션] 이동할 URL: $fullUrl');
-    setState(() {
-      _imageUrls = [];
-      _isLoading = true;
-      _showError = false;
-      _isInitialLoad = true;
-    });
-    _controller?.loadRequest(Uri.parse(fullUrl));
-  }
-
-  // HTML에서 네비게이션 링크 파싱
-  void _parseNavigationLinks(String htmlString) {
-    print('[파서] 네비게이션 링크 파싱 시작');
-
-    final document = html_parser.parse(htmlString);
-    final navDiv = document.querySelector('.toon-nav');
-
-    if (navDiv != null) {
-      print('[파서] .toon-nav 찾음');
-      print('[파서] HTML: ${navDiv.outerHtml}');
-
-      // select 태그에서 현재 회차와 이전/다음 회차 찾기
-      final select = navDiv.querySelector('select[name="wr_id"]');
-      if (select != null) {
-        final options = select.querySelectorAll('option');
-        print('[파서] 전체 회차 수: ${options.length}');
-
-        // 현재 선택된 회차 찾기
-        int currentIndex = -1;
-        for (var i = 0; i < options.length; i++) {
-          if (options[i].attributes['selected'] != null) {
-            currentIndex = i;
-            print('[파서] 현재 회차 인덱스: $i');
-            break;
-          }
-        }
-
-        if (currentIndex != -1) {
-          // 이전화 설정 (더 높은 인덱스)
-          if (currentIndex < options.length - 1) {
-            final nextValue = options[currentIndex + 1].attributes['value'];
-            if (nextValue != null) {
-              _prevChapterUrl = nextValue;
-              print('[파서] 이전화 ID: $_prevChapterUrl');
-            }
-          }
-
-          // 다음화 설정 (더 낮은 인덱스)
-          if (currentIndex > 0) {
-            final prevValue = options[currentIndex - 1].attributes['value'];
-            if (prevValue != null) {
-              _nextChapterUrl = prevValue;
-              print('[파서] 다음화 ID: $_nextChapterUrl');
-            }
-          }
-        }
-      }
-    } else {
-      print('[파서] .toon-nav를 찾을 수 없음');
+      print('[최근 본 회차] 페이지 업데이트 실패 상세: $e');
+      print('[최근 본 회차] 페이지 업데이트 실패: $e');
     }
   }
 
@@ -577,7 +659,7 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
                           _showError = false;
                           _isInitialLoad = true;
                         });
-                        _controller?.reload();
+                        _controller.reload();
                       },
                       child: const Text('다시 시도'),
                     ),
@@ -767,6 +849,137 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
         _isDragging = false;
         _dragOffset = 0;
       });
+    }
+  }
+
+  void _onCaptchaVerified() async {
+    setState(() {
+      _showManatokiCaptcha = false;
+      _isLoading = true;
+    });
+
+    try {
+      final cookieManager = WebViewCookieManager();
+      final baseUrl = ref.read(siteUrlServiceProvider);
+      final cookieJar = ref.read(globalCookieJarProvider);
+      final cookies = await cookieJar.loadForRequest(Uri.parse(baseUrl));
+
+      // 기존 쿠키 제거
+      await cookieManager.clearCookies();
+
+      // 새로운 쿠키 설정
+      for (final cookie in cookies) {
+        await cookieManager.setCookie(
+          WebViewCookie(
+            name: cookie.name,
+            value: cookie.value,
+            domain: Uri.parse(baseUrl).host,
+          ),
+        );
+      }
+
+      // 웹뷰 컨트롤러 재초기화
+      await _initWebView();
+    } catch (e) {
+      print('쿠키 동기화 오류: $e');
+      if (_controller != null) {
+        await _controller.reload();
+      }
+    }
+  }
+
+  // 네비게이션 바 토글 (HTML 파싱 없이 단순 UI 상태만 변경)
+  void _toggleNavigationBar() {
+    setState(() {
+      _showNavigationBar = !_showNavigationBar;
+    });
+  }
+
+  // 다른 페이지로 이동
+  void _navigateToUrl(String? url) {
+    if (url == null || url == '#next') return;
+
+    print('[네비게이션] URL 처리 시작: $url');
+
+    final baseUrl = ref.read(siteUrlServiceProvider);
+    String fullUrl;
+
+    // URL 정규화
+    if (url.startsWith('http')) {
+      fullUrl = url;
+    } else if (url.startsWith('/')) {
+      fullUrl = baseUrl + url;
+    } else {
+      fullUrl = '$baseUrl/comic/$url';
+    }
+
+    print('[네비게이션] 이동할 URL: $fullUrl');
+    setState(() {
+      _imageUrls = [];
+      _isLoading = true;
+      _showError = false;
+      _isInitialLoad = true;
+    });
+    _controller.loadRequest(Uri.parse(fullUrl));
+  }
+
+  // HTML에서 네비게이션 링크 파싱
+  void _parseNavigationLinks(String htmlString) {
+    print('[파서] 네비게이션 링크 파싱 시작');
+
+    final document = html_parser.parse(htmlString);
+    final navDiv = document.querySelector('.toon-nav');
+
+    if (navDiv != null) {
+      print('[파서] .toon-nav 찾음');
+      print('[파서] HTML: ${navDiv.outerHtml}');
+
+      // select 태그에서 현재 회차와 이전/다음 회차 찾기
+      final select = navDiv.querySelector('select[name="wr_id"]');
+      if (select != null) {
+        final options = select.querySelectorAll('option');
+        print('[파서] 전체 회차 수: ${options.length}');
+
+        // 현재 선택된 회차 찾기
+        int currentIndex = -1;
+        for (var i = 0; i < options.length; i++) {
+          if (options[i].attributes['selected'] != null) {
+            currentIndex = i;
+            print('[파서] 현재 회차 인덱스: $i');
+            break;
+          }
+        }
+
+        if (currentIndex != -1) {
+          // 이전화 설정 (더 높은 인덱스)
+          if (currentIndex < options.length - 1) {
+            final nextValue = options[currentIndex + 1].attributes['value'];
+            if (nextValue != null) {
+              _prevChapterUrl = nextValue;
+              print('[파서] 이전화 ID: $_prevChapterUrl');
+            }
+          }
+
+          // 다음화 설정 (더 낮은 인덱스)
+          if (currentIndex > 0) {
+            final prevValue = options[currentIndex - 1].attributes['value'];
+            if (prevValue != null) {
+              _nextChapterUrl = prevValue;
+              print('[파서] 다음화 ID: $_nextChapterUrl');
+            }
+          }
+        }
+      }
+
+      // 현재 회차 제목 찾기
+      final titleElement = document.querySelector('.toon-title');
+      if (titleElement != null) {
+        _currentTitle = titleElement.text.trim();
+        // 최근 본 회차에 추가
+        _addToRecentChapters();
+      }
+    } else {
+      print('[파서] .toon-nav를 찾을 수 없음');
     }
   }
 }

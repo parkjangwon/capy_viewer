@@ -9,6 +9,7 @@ import '../../viewmodels/recent_added_provider.dart';
 import '../../viewmodels/weekly_best_provider.dart';
 import '../../viewmodels/global_cookie_provider.dart';
 import '../../viewmodels/cookie_sync_utils.dart';
+import '../../providers/recent_chapters_provider.dart';
 import '../viewer/manga_viewer_screen.dart';
 import 'recent_added_screen.dart';
 
@@ -99,8 +100,133 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       title: '최근에 본 작품',
                       onAction: widget.onRecentTap,
                     ),
-                    const _HorizontalCardList(
-                        placeholderCount: 6, emptyText: '결과 없음'),
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final asyncValue =
+                            ref.watch(recentChaptersPreviewProvider);
+                        return asyncValue.when(
+                          data: (chapters) {
+                            if (chapters.isEmpty) {
+                              return const _HorizontalCardList(
+                                placeholderCount: 0,
+                                emptyText: '최근에 본 작품이 없습니다.',
+                              );
+                            }
+                            return SizedBox(
+                              height: 180,
+                              child: ListView.builder(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: chapters.length,
+                                itemBuilder: (context, index) {
+                                  final chapter = chapters[index];
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: InkWell(
+                                      onTap: () {
+                                        print('[홈] 최근 본 작품 클릭');
+                                        print(
+                                            '[홈] 작품 정보: ${chapter.toString()}');
+                                        print(
+                                            '[홈] 마지막 페이지: ${chapter['last_page']}');
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                MangaViewerScreen(
+                                              title: chapter['manga_id'],
+                                              chapterId: chapter['id'],
+                                              initialPage:
+                                                  chapter['last_page'] ?? 0,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      child: SizedBox(
+                                        width: 120,
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              child: chapter['thumbnail_url']
+                                                          ?.isNotEmpty ??
+                                                      false
+                                                  ? NetworkImageWithHeaders(
+                                                      url: chapter[
+                                                          'thumbnail_url'],
+                                                      width: 120,
+                                                      height: 120,
+                                                      fit: BoxFit.cover,
+                                                      errorWidget: Container(
+                                                        width: 120,
+                                                        height: 120,
+                                                        decoration:
+                                                            BoxDecoration(
+                                                          color:
+                                                              Colors.grey[300],
+                                                          borderRadius:
+                                                              BorderRadius
+                                                                  .circular(8),
+                                                        ),
+                                                        child: const Icon(
+                                                            Icons.menu_book,
+                                                            size: 32),
+                                                      ),
+                                                    )
+                                                  : Container(
+                                                      width: 120,
+                                                      height: 120,
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.grey[300],
+                                                        borderRadius:
+                                                            BorderRadius
+                                                                .circular(8),
+                                                      ),
+                                                      child: const Icon(
+                                                          Icons.menu_book,
+                                                          size: 32),
+                                                    ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              chapter['manga_id'],
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            Text(
+                                              chapter['chapter_title'],
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Theme.of(context)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.color,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            );
+                          },
+                          loading: () =>
+                              const _HorizontalCardList(placeholderCount: 6),
+                          error: (e, st) =>
+                              const Center(child: Text('불러오기 실패')),
+                        );
+                      },
+                    ),
                     const SizedBox(height: 16),
                     const _SectionTitle('주간 베스트'),
                     const _WeeklyBestList(),

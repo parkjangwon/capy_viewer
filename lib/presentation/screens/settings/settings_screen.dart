@@ -9,6 +9,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as path;
 import '../../../data/providers/global_cookie_jar_provider.dart';
 import '../../../presentation/screens/captcha_page.dart';
+import '../../providers/secret_mode_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -143,6 +144,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final urlService = ref.watch(siteUrlServiceProvider.notifier);
     final currentUrl = ref.watch(siteUrlServiceProvider);
     final currentTheme = ref.watch(themeProvider);
+    final isSecretMode = ref.watch(secretModeProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -396,6 +398,57 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
+                    '시크릿 모드',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '시크릿 모드',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              '최근 본 작품에 기록을 남기지 않습니다',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        value: isSecretMode,
+                        onChanged: (value) {
+                          ref.read(secretModeProvider.notifier).toggle();
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
                     '개발자 도구',
                     style: TextStyle(
                       fontSize: 18,
@@ -416,7 +469,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             builder: (context) => CaptchaPage(
                               url: targetUrl,
                               onHtmlReceived: (html) {
-                                // HTML을 받아서 처리
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('캡차 인증이 완료되었습니다.'),
+                                    ),
+                                  );
+                                }
                               },
                             ),
                           ),
@@ -442,24 +501,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               url: targetUrl,
                               onHtmlReceived: (html) {
                                 if (context.mounted) {
-                                  showDialog(
-                                    context: context,
-                                    builder: (_) => AlertDialog(
-                                      title: const Text('HTML 결과 (작품 리스트)'),
-                                      content: SizedBox(
-                                        width: 320,
-                                        height: 400,
-                                        child: SingleChildScrollView(
-                                          child: Text(html),
-                                        ),
+                                  final hasCloudflare = html
+                                          .toLowerCase()
+                                          .contains(
+                                              'cf-browser-verification') ||
+                                      html
+                                          .toLowerCase()
+                                          .contains('cf-challenge') ||
+                                      html
+                                          .toLowerCase()
+                                          .contains('_cf_chl_opt');
+
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        hasCloudflare
+                                            ? '클라우드플레어 캡차가 감지되었습니다.'
+                                            : 'HTML을 성공적으로 가져왔습니다. (클라우드플레어 캡차 없음)',
                                       ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context),
-                                          child: const Text('닫기'),
-                                        ),
-                                      ],
                                     ),
                                   );
                                 }
@@ -470,6 +529,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       }
                     },
                     child: const Text('HTML 가져오기'),
+                  ),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: () async {
+                      final cookieJar = ref.read(globalCookieJarProvider);
+                      await cookieJar.deleteAll();
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('모든 쿠키가 삭제되었습니다.'),
+                          ),
+                        );
+                      }
+                    },
+                    child: const Text('쿠키 삭제'),
                   ),
                 ],
               ),
