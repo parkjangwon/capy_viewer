@@ -22,6 +22,7 @@ _$MangaDetailImpl _$$MangaDetailImplFromJson(Map<String, dynamic> json) =>
               .toList() ??
           const <MangaChapter>[],
       previousChapterId: json['previousChapterId'] as String? ?? '',
+      isLiked: json['isLiked'] as bool? ?? false,
     );
 
 Map<String, dynamic> _$$MangaDetailImplToJson(_$MangaDetailImpl instance) =>
@@ -34,6 +35,7 @@ Map<String, dynamic> _$$MangaDetailImplToJson(_$MangaDetailImpl instance) =>
       'releaseStatus': instance.releaseStatus,
       'chapters': instance.chapters,
       'previousChapterId': instance.previousChapterId,
+      'isLiked': instance.isLiked,
     };
 
 _$MangaChapterImpl _$$MangaChapterImplFromJson(Map<String, dynamic> json) =>
@@ -45,6 +47,7 @@ _$MangaChapterImpl _$$MangaChapterImplFromJson(Map<String, dynamic> json) =>
       rating: (json['rating'] as num?)?.toInt() ?? 0,
       likes: (json['likes'] as num?)?.toInt() ?? 0,
       comments: (json['comments'] as num?)?.toInt() ?? 0,
+      isLiked: json['isLiked'] as bool? ?? false,
       fullViewUrl: json['fullViewUrl'] as String?,
     );
 
@@ -57,5 +60,6 @@ Map<String, dynamic> _$$MangaChapterImplToJson(_$MangaChapterImpl instance) =>
       'rating': instance.rating,
       'likes': instance.likes,
       'comments': instance.comments,
+      'isLiked': instance.isLiked,
       'fullViewUrl': instance.fullViewUrl,
     };

@@ -122,8 +122,11 @@ class _CaptchaPageState extends ConsumerState<CaptchaPage> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => CaptchaWebViewPage(
-                          url: targetUrl, onCookiesExtracted: (cookies) {}),
+                      builder: (context) => CaptchaPage(
+                          url: targetUrl,
+                          onHtmlReceived: (html) {
+                            // HTML을 받아서 처리
+                          }),
                     ),
                   );
                 },

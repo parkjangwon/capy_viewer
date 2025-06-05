@@ -14,6 +14,7 @@ import '../../viewmodels/global_cookie_provider.dart';
 import '../manga/manga_captcha_screen.dart';
 import '../viewer/manga_viewer_screen.dart';
 import '../../providers/tab_provider.dart';
+import '../../../data/database/database_helper.dart';
 
 class MangaDetailScreen extends ConsumerStatefulWidget {
   final String? mangaId;
@@ -36,6 +37,7 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
   MangaDetail? _mangaDetail;
   bool _showManatokiCaptcha = false;
   ManatokiCaptchaInfo? _captchaInfo;
+  final _db = DatabaseHelper.instance;
   String get _mangaId {
     if (widget.mangaId == null || widget.mangaId!.isEmpty) {
       throw Exception('mangaId가 전달되지 않았습니다.');
@@ -45,12 +47,14 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
 
   final ScrollController _scrollController = ScrollController();
   int _selectedIndex = 0;
+  bool _isLiked = false;
 
   @override
   void initState() {
     super.initState();
     _initWebView();
     _loadMangaDetail();
+    _checkLikeStatus();
   }
 
   @override
@@ -91,22 +95,14 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
         _captchaInfo = null;
       });
 
-      final baseUrl = ref.read(siteUrlServiceProvider); // 동적 URL 사용
-      final jar = ref.read(
-          globalCookieJarProvider); // globalCookieJarProvider는 이미 정의되어 있다고 가정
+      final baseUrl = ref.read(siteUrlServiceProvider);
+      final jar = ref.read(globalCookieJarProvider);
 
-      // 쿠키 동기화 생략 (WebView에 직접 접근하기 때문에 필요 없음)
-      // await syncDioCookiesToWebView(baseUrl, jar);
-
-      // 로드할 URL 결정
       String url;
-
-      // directUrl이 있는 경우 (전편보기 버튼이 있는 페이지로 직접 접근)
       if (widget.directUrl != null && widget.directUrl!.isNotEmpty) {
         url = widget.directUrl!;
         print('전편보기 버튼이 있는 페이지 로드: $url');
       } else {
-        // 기존 방식: 만화 ID로 상세 페이지 접근
         final cleanBaseUrl = baseUrl.endsWith('/')
             ? baseUrl.substring(0, baseUrl.length - 1)
             : baseUrl;
@@ -114,7 +110,6 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
         print('만화 상세 페이지 로드: $url');
       }
 
-      // 페이지 로드
       await _controller.loadRequest(Uri.parse(url));
     } catch (e) {
       if (!mounted) return;
@@ -123,6 +118,7 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
         _isError = true;
         _errorMessage = '데이터를 불러오는 중 오류가 발생했습니다: $e';
       });
+      print('만화 상세 정보 로드 중 오류: $e');
     }
   }
 
@@ -567,6 +563,33 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
     }
   }
 
+  Future<void> _checkLikeStatus() async {
+    if (widget.mangaId != null) {
+      final isLiked = await _db.isLiked(widget.mangaId!);
+      if (mounted) {
+        setState(() {
+          _isLiked = isLiked;
+        });
+      }
+    }
+  }
+
+  Future<void> _toggleLike() async {
+    if (widget.mangaId != null && _mangaDetail != null) {
+      if (_isLiked) {
+        await _db.removeLike(widget.mangaId!);
+      } else {
+        await _db.insertLike(
+          widget.mangaId!,
+          _mangaDetail!.title,
+          _mangaDetail!.author.isEmpty ? '작가 미상' : _mangaDetail!.author,
+          _mangaDetail!.thumbnailUrl,
+        );
+      }
+      await _checkLikeStatus();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -575,8 +598,11 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
         title: const Text('작품 상세 보기'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadMangaDetail,
+            icon: Icon(
+              _isLiked ? Icons.favorite : Icons.favorite_border,
+              color: _isLiked ? Colors.red : null,
+            ),
+            onPressed: _toggleLike,
           ),
         ],
       ),
@@ -691,8 +717,6 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
     final theme = Theme.of(context);
     return Column(
       children: [
-        // 광고/불필요한 HTML 제거: WebViewWidget 등 상단 불필요한 위젯 완전 삭제
-        // 만화 정보
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
@@ -704,39 +728,38 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // 썸네일
-                    Container(
-                      width: 120,
-                      height: 160,
-                      decoration: BoxDecoration(
-                        color: Colors.grey[300],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: _mangaDetail!.thumbnailUrl.isNotEmpty
-                            ? NetworkImageWithHeaders(
-                                url: _mangaDetail!.thumbnailUrl,
-                                width: 120,
-                                height: 160,
-                                fit: BoxFit.cover,
-                              )
-                            : const Center(
-                                child:
-                                    Icon(Icons.image_not_supported, size: 48),
-                              ),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        _mangaDetail!.thumbnailUrl,
+                        width: 120,
+                        height: 160,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            const SizedBox(
+                          width: 120,
+                          height: 160,
+                          child: Center(
+                            child: Icon(Icons.error_outline),
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 16),
-                    // 만화 정보
+                    // 제목 및 정보
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            _mangaDetail!.title,
-                            style: theme.textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  _mangaDetail!.title,
+                                  style: theme.textTheme.titleLarge,
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 8),
                           _buildInfoRow(

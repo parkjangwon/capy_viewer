@@ -14,6 +14,7 @@ class MangaDetail with _$MangaDetail {
     @Default('') String releaseStatus,
     @Default(<MangaChapter>[]) List<MangaChapter> chapters,
     @Default('') String previousChapterId, // 전편보기 링크의 만화 ID
+    @Default(false) bool isLiked, // 작품 좋아요 상태
   }) = _MangaDetail;
 
   factory MangaDetail.fromJson(Map<String, dynamic> json) =>
@@ -30,6 +31,7 @@ class MangaChapter with _$MangaChapter {
     @Default(0) int rating,
     @Default(0) int likes,
     @Default(0) int comments,
+    @Default(false) bool isLiked,
     String? fullViewUrl,
   }) = _MangaChapter;
 
@@ -45,6 +47,7 @@ class MangaChapter with _$MangaChapter {
       likes: map['likes'] ?? 0,
       rating: map['rating'] ?? 0,
       comments: map['comments'] ?? 0,
+      isLiked: map['isLiked'] ?? false,
       fullViewUrl: map['fullViewUrl'],
     );
   }
@@ -60,6 +63,7 @@ extension MangaChapterMap on MangaChapter {
       'likes': likes,
       'rating': rating,
       'comments': comments,
+      'isLiked': isLiked,
       'fullViewUrl': fullViewUrl,
     };
   }

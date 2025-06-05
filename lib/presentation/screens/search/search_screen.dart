@@ -14,6 +14,7 @@ import '../../viewmodels/cookie_sync_utils.dart';
 import '../../../data/providers/site_url_provider.dart';
 import '../settings/settings_screen.dart';
 import '../manga/manga_navigation.dart';
+import '../../widgets/captcha/captcha_page.dart';
 
 const _publishOptions = ['전체', '주간', '격주', '월간', '단편', '단행본', '완결'];
 const _jaumOptions = [
@@ -244,17 +245,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
         final result = await Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => CaptchaWebViewPage(
+            builder: (context) => CaptchaPage(
               url: siteUrl,
-              onCookiesExtracted: (dynamic cookies) async {
+              onHtmlReceived: (html) async {
                 // 캡차 인증 후 쿠키 동기화
                 final jar = ref.read(globalCookieJarProvider);
-                if (cookies is List<WebViewCookie>) {
-                  await jar.saveFromResponse(
-                    Uri.parse(siteUrl),
-                    cookies.map((c) => Cookie(c.name, c.value)).toList(),
-                  );
+                if (html.isNotEmpty) {
+                  // 캡차 인증 성공으로 간주
+                  return true;
                 }
+                return false;
               },
             ),
           ),

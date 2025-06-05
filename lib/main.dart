@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'data/database/database_helper.dart';
 import 'presentation/screens/home/home_screen.dart';
 import 'presentation/screens/search/search_screen.dart';
 import 'presentation/screens/recent/recent_screen.dart';
-import 'presentation/screens/favorites/favorites_screen.dart';
+import 'presentation/screens/liked/liked_manga_screen.dart';
 import 'presentation/screens/saved/saved_screen.dart';
 import 'presentation/screens/settings/settings_screen.dart';
 import 'presentation/viewmodels/theme_provider.dart';
@@ -11,8 +12,21 @@ import 'presentation/viewmodels/navigator_provider.dart';
 import 'presentation/viewmodels/manga_viewer_view_model.dart';
 import 'presentation/providers/tab_provider.dart';
 
-void main() {
-  runApp(const ProviderScope(child: MyApp()));
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // 데이터베이스 초기화
+  final db = DatabaseHelper.instance;
+  await db.database;
+
+  final container = ProviderContainer();
+
+  runApp(
+    UncontrolledProviderScope(
+      container: container,
+      child: const MyApp(),
+    ),
+  );
 } // 아래에서 MyApp에 navigatorKey를 전달하도록 수정 예정
 
 class MyApp extends ConsumerWidget {
@@ -73,7 +87,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       ),
       const SearchScreen(),
       const RecentScreen(),
-      const FavoritesScreen(),
+      const LikedMangaScreen(),
       const SavedScreen(),
       const SettingsScreen(),
     ];
