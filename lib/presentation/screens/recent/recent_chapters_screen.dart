@@ -54,7 +54,7 @@ class RecentChaptersScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('최근 본 회차'),
+        title: const Text('최근에 본 작품'),
       ),
       body: SafeArea(
         child: chaptersAsync.when(

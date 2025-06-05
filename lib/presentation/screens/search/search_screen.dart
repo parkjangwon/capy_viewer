@@ -142,7 +142,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
     if (_selectedGenres.isEmpty || _selectedGenres.contains('전체')) {
       _currentGenre = '';
     } else {
-      _currentGenre = _selectedGenres.join(',');
+      _currentGenre = _selectedGenres.join('|'); // 쉼표 대신 | 구분자 사용
     }
     _currentSort = _sortValue;
 

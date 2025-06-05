@@ -21,12 +21,12 @@ class SearchWebViewController {
     String? sort,
   }) async {
     final searchUrl = Uri.parse('$baseUrl/comic').replace(queryParameters: {
-      'publish': publish ?? '',
-      'jaum': jaum ?? '',
-      'tag': tag ?? '',
+      if (publish?.isNotEmpty == true) 'publish': publish!,
+      if (jaum?.isNotEmpty == true) 'jaum': jaum!,
+      if (tag?.isNotEmpty == true) 'tag': tag!,
       'sst': sort ?? 'wr_datetime',
       'sod': 'desc',
-      'stx': title ?? '',
+      if (title?.isNotEmpty == true) 'stx': title!,
       'artist': '',
     }).toString();
 
