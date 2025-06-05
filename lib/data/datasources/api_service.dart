@@ -846,4 +846,40 @@ class ApiService extends _$ApiService {
       throw Exception('검색 결과 로딩 실패: $e');
     }
   }
+
+  Future<List<String>> fetchArtistSuggestions(String query) async {
+    try {
+      _logger.i('[API] 작가 자동완성 요청: query=$query');
+      final response = await _request<String>(
+        '/bbs/comic_artist.php',
+        queryParameters: {
+          'term': query,
+          'q': query,
+        },
+        bypassCaptchaOnBlocked: false,
+      );
+
+      if (response.data == null || response.data!.isEmpty) {
+        _logger.w('[API] 작가 자동완성 결과가 비어있습니다');
+        return [];
+      }
+
+      try {
+        final Map<String, dynamic> jsonData = json.decode(response.data!);
+        final results = jsonData['results'] as List<dynamic>? ?? [];
+        final suggestions = results
+            .map((item) => item['id'] as String? ?? '')
+            .where((s) => s.isNotEmpty)
+            .toList();
+        _logger.i('[API] 작가 자동완성 결과: ${suggestions.length}개');
+        return suggestions;
+      } catch (e, stack) {
+        _logger.e('[API] 작가 자동완성 결과 파싱 실패', error: e, stackTrace: stack);
+        return [];
+      }
+    } catch (e, stack) {
+      _logger.e('[API] 작가 자동완성 요청 실패', error: e, stackTrace: stack);
+      return [];
+    }
+  }
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'dart:async';
+import 'package:cookie_jar/cookie_jar.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 import '../../../data/models/manga_title.dart';
 
 import '../../../utils/html_manga_parser.dart';
@@ -16,6 +18,7 @@ import '../../viewmodels/recent_added_provider.dart';
 import '../home/home_screen.dart';
 import '../../../data/models/recent_added_model.dart';
 import '../../../utils/content_filter.dart';
+import '../../../data/providers/artist_suggestions_provider.dart';
 
 const _publishOptions = ['전체', '주간', '격주', '월간', '단편', '단행본', '완결'];
 const _jaumOptions = [
@@ -77,7 +80,6 @@ const _sortOptions = [
 
 const _searchTypeOptions = [
   {'label': '제목', 'value': 'title'},
-  {'label': '작가', 'value': 'artist'},
 ];
 
 class SearchScreen extends ConsumerStatefulWidget {
@@ -87,9 +89,11 @@ class SearchScreen extends ConsumerStatefulWidget {
   ConsumerState<SearchScreen> createState() => _SearchScreenState();
 }
 
-class _SearchScreenState extends ConsumerState<SearchScreen> {
+class _SearchScreenState extends ConsumerState<SearchScreen>
+    with SingleTickerProviderStateMixin {
   String _searchType = 'title';
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   String _sortValue = 'wr_datetime';
   String _publishValue = '전체';
   String _jaumValue = '전체';
@@ -104,38 +108,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   String _currentGenre = '';
   String _currentSort = 'wr_datetime';
   int _searchSession = 0;
-
-  void _onSearch() {
-    setState(() {
-      _currentSearch = _searchController.text.trim();
-      _currentSearchType = _searchType;
-      _currentPublish = _publishValue == '전체' ? '' : _publishValue;
-      _currentJaum = _jaumValue == '전체' ? '' : _jaumValue;
-      if (_selectedGenres.isEmpty || _selectedGenres.contains('전체')) {
-        _currentGenre = '';
-      } else {
-        _currentGenre = _selectedGenres.join(',');
-      }
-      _currentSort = _sortValue;
-
-      _pagingController?.dispose();
-      _pagingController = null;
-      _webViewInitialized = false;
-      _searchSession++;
-
-      if (_currentSearch.isNotEmpty ||
-          _currentPublish.isNotEmpty ||
-          _currentJaum.isNotEmpty ||
-          _currentGenre.isNotEmpty) {
-        _pagingController = PagingController<int, MangaTitle>(firstPageKey: 0)
-          ..addPageRequestListener(_fetchPage);
-      }
-    });
-  }
+  late final AnimationController _filterAnimationController;
+  bool _isFilterExpanded = false;
 
   @override
   void initState() {
     super.initState();
+    _filterAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
     // WebView 쿠키 → Dio 쿠키 동기화 (최초 진입 시)
     Future.microtask(() async {
       final jar = ref.read(globalCookieJarProvider);
@@ -146,35 +128,105 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   @override
   void dispose() {
+    _filterAnimationController.dispose();
     _searchController.dispose();
+    _searchFocusNode.dispose();
     _pagingController?.dispose();
     super.dispose();
   }
 
-  Future<void> _fetchPage(int pageKey) async {
-    if (!_webViewInitialized) {
-      await _webViewHelper.initialize();
-      _webViewInitialized = true;
+  void _onSearch() {
+    print('[DEBUG] 검색 시작');
+
+    // 현재 검색 상태 업데이트
+    _currentSearch = _searchController.text.trim();
+    _currentSearchType = _searchType;
+    _currentPublish = _publishValue == '전체' ? '' : _publishValue;
+    _currentJaum = _jaumValue == '전체' ? '' : _jaumValue;
+    if (_selectedGenres.isEmpty || _selectedGenres.contains('전체')) {
+      _currentGenre = '';
+    } else {
+      _currentGenre = _selectedGenres.join(',');
     }
-    if (_currentSearch.isEmpty &&
-        _currentPublish.isEmpty &&
-        _currentJaum.isEmpty &&
-        _currentGenre.isEmpty) {
-      _pagingController?.appendLastPage([]);
+    _currentSort = _sortValue;
+
+    print('[DEBUG] 검색 파라미터:');
+    print('- 검색어: $_currentSearch');
+    print('- 검색 타입: $_currentSearchType');
+    print('- 발행 상태: $_currentPublish');
+    print('- 초성: $_currentJaum');
+    print('- 장르: $_currentGenre');
+    print('- 정렬: $_currentSort');
+
+    // WebView 상태 초기화
+    _webViewInitialized = false;
+    _searchSession++;
+
+    // 기존 페이징 컨트롤러 정리
+    _pagingController?.dispose();
+
+    // 새로운 페이징 컨트롤러 생성 및 초기화
+    if (_currentSearch.isNotEmpty ||
+        _currentPublish.isNotEmpty ||
+        _currentJaum.isNotEmpty ||
+        _currentGenre.isNotEmpty) {
+      _pagingController = PagingController<int, MangaTitle>(firstPageKey: 0);
+      _pagingController!.addPageRequestListener((pageKey) {
+        if (mounted) {
+          _fetchPage(pageKey);
+        }
+      });
+    } else {
+      _pagingController = null;
+    }
+
+    // UI 업데이트
+    setState(() {});
+  }
+
+  Future<void> _fetchPage(int pageKey) async {
+    print('[DEBUG] 페이지 로드 시작: pageKey=$pageKey');
+
+    if (!mounted) {
+      print('[DEBUG] 위젯이 dispose된 상태');
       return;
     }
+
     try {
+      if (!_webViewInitialized) {
+        print('[DEBUG] WebView 초기화 시작');
+        await _webViewHelper.initialize();
+
+        // WebView 쿠키 → Dio 쿠키 동기화
+        final baseUrl = ref.read(siteUrlServiceProvider);
+        final jar = ref.read(globalCookieJarProvider);
+        await syncWebViewCookiesToDio(baseUrl, jar);
+
+        _webViewInitialized = true;
+        print('[DEBUG] WebView 초기화 완료');
+      }
+
+      if (!mounted) return;
+
       final baseUrl = ref.read(siteUrlServiceProvider);
+      print('[DEBUG] 검색 요청 전송');
+
       await _webViewHelper.loadSearch(
         baseUrl,
-        title: _currentSearchType == 'title' ? _currentSearch : null,
-        artist: _currentSearchType == 'artist' ? _currentSearch : null,
+        title: _currentSearch,
         publish: _currentPublish,
         jaum: _currentJaum,
         tag: _currentGenre,
         sort: _currentSort,
       );
+
+      if (!mounted) return;
+
+      print('[DEBUG] HTML 콘텐츠 가져오기');
       final html = await _webViewHelper.getHtml();
+      print('[DEBUG] HTML 길이: ${html.length}');
+
+      // 캡차 감지 키워드 확장
       final captchaKeywords = [
         'captcha-bypass',
         'challenge-form',
@@ -182,30 +234,63 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         'turnstile_',
         '_cf_chl_opt',
         'cf-spinner',
+        'cf-browser-verification',
+        'cf_captcha_kind',
+        '캡차 인증',
+        'kcaptcha',
+        'captcha.php',
       ];
-      final isCaptcha = captchaKeywords.any((k) => html.contains(k));
-      if (isCaptcha) {
-        if (context.mounted) {
-          final siteUrl = ref.read(siteUrlServiceProvider);
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => CaptchaWebViewPage(
-                url: siteUrl,
-                onCookiesExtracted: (cookies) {},
-              ),
+
+      if (captchaKeywords.any((k) => html.contains(k)) || html.length < 1000) {
+        print('[DEBUG] 캡차 감지됨 또는 비정상적인 응답');
+        if (!mounted) return;
+
+        final siteUrl = ref.read(siteUrlServiceProvider);
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => CaptchaWebViewPage(
+              url: siteUrl,
+              onCookiesExtracted: (dynamic cookies) async {
+                // 캡차 인증 후 쿠키 동기화
+                final jar = ref.read(globalCookieJarProvider);
+                if (cookies is List<WebViewCookie>) {
+                  await jar.saveFromResponse(
+                    Uri.parse(siteUrl),
+                    cookies.map((c) => Cookie(c.name, c.value)).toList(),
+                  );
+                }
+              },
             ),
-          );
-          if (result != null) {
+          ),
+        );
+
+        if (result != null) {
+          print('[DEBUG] 캡차 인증 성공, 검색 재시도');
+          // 캡차 인증 성공 후 WebView 재초기화
+          _webViewInitialized = false;
+          if (mounted) {
             await _fetchPage(pageKey);
-            return;
-          } else {
-            _pagingController?.error = Exception('캡차 인증이 필요합니다.');
-            return;
           }
+          return;
+        } else {
+          print('[DEBUG] 캡차 인증 실패');
+          if (mounted) {
+            _pagingController?.error = Exception('캡차 인증이 필요합니다.');
+          }
+          return;
         }
       }
+
+      print('[DEBUG] 검색 결과 파싱 시작');
       final parsed = parseMangaListFromHtml(html);
+      print('[DEBUG] 파싱된 결과 수: ${parsed.length}');
+
+      if (parsed.isEmpty && html.length > 1000) {
+        print('[DEBUG] 결과가 없지만 HTML이 존재함. HTML 내용 확인:');
+        print(html.substring(0, 500)); // 처음 500자만 출력
+      }
+
       final newItems = parsed
           .map((item) => MangaTitle(
                 id: item.href,
@@ -217,407 +302,228 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 updateDate: item.updateDate,
               ))
           .toList();
-      _pagingController?.appendLastPage(newItems);
-    } catch (e) {
-      _pagingController?.error = e;
+      print('[DEBUG] 변환된 아이템 수: ${newItems.length}');
+
+      if (mounted) {
+        _pagingController?.appendLastPage(newItems);
+      }
+    } catch (e, stack) {
+      print('[ERROR] 검색 중 오류 발생: $e');
+      print(stack);
+      if (mounted) {
+        _pagingController?.error = e;
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return SafeArea(
-      child: Column(
+    return Scaffold(
+      body: Stack(
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: FutureBuilder<bool>(
-              future: ContentFilter.isSafeModeEnabled(),
-              builder: (context, snapshot) {
-                final safeMode = snapshot.data ?? false;
-                // 안심 모드일 때 제외할 장르
-                final restrictedTags = ['17', 'BL', 'TS', '붕탁', '백합', '러브코미디'];
-                final filteredGenres = safeMode
-                    ? _genreOptions
-                        .where((g) => g == '전체' || !restrictedTags.contains(g))
-                        .toList()
-                    : _genreOptions;
-                return Wrap(
-                  spacing: 16,
-                  runSpacing: 8,
-                  children: [
-                    _FilterDropdown(
-                      label: '발행',
-                      value: _publishValue,
-                      items: _publishOptions,
-                      onChanged: (v) => setState(() => _publishValue = v!),
+          // 검색 결과
+          if (_pagingController != null)
+            Positioned.fill(
+              bottom: 80, // 검색바 높이만큼 패딩
+              child: PagedListView<int, MangaTitle>(
+                padding: const EdgeInsets.only(bottom: 16),
+                pagingController: _pagingController!,
+                builderDelegate: PagedChildBuilderDelegate<MangaTitle>(
+                  itemBuilder: (context, item, index) => MangaListItem(
+                    manga: item,
+                    onTap: () => navigateToMangaDetail(context, item),
+                  ),
+                  firstPageErrorIndicatorBuilder: (context) => Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          _pagingController!.error.toString(),
+                          style: theme.textTheme.bodyLarge,
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        FilledButton(
+                          onPressed: () {
+                            _webViewInitialized = false;
+                            _pagingController!.refresh();
+                          },
+                          child: const Text('다시 시도'),
+                        ),
+                      ],
                     ),
-                    _FilterDropdown(
-                      label: '초성',
-                      value: _jaumValue,
-                      items: _jaumOptions,
-                      onChanged: (v) => setState(() => _jaumValue = v!),
+                  ),
+                  noItemsFoundIndicatorBuilder: (context) => Center(
+                    child: Text(
+                      '검색 결과가 없습니다.',
+                      style: theme.textTheme.bodyLarge,
                     ),
-                    _FilterDropdown(
-                      label: '정렬',
-                      value: _sortValue,
-                      optionMapList: _sortOptions,
-                      onChanged: (v) => setState(() => _sortValue = v!),
-                      minWidth: 110,
-                    ),
-                    OutlinedButton(
-                      onPressed: () async {
-                        final result = await showModalBottomSheet<List<String>>(
-                          context: context,
-                          isScrollControlled: true,
-                          builder: (context) => GenreSelectSheet(
-                            allGenres: filteredGenres,
-                            selected: _selectedGenres,
-                          ),
-                        );
-                        if (result != null) {
-                          Future.microtask(() {
-                            setState(() => _selectedGenres = result);
-                          });
-                        }
-                      },
-                      style: OutlinedButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                        side: BorderSide(
-                            color: Theme.of(context).colorScheme.outline),
-                        backgroundColor: Theme.of(context)
-                            .colorScheme
-                            .surfaceVariant
-                            .withOpacity(0.2),
-                        minimumSize: const Size(120, 48),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 0),
-                        alignment: Alignment.center,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.standard,
+                  ),
+                ),
+              ),
+            ),
+
+          // 검색바 (하단 고정)
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Material(
+              elevation: 8,
+              color: theme.colorScheme.surface,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 필터 영역
+                  SizeTransition(
+                    sizeFactor: _filterAnimationController,
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceVariant,
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(16),
+                        ),
                       ),
-                      child: SizedBox(
-                        height: 24,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.category_outlined, size: 18),
-                            const SizedBox(width: 4),
-                            Text(
-                              _selectedGenres.isEmpty ||
-                                      _selectedGenres.contains('전체')
-                                  ? '장르 전체'
-                                  : '장르: ' + _selectedGenres.join(', '),
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodyMedium,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // 발행 상태 필터
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: _publishOptions.map((option) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: ActionChip(
+                                    label: Text(option),
+                                    onPressed: () {
+                                      setState(() => _publishValue = option);
+                                    },
+                                    backgroundColor: _publishValue == option
+                                        ? theme.colorScheme.primaryContainer
+                                        : null,
+                                  ),
+                                );
+                              }).toList(),
                             ),
-                            const SizedBox(width: 2),
-                            const Icon(Icons.arrow_drop_down),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Row(
-              children: [
-                DropdownButton<String>(
-                  value: _searchType,
-                  items: _searchTypeOptions
-                      .map((e) => DropdownMenuItem(
-                          value: e['value']!, child: Text(e['label']!)))
-                      .toList(),
-                  onChanged: (v) => setState(() => _searchType = v!),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: const InputDecoration(
-                      labelText: '검색어 입력',
-                      border: OutlineInputBorder(),
-                    ),
-                    onSubmitted: (_) => _onSearch(),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1),
-          Expanded(
-            child: _pagingController == null
-                ? Center(
-                    child: Text('검색 조건을 입력하세요',
-                        style: TextStyle(
-                            fontSize: 16,
-                            color:
-                                theme.colorScheme.onSurface.withOpacity(0.4))))
-                : RefreshIndicator(
-                    onRefresh: () async {
-                      _pagingController!.refresh();
-                    },
-                    child: PagedListView<int, MangaTitle>(
-                      key: ValueKey(_searchSession),
-                      pagingController: _pagingController!,
-                      builderDelegate: PagedChildBuilderDelegate<MangaTitle>(
-                        itemBuilder: (context, item, index) => MangaListItem(
-                          manga: item,
-                          onTap: () => _onMangaSelected(context, item),
-                        ),
-                        firstPageProgressIndicatorBuilder: (context) =>
-                            const Center(child: CircularProgressIndicator()),
-                        newPageProgressIndicatorBuilder: (context) =>
-                            const Padding(
-                                padding: EdgeInsets.all(16.0),
-                                child:
-                                    Center(child: CircularProgressIndicator())),
-                        noItemsFoundIndicatorBuilder: (context) => Center(
-                            child: Text('검색 결과가 없습니다',
-                                style: TextStyle(
-                                    fontSize: 16,
-                                    color: theme.colorScheme.onSurface
-                                        .withOpacity(0.4)))),
+                          ),
+                          const SizedBox(height: 8),
+                          // 초성 필터
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: _jaumOptions.map((option) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: ActionChip(
+                                    label: Text(option),
+                                    onPressed: () {
+                                      setState(() => _jaumValue = option);
+                                    },
+                                    backgroundColor: _jaumValue == option
+                                        ? theme.colorScheme.primaryContainer
+                                        : null,
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          // 장르 필터
+                          Row(
+                            children: [
+                              ActionChip(
+                                label: Text(
+                                  _selectedGenres.isEmpty ||
+                                          _selectedGenres.contains('전체')
+                                      ? '장르: 전체'
+                                      : '장르: ${_selectedGenres.length}개 선택',
+                                ),
+                                onPressed: () async {
+                                  final result =
+                                      await showModalBottomSheet<List<String>>(
+                                    context: context,
+                                    isScrollControlled: true,
+                                    builder: (context) => GenreSelectSheet(
+                                      allGenres: _genreOptions,
+                                      selected: _selectedGenres,
+                                    ),
+                                  );
+                                  if (result != null) {
+                                    setState(() => _selectedGenres = result);
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ),
+                  // 검색바
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    child: Row(
+                      children: [
+                        // 검색창
+                        Expanded(
+                          child: TextField(
+                            controller: _searchController,
+                            focusNode: _searchFocusNode,
+                            decoration: const InputDecoration(
+                              hintText: '제목 검색...',
+                              border: OutlineInputBorder(
+                                borderRadius:
+                                    BorderRadius.all(Radius.circular(16)),
+                              ),
+                              contentPadding:
+                                  EdgeInsets.symmetric(horizontal: 16),
+                            ),
+                            onSubmitted: (_) => _onSearch(),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // 필터 토글 버튼
+                        IconButton(
+                          icon: const Icon(Icons.filter_list),
+                          onPressed: _toggleFilter,
+                        ),
+                        // 검색 버튼
+                        IconButton(
+                          icon: const Icon(Icons.search),
+                          onPressed: _onSearch,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  void _onMangaSelected(BuildContext context, MangaTitle manga) {
-    // 검색 결과 아이템 클릭 시 만화 상세 보기 페이지로 이동
+  void _toggleFilter() {
+    setState(() {
+      _isFilterExpanded = !_isFilterExpanded;
+      if (_isFilterExpanded) {
+        _filterAnimationController.forward();
+      } else {
+        _filterAnimationController.reverse();
+      }
+    });
+  }
+
+  void navigateToMangaDetail(BuildContext context, MangaTitle manga) {
     MangaNavigation.navigateToMangaDetail(
       context,
-      manga.id, // id 필드에 URL 경로가 저장되어 있음
+      manga.id,
       title: manga.title,
-      isChapterUrl: true, // URL 경로를 전달하므로 true로 설정
-    );
-  }
-}
-
-// 홈 주요 섹션 위젯 (최근 추가, 최근 본, 주간 베스트 등)
-class _HomeSections extends StatelessWidget {
-  final WidgetRef ref;
-  const _HomeSections({required this.ref});
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      children: [
-        // 최근 추가된 작품
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('최근 추가된 작품', style: Theme.of(context).textTheme.titleMedium),
-              // ... 더보기 버튼 등 필요시 추가 ...
-            ],
-          ),
-        ),
-        Consumer(
-          builder: (context, ref, _) {
-            final asyncValue = ref.watch(recentAddedPreviewProvider);
-            return asyncValue.when(
-              data: (items) => _HorizontalCardList(items: items),
-              loading: () => _HorizontalCardList(placeholderCount: 6),
-              error: (e, st) => Center(child: Text('불러오기 실패')),
-            );
-          },
-        ),
-        // 최근 본 작품, 주간 베스트 등도 동일하게 추가 가능
-        // ...
-      ],
-    );
-  }
-}
-
-// 최근 추가된 작품 가로 리스트 위젯 (복사)
-class _HorizontalCardList extends StatelessWidget {
-  final int placeholderCount;
-  final String? emptyText;
-  final List<RecentAddedItem>? items;
-  const _HorizontalCardList(
-      {this.placeholderCount = 0, this.emptyText, this.items});
-  @override
-  Widget build(BuildContext context) {
-    if (items != null && items!.isNotEmpty) {
-      return SizedBox(
-        height: 140,
-        child: ListView.separated(
-          scrollDirection: Axis.horizontal,
-          itemCount: items!.length,
-          separatorBuilder: (_, __) => const SizedBox(width: 8),
-          itemBuilder: (context, idx) {
-            final item = items![idx];
-            return InkWell(
-              onTap: () {
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('알림'),
-                    content: const Text('만화 읽기'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('확인'),
-                      ),
-                    ],
-                  ),
-                );
-              },
-              child: SizedBox(
-                width: 100,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        width: 100,
-                        height: 100,
-                        color: Colors.grey[300],
-                        child: item.thumbnailUrl.isNotEmpty
-                            ? Image.network(
-                                item.thumbnailUrl,
-                                width: 100,
-                                height: 100,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    Container(
-                                  width: 100,
-                                  height: 100,
-                                  color: Colors.grey[300],
-                                  child: const Icon(Icons.broken_image,
-                                      size: 32, color: Colors.grey),
-                                ),
-                              )
-                            : const Icon(Icons.photo,
-                                size: 32, color: Colors.grey),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      item.title,
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-      );
-    }
-    if (placeholderCount == 0 && emptyText != null) {
-      return Padding(
-        padding: const EdgeInsets.all(12),
-        child: Text(emptyText!, style: const TextStyle(color: Colors.grey)),
-      );
-    }
-    return SizedBox(
-      height: 120,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: placeholderCount,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, idx) => Container(
-          width: 80,
-          decoration: BoxDecoration(
-            color: Colors.grey[300],
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _FilterDropdown extends StatelessWidget {
-  final String label;
-  final String value;
-  final List<Map<String, String>>? optionMapList; // 정렬 옵션용
-  final List<String>? items; // 일반 옵션용
-  final void Function(String?) onChanged;
-  final double minWidth;
-  const _FilterDropdown({
-    required this.label,
-    required this.value,
-    this.optionMapList,
-    this.items,
-    required this.onChanged,
-    this.minWidth = 90,
-  });
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: BoxConstraints(minWidth: minWidth),
-      child: OutlinedButton(
-        style: OutlinedButton.styleFrom(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          side: BorderSide(color: Theme.of(context).colorScheme.outline),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-          backgroundColor:
-              Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.2),
-        ),
-        onPressed: null,
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
-            value: value,
-            icon: const Icon(Icons.arrow_drop_down),
-            onChanged: onChanged,
-            borderRadius: BorderRadius.circular(12),
-            style: Theme.of(context).textTheme.bodyMedium,
-            dropdownColor: Theme.of(context).colorScheme.surface,
-            items: optionMapList != null
-                ? optionMapList!
-                    .map((e) => DropdownMenuItem(
-                          value: e['value'],
-                          child: Row(
-                            children: [
-                              Text('$label: ',
-                                  style: TextStyle(
-                                      color:
-                                          Theme.of(context).colorScheme.primary,
-                                      fontWeight: FontWeight.bold)),
-                              Text(e['label']!),
-                            ],
-                          ),
-                        ))
-                    .toList()
-                : items!
-                    .map((e) => DropdownMenuItem(
-                          value: e,
-                          child: Row(
-                            children: [
-                              Text('$label: ',
-                                  style: TextStyle(
-                                      color:
-                                          Theme.of(context).colorScheme.primary,
-                                      fontWeight: FontWeight.bold)),
-                              Text(e),
-                            ],
-                          ),
-                        ))
-                    .toList(),
-          ),
-        ),
-      ),
+      isChapterUrl: true,
     );
   }
 }
@@ -625,14 +531,19 @@ class _FilterDropdown extends StatelessWidget {
 class GenreSelectSheet extends StatefulWidget {
   final List<String> allGenres;
   final List<String> selected;
-  const GenreSelectSheet(
-      {required this.allGenres, required this.selected, super.key});
+  const GenreSelectSheet({
+    required this.allGenres,
+    required this.selected,
+    super.key,
+  });
+
   @override
   State<GenreSelectSheet> createState() => _GenreSelectSheetState();
 }
 
 class _GenreSelectSheetState extends State<GenreSelectSheet> {
   late List<String> _tempSelected;
+
   @override
   void initState() {
     super.initState();
@@ -641,40 +552,42 @@ class _GenreSelectSheetState extends State<GenreSelectSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 16,
-            right: 16,
-            top: 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('장르 선택',
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, _tempSelected),
-                  child: const Text('확인'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Divider(),
-            Expanded(
-              child: ListView(
+    return Container(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+        left: 16,
+        right: 16,
+        top: 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '장르 선택',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, _tempSelected),
+                child: const Text('확인'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: widget.allGenres.map((genre) {
                   final selected = _tempSelected.contains(genre) ||
                       (_tempSelected.isEmpty && genre == '전체');
-                  return CheckboxListTile(
-                    value: selected,
-                    title: Text(genre),
-                    onChanged: (v) {
+                  return FilterChip(
+                    label: Text(genre),
+                    selected: selected,
+                    onSelected: (v) {
                       setState(() {
                         if (genre == '전체') {
                           _tempSelected.clear();
@@ -692,8 +605,8 @@ class _GenreSelectSheetState extends State<GenreSelectSheet> {
                 }).toList(),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
