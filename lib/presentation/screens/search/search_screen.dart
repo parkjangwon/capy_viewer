@@ -14,11 +14,6 @@ import '../../viewmodels/cookie_sync_utils.dart';
 import '../../../data/providers/site_url_provider.dart';
 import '../settings/settings_screen.dart';
 import '../manga/manga_navigation.dart';
-import '../../viewmodels/recent_added_provider.dart';
-import '../home/home_screen.dart';
-import '../../../data/models/recent_added_model.dart';
-import '../../../utils/content_filter.dart';
-import '../../../data/providers/artist_suggestions_provider.dart';
 
 const _publishOptions = ['전체', '주간', '격주', '월간', '단편', '단행본', '완결'];
 const _jaumOptions = [
@@ -320,189 +315,191 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      body: Stack(
-        children: [
-          // 검색 결과
-          if (_pagingController != null)
-            Positioned.fill(
-              bottom: 80, // 검색바 높이만큼 패딩
-              child: PagedListView<int, MangaTitle>(
-                padding: const EdgeInsets.only(bottom: 16),
-                pagingController: _pagingController!,
-                builderDelegate: PagedChildBuilderDelegate<MangaTitle>(
-                  itemBuilder: (context, item, index) => MangaListItem(
-                    manga: item,
-                    onTap: () => navigateToMangaDetail(context, item),
-                  ),
-                  firstPageErrorIndicatorBuilder: (context) => Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          _pagingController!.error.toString(),
-                          style: theme.textTheme.bodyLarge,
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        FilledButton(
-                          onPressed: () {
-                            _webViewInitialized = false;
-                            _pagingController!.refresh();
-                          },
-                          child: const Text('다시 시도'),
-                        ),
-                      ],
+      body: SafeArea(
+        child: Stack(
+          children: [
+            // 검색 결과
+            if (_pagingController != null)
+              Positioned.fill(
+                bottom: 80, // 검색바 높이만큼 패딩
+                child: PagedListView<int, MangaTitle>(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  pagingController: _pagingController!,
+                  builderDelegate: PagedChildBuilderDelegate<MangaTitle>(
+                    itemBuilder: (context, item, index) => MangaListItem(
+                      manga: item,
+                      onTap: () => navigateToMangaDetail(context, item),
                     ),
-                  ),
-                  noItemsFoundIndicatorBuilder: (context) => Center(
-                    child: Text(
-                      '검색 결과가 없습니다.',
-                      style: theme.textTheme.bodyLarge,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-          // 검색바 (하단 고정)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Material(
-              elevation: 8,
-              color: theme.colorScheme.surface,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // 필터 영역
-                  SizeTransition(
-                    sizeFactor: _filterAnimationController,
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surfaceVariant,
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(16),
-                        ),
-                      ),
+                    firstPageErrorIndicatorBuilder: (context) => Center(
                       child: Column(
-                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          // 발행 상태 필터
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: _publishOptions.map((option) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: ActionChip(
-                                    label: Text(option),
-                                    onPressed: () {
-                                      setState(() => _publishValue = option);
-                                    },
-                                    backgroundColor: _publishValue == option
-                                        ? theme.colorScheme.primaryContainer
-                                        : null,
-                                  ),
-                                );
-                              }).toList(),
-                            ),
+                          Text(
+                            _pagingController!.error.toString(),
+                            style: theme.textTheme.bodyLarge,
+                            textAlign: TextAlign.center,
                           ),
-                          const SizedBox(height: 8),
-                          // 초성 필터
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: _jaumOptions.map((option) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: ActionChip(
-                                    label: Text(option),
-                                    onPressed: () {
-                                      setState(() => _jaumValue = option);
-                                    },
-                                    backgroundColor: _jaumValue == option
-                                        ? theme.colorScheme.primaryContainer
-                                        : null,
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          // 장르 필터
-                          Row(
-                            children: [
-                              ActionChip(
-                                label: Text(
-                                  _selectedGenres.isEmpty ||
-                                          _selectedGenres.contains('전체')
-                                      ? '장르: 전체'
-                                      : '장르: ${_selectedGenres.length}개 선택',
-                                ),
-                                onPressed: () async {
-                                  final result =
-                                      await showModalBottomSheet<List<String>>(
-                                    context: context,
-                                    isScrollControlled: true,
-                                    builder: (context) => GenreSelectSheet(
-                                      allGenres: _genreOptions,
-                                      selected: _selectedGenres,
-                                    ),
-                                  );
-                                  if (result != null) {
-                                    setState(() => _selectedGenres = result);
-                                  }
-                                },
-                              ),
-                            ],
+                          const SizedBox(height: 16),
+                          FilledButton(
+                            onPressed: () {
+                              _webViewInitialized = false;
+                              _pagingController!.refresh();
+                            },
+                            child: const Text('다시 시도'),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                  // 검색바
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    child: Row(
-                      children: [
-                        // 검색창
-                        Expanded(
-                          child: TextField(
-                            controller: _searchController,
-                            focusNode: _searchFocusNode,
-                            decoration: const InputDecoration(
-                              hintText: '제목 검색...',
-                              border: OutlineInputBorder(
-                                borderRadius:
-                                    BorderRadius.all(Radius.circular(16)),
-                              ),
-                              contentPadding:
-                                  EdgeInsets.symmetric(horizontal: 16),
-                            ),
-                            onSubmitted: (_) => _onSearch(),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        // 필터 토글 버튼
-                        IconButton(
-                          icon: const Icon(Icons.filter_list),
-                          onPressed: _toggleFilter,
-                        ),
-                        // 검색 버튼
-                        IconButton(
-                          icon: const Icon(Icons.search),
-                          onPressed: _onSearch,
-                        ),
-                      ],
+                    noItemsFoundIndicatorBuilder: (context) => Center(
+                      child: Text(
+                        '검색 결과가 없습니다.',
+                        style: theme.textTheme.bodyLarge,
+                      ),
                     ),
                   ),
-                ],
+                ),
+              ),
+
+            // 검색바 (하단 고정)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Material(
+                elevation: 8,
+                color: theme.colorScheme.surface,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 필터 영역
+                    SizeTransition(
+                      sizeFactor: _filterAnimationController,
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceVariant,
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(16),
+                          ),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // 발행 상태 필터
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: _publishOptions.map((option) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: ActionChip(
+                                      label: Text(option),
+                                      onPressed: () {
+                                        setState(() => _publishValue = option);
+                                      },
+                                      backgroundColor: _publishValue == option
+                                          ? theme.colorScheme.primaryContainer
+                                          : null,
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            // 초성 필터
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: _jaumOptions.map((option) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: ActionChip(
+                                      label: Text(option),
+                                      onPressed: () {
+                                        setState(() => _jaumValue = option);
+                                      },
+                                      backgroundColor: _jaumValue == option
+                                          ? theme.colorScheme.primaryContainer
+                                          : null,
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            // 장르 필터
+                            Row(
+                              children: [
+                                ActionChip(
+                                  label: Text(
+                                    _selectedGenres.isEmpty ||
+                                            _selectedGenres.contains('전체')
+                                        ? '장르: 전체'
+                                        : '장르: ${_selectedGenres.length}개 선택',
+                                  ),
+                                  onPressed: () async {
+                                    final result = await showModalBottomSheet<
+                                        List<String>>(
+                                      context: context,
+                                      isScrollControlled: true,
+                                      builder: (context) => GenreSelectSheet(
+                                        allGenres: _genreOptions,
+                                        selected: _selectedGenres,
+                                      ),
+                                    );
+                                    if (result != null) {
+                                      setState(() => _selectedGenres = result);
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // 검색바
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Row(
+                        children: [
+                          // 검색창
+                          Expanded(
+                            child: TextField(
+                              controller: _searchController,
+                              focusNode: _searchFocusNode,
+                              decoration: const InputDecoration(
+                                hintText: '제목 검색...',
+                                border: OutlineInputBorder(
+                                  borderRadius:
+                                      BorderRadius.all(Radius.circular(16)),
+                                ),
+                                contentPadding:
+                                    EdgeInsets.symmetric(horizontal: 16),
+                              ),
+                              onSubmitted: (_) => _onSearch(),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // 필터 토글 버튼
+                          IconButton(
+                            icon: const Icon(Icons.filter_list),
+                            onPressed: _toggleFilter,
+                          ),
+                          // 검색 버튼
+                          IconButton(
+                            icon: const Icon(Icons.search),
+                            onPressed: _onSearch,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

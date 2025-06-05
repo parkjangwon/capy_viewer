@@ -2,21 +2,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:html/parser.dart' as html_parser;
-import '../../data/providers/manga_webview_provider.dart';
 import '../../data/models/manga_page.dart';
 import '../../data/providers/site_url_provider.dart';
-import '../../utils/manatoki_captcha_helper.dart';
 import '../../utils/cloudflare_captcha.dart';
 import '../../data/models/manga_viewer_state.dart';
-import '../../utils/manga_detail_parser.dart' show checkForCaptcha;
-import '../../utils/cookie_utils.dart';
 import '../../presentation/viewmodels/global_cookie_provider.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:dio/dio.dart';
-import 'package:manga_view_flutter/data/datasources/api_service.dart';
-import 'package:manga_view_flutter/data/datasources/parser_service.dart';
-
-import 'package:html/dom.dart' as dom;
 
 final cloudflareHelperProvider = Provider<CloudflareCaptcha>((ref) {
   return CloudflareCaptcha();

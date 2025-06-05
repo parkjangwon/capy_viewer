@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/logger.dart';
-import '../../../data/providers/site_url_provider.dart';
 
 class UnifiedCaptchaHandler extends ConsumerStatefulWidget {
   final String url;

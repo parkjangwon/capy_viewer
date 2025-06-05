@@ -1,7 +1,4 @@
-import 'package:flutter/foundation.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import '../../../data/models/manga_title.dart';
-import '../../../utils/html_manga_parser.dart';
 import 'dart:async';
 
 class SearchWebViewController {

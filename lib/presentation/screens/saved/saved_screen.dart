@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../widgets/manga/manga_list_screen.dart';
-import '../../viewmodels/saved_provider.dart';
 
 class SavedScreen extends ConsumerWidget {
   const SavedScreen({super.key});

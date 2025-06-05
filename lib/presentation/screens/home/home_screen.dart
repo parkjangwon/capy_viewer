@@ -9,7 +9,6 @@ import '../../viewmodels/recent_added_provider.dart';
 import '../../viewmodels/weekly_best_provider.dart';
 import '../../viewmodels/global_cookie_provider.dart';
 import '../../viewmodels/cookie_sync_utils.dart';
-import '../manga/manga_navigation.dart';
 import '../viewer/manga_viewer_screen.dart';
 import 'recent_added_screen.dart';
 

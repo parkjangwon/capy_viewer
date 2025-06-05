@@ -1,5 +1,4 @@
 import 'package:html/parser.dart' as html_parser;
-import 'package:html/dom.dart';
 import '../data/models/manga_chapter.dart';
 
 class MangaChapterParser {

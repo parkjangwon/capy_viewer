@@ -12,7 +12,6 @@ import '../../../data/providers/site_url_provider.dart';
 import '../../../utils/manatoki_captcha_helper.dart';
 import '../../widgets/manatoki_captcha_widget.dart';
 import '../../viewmodels/global_cookie_provider.dart';
-import '../../widgets/captcha_modal.dart';
 
 /// 만화 뷰어 화면
 /// 만화 페이지를 표시하고 캡차 처리를 담당합니다.
@@ -42,8 +41,6 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
   Timer? _loadingTimer;
   bool _showError = false;
   final ScrollController _scrollController = ScrollController();
-  bool _isOverscrolling = false;
-  double _overscrollStart = 0;
   String _currentTitle = ''; // 현재 페이지의 실제 제목
   bool _isInitialLoad = true; // 초기 로드 여부를 추적하는 플래그
   Timer? _dragTimer;
