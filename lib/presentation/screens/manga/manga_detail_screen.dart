@@ -13,6 +13,7 @@ import '../../viewmodels/global_cookie_provider.dart';
 
 import '../manga/manga_captcha_screen.dart';
 import '../viewer/manga_viewer_screen.dart';
+import '../../providers/tab_provider.dart';
 
 class MangaDetailScreen extends ConsumerStatefulWidget {
   final String? mangaId;
@@ -559,7 +560,10 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
 
   void _onItemTapped(int index) {
     if (index != _selectedIndex) {
-      Navigator.of(context).pop(); // 현재 화면을 닫고 이전 화면으로 돌아감
+      // 먼저 탭 상태를 변경
+      ref.read(selectedTabProvider.notifier).state = index;
+      // 그 다음 네비게이션 수행
+      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
     }
   }
 

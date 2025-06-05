@@ -13,6 +13,7 @@ import '../../../utils/content_filter.dart';
 import '../../../utils/network_image_with_headers.dart';
 import '../manga/manga_navigation.dart';
 import '../viewer/manga_viewer_screen.dart';
+import '../../providers/tab_provider.dart';
 
 class RecentAddedScreen extends ConsumerStatefulWidget {
   const RecentAddedScreen({super.key});
@@ -86,7 +87,10 @@ class _RecentAddedScreenState extends ConsumerState<RecentAddedScreen> {
 
   void _onItemTapped(int index) {
     if (index != _selectedIndex) {
-      Navigator.of(context).pop(); // 현재 화면을 닫고 이전 화면으로 돌아감
+      // 먼저 탭 상태를 변경
+      ref.read(selectedTabProvider.notifier).state = index;
+      // 그 다음 네비게이션 수행
+      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
     }
   }
 

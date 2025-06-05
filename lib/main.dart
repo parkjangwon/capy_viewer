@@ -10,6 +10,7 @@ import 'presentation/screens/settings/settings_screen.dart';
 import 'presentation/viewmodels/theme_provider.dart';
 import 'presentation/viewmodels/navigator_provider.dart';
 import 'presentation/viewmodels/manga_viewer_view_model.dart';
+import 'presentation/providers/tab_provider.dart';
 
 void main() {
   runApp(const ProviderScope(child: MyApp()));
@@ -62,52 +63,14 @@ class MainScreen extends ConsumerStatefulWidget {
 }
 
 class _MainScreenState extends ConsumerState<MainScreen> {
-  int _selectedIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadInitialScreen();
-  }
-
-  Future<void> _loadInitialScreen() async {
-    final prefs = await SharedPreferences.getInstance();
-    final initialScreen = prefs.getString('initial_screen') ?? 'home';
-    setState(() {
-      _selectedIndex = _getIndexFromScreen(initialScreen);
-    });
-  }
-
-  int _getIndexFromScreen(String screen) {
-    switch (screen) {
-      case 'home':
-        return 0;
-      case 'search':
-        return 1;
-      case 'recent':
-        return 2;
-      case 'favorites':
-        return 3;
-      case 'saved':
-        return 4;
-      case 'settings':
-        return 5;
-      default:
-        return 0;
-    }
-  }
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
+    // 선택된 탭 인덱스를 프로바이더에서 가져옴
+    final selectedIndex = ref.watch(selectedTabProvider);
+
     final screens = [
       HomeScreen(
-        onRecentTap: () => setState(() => _selectedIndex = 2),
+        onRecentTap: () => ref.read(selectedTabProvider.notifier).state = 2,
       ),
       const SearchScreen(),
       const RecentScreen(),
@@ -117,10 +80,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     ];
 
     return Scaffold(
-      body: screens[_selectedIndex],
+      body: screens[selectedIndex],
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: _onItemTapped,
+        selectedIndex: selectedIndex,
+        onDestinationSelected: (index) {
+          ref.read(selectedTabProvider.notifier).state = index;
+        },
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
