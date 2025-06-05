@@ -354,7 +354,7 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
 
     try {
       final cookieManager = WebViewCookieManager();
-      final baseUrl = 'https://manatoki468.net';
+      final baseUrl = ref.read(siteUrlServiceProvider);
       final cookieJar = ref.read(globalCookieJarProvider);
       final cookies = await cookieJar.loadForRequest(Uri.parse(baseUrl));
 

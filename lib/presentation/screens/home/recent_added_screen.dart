@@ -25,6 +25,7 @@ class _RecentAddedScreenState extends ConsumerState<RecentAddedScreen> {
   final PagingController<int, RecentAddedItem> _pagingController =
       PagingController(firstPageKey: 1);
   final ScrollController _scrollController = ScrollController();
+  int _selectedIndex = 0;
 
   @override
   void initState() {
@@ -83,6 +84,12 @@ class _RecentAddedScreenState extends ConsumerState<RecentAddedScreen> {
     super.dispose();
   }
 
+  void _onItemTapped(int index) {
+    if (index != _selectedIndex) {
+      Navigator.of(context).pop(); // 현재 화면을 닫고 이전 화면으로 돌아감
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -111,6 +118,42 @@ class _RecentAddedScreenState extends ConsumerState<RecentAddedScreen> {
             ),
           ],
         ),
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: _onItemTapped,
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: '홈',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.search_outlined),
+            selectedIcon: Icon(Icons.search),
+            label: '검색',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.history_outlined),
+            selectedIcon: Icon(Icons.history),
+            label: '최근',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.favorite_outline),
+            selectedIcon: Icon(Icons.favorite),
+            label: '좋아요',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.bookmark_outline),
+            selectedIcon: Icon(Icons.bookmark),
+            label: '저장',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
+            label: '설정',
+          ),
+        ],
       ),
     );
   }

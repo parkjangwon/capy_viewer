@@ -42,6 +42,9 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
     return widget.mangaId!;
   }
 
+  final ScrollController _scrollController = ScrollController();
+  int _selectedIndex = 0;
+
   @override
   void initState() {
     super.initState();
@@ -51,6 +54,7 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -553,29 +557,15 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
     }
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 16, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(width: 8),
-          Text('$label: ',
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(fontWeight: FontWeight.bold)),
-          Expanded(
-            child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
-          ),
-        ],
-      ),
-    );
+  void _onItemTapped(int index) {
+    if (index != _selectedIndex) {
+      Navigator.of(context).pop(); // 현재 화면을 닫고 이전 화면으로 돌아감
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('작품 상세 보기'),
@@ -644,6 +634,42 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
                               ),
                             )
                       : _buildTestContent(),
+        ],
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: _onItemTapped,
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: '홈',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.search_outlined),
+            selectedIcon: Icon(Icons.search),
+            label: '검색',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.history_outlined),
+            selectedIcon: Icon(Icons.history),
+            label: '최근',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.favorite_outline),
+            selectedIcon: Icon(Icons.favorite),
+            label: '좋아요',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.bookmark_outline),
+            selectedIcon: Icon(Icons.bookmark),
+            label: '저장',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings),
+            label: '설정',
+          ),
         ],
       ),
     );
@@ -755,14 +781,27 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text('회차 목록', style: theme.textTheme.titleMedium),
-                    Text(
-                      '${_mangaDetail!.chapters.length}',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: theme.colorScheme.primary,
+                    if (_mangaDetail?.chapters.isNotEmpty == true)
+                      TextButton.icon(
+                        onPressed: () {
+                          // 마지막 회차(첫화)로 이동
+                          final firstChapter = _mangaDetail!.chapters.last;
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => MangaViewerScreen(
+                                chapterId: firstChapter.id,
+                                title: firstChapter.title,
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.first_page),
+                        label: const Text('첫화 보기'),
                       ),
-                    ),
                   ],
                 ),
+                const SizedBox(height: 8),
                 const Divider(),
                 // 회차 목록
                 ListView.separated(
@@ -920,6 +959,27 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 16, color: Theme.of(context).colorScheme.primary),
+          const SizedBox(width: 8),
+          Text('$label: ',
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(fontWeight: FontWeight.bold)),
+          Expanded(
+            child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
+          ),
+        ],
+      ),
     );
   }
 }
