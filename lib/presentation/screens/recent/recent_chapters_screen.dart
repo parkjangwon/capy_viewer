@@ -62,7 +62,12 @@ class RecentChaptersScreen extends ConsumerWidget {
               ? _buildEmptyState(theme)
               : RefreshIndicator(
                   onRefresh: () async {
-                    ref.read(recentChaptersProvider.notifier).refresh();
+                    await Future.wait([
+                      ref.read(recentChaptersProvider.notifier).refresh(),
+                      ref
+                          .read(recentChaptersPreviewProvider.notifier)
+                          .refresh(),
+                    ]);
                   },
                   child: ListView.builder(
                     padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -83,11 +88,16 @@ class RecentChaptersScreen extends ConsumerWidget {
                                   initialPage: chapter['last_page'],
                                 ),
                               ),
-                            ).then((_) {
-                              ref
-                                  .read(recentChaptersProvider.notifier)
-                                  .refresh();
-                              previewNotifier.refresh();
+                            ).then((_) async {
+                              await Future.wait([
+                                ref
+                                    .read(recentChaptersProvider.notifier)
+                                    .refresh(),
+                                ref
+                                    .read(
+                                        recentChaptersPreviewProvider.notifier)
+                                    .refresh(),
+                              ]);
                             });
                           },
                           child: Padding(
@@ -122,9 +132,36 @@ class RecentChaptersScreen extends ConsumerWidget {
                                     children: [
                                       Text(
                                         chapter['chapter_title'],
-                                        style: theme.textTheme.titleMedium,
+                                        style: theme.textTheme.titleMedium
+                                            ?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.person,
+                                            size: 16,
+                                            color: theme.colorScheme.primary,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Expanded(
+                                            child: Text(
+                                              chapter['author'] ?? '작가 미상',
+                                              style: theme.textTheme.bodyMedium
+                                                  ?.copyWith(
+                                                color: theme
+                                                    .colorScheme.onSurface
+                                                    .withOpacity(0.7),
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                       const SizedBox(height: 4),
                                       Text(

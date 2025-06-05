@@ -420,7 +420,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             ),
                             const SizedBox(height: 4),
                             const Text(
-                              '최근 본 작품에 기록을 남기지 않습니다',
+                              '최근에 본 작품에 기록을 남기지 않습니다',
                               style: TextStyle(
                                 fontSize: 14,
                                 color: Colors.grey,
@@ -483,52 +483,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       }
                     },
                     child: const Text('캡차 인증하기'),
-                  ),
-                  const SizedBox(height: 12),
-                  ElevatedButton(
-                    onPressed: () async {
-                      final prefs = await SharedPreferences.getInstance();
-                      final baseUrl = prefs.getString('site_base_url') ??
-                          'https://manatoki468.net';
-                      final targetUrl =
-                          '$baseUrl/comic?stx=%EB%B2%A0%EB%A5%B4%EC%84%B8%EB%A5%B4%ED%81%AC';
-
-                      if (context.mounted) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => CaptchaPage(
-                              url: targetUrl,
-                              onHtmlReceived: (html) {
-                                if (context.mounted) {
-                                  final hasCloudflare = html
-                                          .toLowerCase()
-                                          .contains(
-                                              'cf-browser-verification') ||
-                                      html
-                                          .toLowerCase()
-                                          .contains('cf-challenge') ||
-                                      html
-                                          .toLowerCase()
-                                          .contains('_cf_chl_opt');
-
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        hasCloudflare
-                                            ? '클라우드플레어 캡차가 감지되었습니다.'
-                                            : 'HTML을 성공적으로 가져왔습니다. (클라우드플레어 캡차 없음)',
-                                      ),
-                                    ),
-                                  );
-                                }
-                              },
-                            ),
-                          ),
-                        );
-                      }
-                    },
-                    child: const Text('HTML 가져오기'),
                   ),
                   const SizedBox(height: 12),
                   ElevatedButton(

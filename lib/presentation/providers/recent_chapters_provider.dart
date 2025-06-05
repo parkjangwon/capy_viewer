@@ -14,7 +14,12 @@ class RecentChaptersNotifier extends AsyncNotifier<List<Map<String, dynamic>>> {
 
   Future<void> refresh() async {
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => _loadChapters());
+    try {
+      final chapters = await _loadChapters();
+      state = AsyncValue.data(chapters);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
   }
 
   Future<void> deleteChapter(String chapterId) async {
@@ -44,7 +49,12 @@ class RecentChaptersPreviewNotifier
 
   Future<void> refresh() async {
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => _loadPreviewChapters());
+    try {
+      final chapters = await _loadPreviewChapters();
+      state = AsyncValue.data(chapters);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
   }
 }
 

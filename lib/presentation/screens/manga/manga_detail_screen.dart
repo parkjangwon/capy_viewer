@@ -18,11 +18,16 @@ import '../../../data/database/database_helper.dart';
 
 class MangaDetailScreen extends ConsumerStatefulWidget {
   final String? mangaId;
+  final String? title;
   final String? directUrl; // 직접 접근할 URL (전편보기 버튼이 있는 페이지)
   final bool parseFullPage; // 전체 페이지를 파싱하여 전편보기 링크 추출
 
   const MangaDetailScreen(
-      {super.key, this.mangaId, this.directUrl, this.parseFullPage = false});
+      {super.key,
+      this.mangaId,
+      this.title,
+      this.directUrl,
+      this.parseFullPage = false});
 
   @override
   ConsumerState<MangaDetailScreen> createState() => _MangaDetailScreenState();
@@ -584,6 +589,7 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
           _mangaDetail!.title,
           _mangaDetail!.author.isEmpty ? '작가 미상' : _mangaDetail!.author,
           _mangaDetail!.thumbnailUrl,
+          _mangaDetail!.genres,
         );
       }
       await _checkLikeStatus();

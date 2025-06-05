@@ -59,6 +59,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: RefreshIndicator(
           onRefresh: () async {
             ref.invalidate(recentAddedPreviewProvider);
+            ref.read(recentChaptersPreviewProvider.notifier).refresh();
             setState(() {});
           },
           child: CustomScrollView(

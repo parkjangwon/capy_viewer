@@ -20,7 +20,7 @@ class BackupHelper {
       };
 
       // 2. 백업 파일 생성
-      final backupDir = await _getBackupDirectory();
+      final backupDir = await _getDownloadsDirectory();
       final backupFileName =
           'capy_viewer_backup_${DateTime.now().millisecondsSinceEpoch}.cbak';
       final backupFile = File(join(backupDir.path, backupFileName));
@@ -110,19 +110,46 @@ class BackupHelper {
     }
   }
 
-  Future<Directory> _getBackupDirectory() async {
-    final appDir = await getApplicationDocumentsDirectory();
-    final backupDir = Directory(join(appDir.path, 'backups'));
-
-    if (!await backupDir.exists()) {
-      await backupDir.create(recursive: true);
+  Future<Directory> _getDownloadsDirectory() async {
+    if (Platform.isAndroid) {
+      // Android의 경우 Download 폴더
+      final directory = Directory('/storage/emulated/0/Download');
+      if (!await directory.exists()) {
+        throw Exception('다운로드 폴더를 찾을 수 없습니다.');
+      }
+      return directory;
+    } else if (Platform.isIOS) {
+      // iOS의 경우 Documents 폴더 내 Downloads 디렉토리
+      final directory = await getApplicationDocumentsDirectory();
+      final downloadsDir = Directory('${directory.path}/Downloads');
+      if (!await downloadsDir.exists()) {
+        await downloadsDir.create();
+      }
+      return downloadsDir;
+    } else if (Platform.isMacOS) {
+      // macOS의 경우 사용자의 Downloads 폴더
+      final home = Platform.environment['HOME'];
+      if (home == null) {
+        throw Exception('홈 디렉토리를 찾을 수 없습니다.');
+      }
+      final directory = Directory('$home/Downloads');
+      if (!await directory.exists()) {
+        throw Exception('다운로드 폴더를 찾을 수 없습니다.');
+      }
+      return directory;
+    } else {
+      // 기타 플랫폼의 경우 앱의 documents 디렉토리
+      final directory = await getApplicationDocumentsDirectory();
+      final downloadsDir = Directory('${directory.path}/Downloads');
+      if (!await downloadsDir.exists()) {
+        await downloadsDir.create();
+      }
+      return downloadsDir;
     }
-
-    return backupDir;
   }
 
   Future<List<FileSystemEntity>> getBackupFiles() async {
-    final backupDir = await _getBackupDirectory();
+    final backupDir = await _getDownloadsDirectory();
     final files = await backupDir
         .list()
         .where((entity) => entity is File && entity.path.endsWith('.cbak'))

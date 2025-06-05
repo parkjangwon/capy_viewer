@@ -84,6 +84,8 @@ class _LikedMangaScreenState extends ConsumerState<LikedMangaScreen> {
         itemCount: _likedManga.length,
         itemBuilder: (context, index) {
           final manga = _likedManga[index];
+          final genres = (manga['genres'] as String?)?.split('|') ?? [];
+
           return Card(
             margin: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
             clipBehavior: Clip.antiAlias,
@@ -92,8 +94,10 @@ class _LikedMangaScreenState extends ConsumerState<LikedMangaScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) =>
-                        MangaDetailScreen(mangaId: manga['id']),
+                    builder: (context) => MangaDetailScreen(
+                      mangaId: manga['id'],
+                      title: manga['title'],
+                    ),
                   ),
                 ).then((_) => _loadLikedManga());
               },
@@ -103,7 +107,7 @@ class _LikedMangaScreenState extends ConsumerState<LikedMangaScreen> {
                   children: [
                     // Thumbnail
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(8),
                       child: SizedBox(
                         width: 80,
                         height: 120,
@@ -134,15 +138,55 @@ class _LikedMangaScreenState extends ConsumerState<LikedMangaScreen> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 4),
-                          Text(
-                            manga['author'],
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.textTheme.bodyMedium?.color
-                                  ?.withOpacity(0.7),
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.person,
+                                size: 16,
+                                color: theme.colorScheme.primary,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  manga['author'],
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.colorScheme.onSurface
+                                        .withOpacity(0.7),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                           ),
+                          const SizedBox(height: 8),
+                          if (genres.isNotEmpty)
+                            Wrap(
+                              spacing: 4,
+                              runSpacing: 4,
+                              children: genres
+                                  .map((genre) => Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: theme
+                                              .colorScheme.primaryContainer,
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          genre,
+                                          style: theme.textTheme.bodySmall
+                                              ?.copyWith(
+                                            color: theme
+                                                .colorScheme.onPrimaryContainer,
+                                          ),
+                                        ),
+                                      ))
+                                  .toList(),
+                            ),
                         ],
                       ),
                     ),
