@@ -51,6 +51,10 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
   double _dragOffset = 0;
   bool _isScrollAnimating = false;
   Timer? _scrollAnimationTimer;
+  Timer? _overscrollTimer;
+  bool _isOverscrollTimerActive = false;
+  static const _overscrollThreshold = 100.0;
+  static const _overscrollHoldDuration = Duration(milliseconds: 1500);
 
   @override
   void initState() {
@@ -64,6 +68,7 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
     _loadingTimer?.cancel();
     _scrollController.dispose();
     _dragTimer?.cancel();
+    _overscrollTimer?.cancel();
     _scrollAnimationTimer?.cancel();
     super.dispose();
   }
@@ -94,31 +99,38 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
 
         print('[스크롤] 오버스크롤: $overscroll');
 
-        // 스크롤 애니메이션 중이 아니고 오버스크롤이 임계값을 넘었을 때만 처리
-        if (!_isDragging && !_isScrollAnimating && overscroll.abs() > 100) {
+        // 스크롤 애니메이션 중이 아니고 오버스크롤이 임계값을 넘었을 때
+        if (!_isDragging &&
+            !_isScrollAnimating &&
+            overscroll.abs() > _overscrollThreshold) {
           setState(() {
             _isDragging = true;
             _dragOffset = overscroll;
           });
 
-          _dragTimer?.cancel();
-          _dragTimer = Timer(const Duration(milliseconds: 500), () {
-            if (_isDragging && !_isScrollAnimating) {
-              if (overscroll < 0 && _prevChapterUrl != null) {
-                print('[스크롤] 이전화로 이동');
-                _navigateToUrl(_prevChapterUrl);
-              } else if (overscroll > 0 && _nextChapterUrl != null) {
-                print('[스크롤] 다음화로 이동');
-                _navigateToUrl(_nextChapterUrl);
+          // 이미 타이머가 실행 중이 아닐 때만 새로운 타이머 시작
+          if (!_isOverscrollTimerActive) {
+            _isOverscrollTimerActive = true;
+            _overscrollTimer?.cancel();
+            _overscrollTimer = Timer(_overscrollHoldDuration, () {
+              if (_isDragging && mounted) {
+                if (overscroll < 0 && _prevChapterUrl != null) {
+                  print('[스크롤] 이전화로 이동');
+                  _navigateToUrl(_prevChapterUrl);
+                } else if (overscroll > 0 && _nextChapterUrl != null) {
+                  print('[스크롤] 다음화로 이동');
+                  _navigateToUrl(_nextChapterUrl);
+                }
               }
-            }
-          });
+              _isOverscrollTimerActive = false;
+            });
+          }
         }
       } else {
-        _cancelDragTimer();
+        _cancelOverscroll();
       }
     } else if (notification is ScrollEndNotification) {
-      _cancelDragTimer();
+      _cancelOverscroll();
     }
     return false;
   }
@@ -750,8 +762,9 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
     );
   }
 
-  void _cancelDragTimer() {
-    _dragTimer?.cancel();
+  void _cancelOverscroll() {
+    _overscrollTimer?.cancel();
+    _isOverscrollTimerActive = false;
     if (_isDragging) {
       setState(() {
         _isDragging = false;
