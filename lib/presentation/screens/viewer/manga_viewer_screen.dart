@@ -49,6 +49,8 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
   Timer? _dragTimer;
   bool _isDragging = false;
   double _dragOffset = 0;
+  bool _isScrollAnimating = false;
+  Timer? _scrollAnimationTimer;
 
   @override
   void initState() {
@@ -62,6 +64,7 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
     _loadingTimer?.cancel();
     _scrollController.dispose();
     _dragTimer?.cancel();
+    _scrollAnimationTimer?.cancel();
     super.dispose();
   }
 
@@ -75,6 +78,10 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
   }
 
   bool _handleScrollNotification(ScrollNotification notification) {
+    if (_isScrollAnimating) {
+      return false;
+    }
+
     if (notification is ScrollUpdateNotification) {
       final metrics = notification.metrics;
 
@@ -87,7 +94,8 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
 
         print('[스크롤] 오버스크롤: $overscroll');
 
-        if (!_isDragging && overscroll.abs() > 100) {
+        // 스크롤 애니메이션 중이 아니고 오버스크롤이 임계값을 넘었을 때만 처리
+        if (!_isDragging && !_isScrollAnimating && overscroll.abs() > 100) {
           setState(() {
             _isDragging = true;
             _dragOffset = overscroll;
@@ -95,7 +103,7 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
 
           _dragTimer?.cancel();
           _dragTimer = Timer(const Duration(milliseconds: 500), () {
-            if (_isDragging) {
+            if (_isDragging && !_isScrollAnimating) {
               if (overscroll < 0 && _prevChapterUrl != null) {
                 print('[스크롤] 이전화로 이동');
                 _navigateToUrl(_prevChapterUrl);
@@ -115,23 +123,37 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
     return false;
   }
 
+  void _scrollToPosition(double position) {
+    if (!_scrollController.hasClients) return;
+
+    // 이전 타이머 취소
+    _scrollAnimationTimer?.cancel();
+
+    setState(() => _isScrollAnimating = true);
+
+    _scrollController
+        .animateTo(
+      position,
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+    )
+        .then((_) {
+      // 스크롤 애니메이션이 끝난 후 약간의 지연 시간을 두고 플래그를 해제
+      _scrollAnimationTimer = Timer(const Duration(milliseconds: 200), () {
+        if (mounted) {
+          setState(() => _isScrollAnimating = false);
+        }
+      });
+    });
+  }
+
   void _scrollToTop() {
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        0,
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-      );
-    }
+    _scrollToPosition(0);
   }
 
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-      );
+      _scrollToPosition(_scrollController.position.maxScrollExtent);
     }
   }
 
