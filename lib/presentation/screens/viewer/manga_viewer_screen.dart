@@ -16,6 +16,7 @@ import '../../widgets/manatoki_captcha_widget.dart';
 import '../../viewmodels/global_cookie_provider.dart';
 import '../../../data/database/database_helper.dart';
 import '../../providers/secret_mode_provider.dart';
+import 'comments_screen.dart';
 
 /// 만화 뷰어 화면
 /// 만화 페이지를 표시하고 캡차 처리를 담당합니다.
@@ -773,6 +774,25 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
                           onPressed: () => Navigator.of(context).pop(),
                         ),
                         const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.comment, color: Colors.white),
+                          onPressed: () async {
+                            final html =
+                                await _controller.runJavaScriptReturningResult(
+                              'document.documentElement.outerHTML',
+                            );
+                            if (!mounted) return;
+
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => CommentsScreen(
+                                  htmlContent: html.toString(),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 8),
                         IconButton(
                           icon: const Icon(Icons.keyboard_arrow_up,
                               color: Colors.white),
