@@ -526,15 +526,15 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
 
   Future<void> _addToRecentChapters() async {
     if (_currentTitle.isNotEmpty) {
-      print('[최근 본 회차] 저장 시도');
-      print('[최근 본 회차] ID: ${widget.chapterId}');
-      print('[최근 본 회차] 작품 ID: ${widget.title}');
-      print('[최근 본 회차] 제목: $_currentTitle');
+      print('[최근에 본 작품] 저장 시도');
+      print('[최근에 본 작품] ID: ${widget.chapterId}');
+      print('[최근에 본 작품] 작품 ID: ${widget.title}');
+      print('[최근에 본 작품] 제목: $_currentTitle');
 
       // 시크릿 모드 상태 확인
       final isSecretMode = ref.read(secretModeProvider);
       if (isSecretMode) {
-        print('[최근 본 회차] 시크릿 모드가 켜져있어 저장하지 않음');
+        print('[최근에 본 작품] 시크릿 모드가 켜져있어 저장하지 않음');
         return;
       }
 
@@ -544,7 +544,7 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
         if (_imageUrls.isNotEmpty) {
           thumbnailUrl = _imageUrls[0];
         }
-        print('[최근 본 회차] 썸네일 URL: $thumbnailUrl');
+        print('[최근에 본 작품] 썸네일 URL: $thumbnailUrl');
 
         await _db.addRecentChapter(
           chapterId: widget.chapterId,
@@ -553,32 +553,32 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
           thumbnailUrl: thumbnailUrl,
           lastPage: _currentPage,
         );
-        print('[최근 본 회차] 추가됨: ${widget.chapterId} - $_currentTitle');
+        print('[최근에 본 작품] 추가됨: ${widget.chapterId} - $_currentTitle');
       } catch (e) {
-        print('[최근 본 회차] 추가 실패 상세: $e');
-        print('[최근 본 회차] 추가 실패: $e');
+        print('[최근에 본 작품] 추가 실패 상세: $e');
+        print('[최근에 본 작품] 추가 실패: $e');
       }
     } else {
-      print('[최근 본 회차] 제목이 비어있어 저장하지 않음');
+      print('[최근에 본 작품] 제목이 비어있어 저장하지 않음');
     }
   }
 
   Future<void> _updateLastPage(int pageNumber) async {
-    print('[최근 본 회차] 페이지 업데이트 시도: $pageNumber');
+    print('[최근에 본 작품] 페이지 업데이트 시도: $pageNumber');
 
     // 시크릿 모드 상태 확인
     final isSecretMode = ref.read(secretModeProvider);
     if (isSecretMode) {
-      print('[최근 본 회차] 시크릿 모드가 켜져있어 페이지 업데이트하지 않음');
+      print('[최근에 본 작품] 시크릿 모드가 켜져있어 페이지 업데이트하지 않음');
       return;
     }
 
     try {
       await _db.updateLastPage(widget.chapterId, pageNumber);
-      print('[최근 본 회차] 페이지 업데이트: ${widget.chapterId} - $pageNumber');
+      print('[최근에 본 작품] 페이지 업데이트: ${widget.chapterId} - $pageNumber');
     } catch (e) {
-      print('[최근 본 회차] 페이지 업데이트 실패 상세: $e');
-      print('[최근 본 회차] 페이지 업데이트 실패: $e');
+      print('[최근에 본 작품] 페이지 업데이트 실패 상세: $e');
+      print('[최근에 본 작품] 페이지 업데이트 실패: $e');
     }
   }
 
@@ -975,7 +975,7 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
       final titleElement = document.querySelector('.toon-title');
       if (titleElement != null) {
         _currentTitle = titleElement.text.trim();
-        // 최근 본 회차에 추가
+        // 최근에 본 작품에 추가
         _addToRecentChapters();
       }
     } else {
