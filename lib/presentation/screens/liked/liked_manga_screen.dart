@@ -159,7 +159,8 @@ class _LikedMangaScreenState extends ConsumerState<LikedMangaScreen> {
                               ),
                             ],
                           ),
-                          if (genres.isNotEmpty)
+                          if (genres.isNotEmpty) ...[
+                            const SizedBox(height: 8),
                             Wrap(
                               spacing: 4,
                               runSpacing: 4,
@@ -186,6 +187,7 @@ class _LikedMangaScreenState extends ConsumerState<LikedMangaScreen> {
                                       ))
                                   .toList(),
                             ),
+                          ],
                         ],
                       ),
                     ),
