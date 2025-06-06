@@ -10,6 +10,8 @@ import 'package:path/path.dart' as path;
 import '../../../data/providers/global_cookie_jar_provider.dart';
 import '../../../presentation/screens/captcha_page.dart';
 import '../../providers/secret_mode_provider.dart';
+import '../../../data/database/database_helper.dart';
+import '../../providers/recent_chapters_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -99,26 +101,67 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     try {
       final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['cbak'],
+        type: FileType.any,
+        allowMultiple: false,
       );
 
       if (result == null || result.files.isEmpty) return;
 
-      setState(() => _isProcessing = true);
-
       final file = result.files.first;
       if (file.path == null) throw Exception('파일 경로를 찾을 수 없습니다.');
 
+      // 파일 확장자 검사
+      if (!file.path!.toLowerCase().endsWith('.capy')) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('.capy 확장자의 백업 파일만 복원할 수 있습니다.')),
+          );
+        }
+        return;
+      }
+
+      setState(() => _isProcessing = true);
+
       await _backupHelper.restoreBackup(file.path!);
+
+      // 데이터베이스 연결 재초기화
+      final db = DatabaseHelper.instance;
+      if (db.isOpen) {
+        await db.close();
+      }
+      await Future.delayed(
+          const Duration(milliseconds: 100)); // 데이터베이스가 완전히 닫힐 때까지 잠시 대기
+      DatabaseHelper.resetDatabase(); // 데이터베이스 인스턴스 초기화
+      await db.database; // 새로운 연결 생성
+
+      // 쿠키 초기화
+      ref.invalidate(globalCookieJarProvider);
+
+      // URL 설정 새로고침
+      ref.invalidate(siteUrlServiceProvider);
+
+      // 시크릿 모드 설정 새로고침
+      ref.invalidate(secretModeProvider);
+
+      // 테마 설정 새로고침
+      ref.invalidate(themeProvider);
+
+      // 최근에 본 작품 목록 새로고침
+      await ref.read(recentChaptersProvider.notifier).refresh();
+      await ref.read(recentChaptersPreviewProvider.notifier).refresh();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('백업이 복원되었습니다. 앱을 다시 시작해주세요.'),
-            duration: Duration(seconds: 5),
+            content: Text('백업이 복원되었습니다.'),
+            duration: Duration(seconds: 3),
           ),
         );
+
+        // 홈 화면으로 이동
+        if (context.mounted) {
+          Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+        }
       }
     } catch (e) {
       if (mounted) {

@@ -140,30 +140,6 @@ class RecentChaptersScreen extends ConsumerWidget {
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                       const SizedBox(height: 4),
-                                      Row(
-                                        children: [
-                                          Icon(
-                                            Icons.person,
-                                            size: 16,
-                                            color: theme.colorScheme.primary,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Expanded(
-                                            child: Text(
-                                              chapter['author'] ?? '작가 미상',
-                                              style: theme.textTheme.bodyMedium
-                                                  ?.copyWith(
-                                                color: theme
-                                                    .colorScheme.onSurface
-                                                    .withOpacity(0.7),
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 4),
                                       Text(
                                         chapter['manga_id'],
                                         style: theme.textTheme.bodyMedium

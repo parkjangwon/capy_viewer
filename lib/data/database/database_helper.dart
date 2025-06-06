@@ -12,8 +12,15 @@ class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._privateConstructor();
 
   static Database? _database;
+
+  bool get isOpen => _database?.isOpen ?? false;
+
+  static void resetDatabase() {
+    _database = null;
+  }
+
   Future<Database> get database async {
-    if (_database != null) return _database!;
+    if (_database != null && _database!.isOpen) return _database!;
     _database = await _initDatabase();
     return _database!;
   }
@@ -53,7 +60,6 @@ class DatabaseHelper {
         manga_id TEXT NOT NULL,
         chapter_title TEXT NOT NULL,
         thumbnail_url TEXT NOT NULL DEFAULT '',
-        author TEXT NOT NULL DEFAULT '',
         last_read INTEGER NOT NULL,
         last_page INTEGER NOT NULL DEFAULT 0,
         FOREIGN KEY (manga_id) REFERENCES liked_manga(id) ON DELETE CASCADE
@@ -148,6 +154,34 @@ class DatabaseHelper {
 
       await db.execute('DROP TABLE recent_chapters_old');
     }
+
+    if (oldVersion < 9) {
+      // recent_chapters 테이블에서 author 필드 제거
+      await db
+          .execute('ALTER TABLE recent_chapters RENAME TO recent_chapters_old');
+
+      await db.execute('''
+        CREATE TABLE recent_chapters (
+          id TEXT PRIMARY KEY,
+          manga_id TEXT NOT NULL,
+          chapter_title TEXT NOT NULL,
+          thumbnail_url TEXT NOT NULL DEFAULT '',
+          last_read INTEGER NOT NULL,
+          last_page INTEGER NOT NULL DEFAULT 0,
+          FOREIGN KEY (manga_id) REFERENCES liked_manga(id) ON DELETE CASCADE
+        )
+      ''');
+
+      await db.execute('''
+        INSERT INTO recent_chapters (
+          id, manga_id, chapter_title, thumbnail_url, last_read, last_page
+        )
+        SELECT id, manga_id, chapter_title, thumbnail_url, last_read, last_page 
+        FROM recent_chapters_old
+      ''');
+
+      await db.execute('DROP TABLE recent_chapters_old');
+    }
   }
 
   // 좋아요 관련 메서드
@@ -232,7 +266,6 @@ class DatabaseHelper {
     required String mangaId,
     required String chapterTitle,
     required String thumbnailUrl,
-    String? author,
     required int lastPage,
   }) async {
     print('[데이터베이스] 최근 본 회차 추가: $chapterId');
@@ -244,7 +277,6 @@ class DatabaseHelper {
         'manga_id': mangaId,
         'chapter_title': chapterTitle,
         'thumbnail_url': thumbnailUrl,
-        if (author != null) 'author': author,
         'last_read': DateTime.now().millisecondsSinceEpoch,
         'last_page': lastPage,
       },

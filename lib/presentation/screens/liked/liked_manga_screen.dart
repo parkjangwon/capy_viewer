@@ -102,29 +102,29 @@ class _LikedMangaScreenState extends ConsumerState<LikedMangaScreen> {
                 ).then((_) => _loadLikedManga());
               },
               child: Padding(
-                padding: const EdgeInsets.all(8.0),
+                padding: const EdgeInsets.all(12.0),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Thumbnail
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: SizedBox(
-                        width: 80,
-                        height: 120,
+                    // 썸네일
+                    if (manga['thumbnail_url']?.isNotEmpty ?? false)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
                         child: NetworkImageWithHeaders(
                           url: manga['thumbnail_url'],
                           width: 80,
-                          height: 120,
+                          height: 110,
                           fit: BoxFit.cover,
                           errorWidget: Container(
+                            width: 80,
+                            height: 110,
                             color: Colors.grey[300],
-                            child: const Icon(Icons.error_outline),
+                            child: const Icon(Icons.broken_image,
+                                size: 40, color: Colors.grey),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    // Title and Author
+                    const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -148,7 +148,7 @@ class _LikedMangaScreenState extends ConsumerState<LikedMangaScreen> {
                               const SizedBox(width: 4),
                               Expanded(
                                 child: Text(
-                                  manga['author'],
+                                  manga['author'] ?? '작가 미상',
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     color: theme.colorScheme.onSurface
                                         .withOpacity(0.7),
@@ -159,7 +159,6 @@ class _LikedMangaScreenState extends ConsumerState<LikedMangaScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
                           if (genres.isNotEmpty)
                             Wrap(
                               spacing: 4,
@@ -191,13 +190,16 @@ class _LikedMangaScreenState extends ConsumerState<LikedMangaScreen> {
                       ),
                     ),
                     // Like Button
-                    IconButton(
-                      icon: const Icon(Icons.favorite),
-                      color: Colors.red,
-                      onPressed: () async {
-                        await _db.removeLike(manga['id']);
-                        _loadLikedManga();
-                      },
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: IconButton(
+                        icon: const Icon(Icons.favorite),
+                        color: Colors.red,
+                        onPressed: () async {
+                          await _db.removeLike(manga['id']);
+                          _loadLikedManga();
+                        },
+                      ),
                     ),
                   ],
                 ),
