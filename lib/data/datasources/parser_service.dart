@@ -284,25 +284,41 @@ class ParserService extends _$ParserService {
 
   // 파일 내 private 함수로 추가
   bool _isCaptchaOrRedirect(String html) {
-    final patterns = [
-      "<title>Loading...</title>",
-      "data-adblockkey",
-      "Just a moment...",
-      "Checking if the site connection is secure",
-      "Enable JavaScript and cookies to continue",
-      "Please wait while we verify your browser",
-      "Please turn JavaScript on and reload the page",
+    final htmlLower = html.toLowerCase();
+
+    // 1. 클라우드플레어 캡차 필수 패턴
+    final requiredPatterns = [
+      "challenge-form",
+      "_cf_chl_opt",
+      "turnstile",
+      "cf-please-wait"
+    ];
+
+    // 2. 추가 확인 패턴 (최소 1개 이상 매칭되어야 함)
+    final additionalPatterns = [
+      "checking if the site connection is secure",
+      "please wait while we verify your browser",
       "cf-browser-verification",
       "cf_captcha_kind",
-      "cf-please-wait",
-      "challenge-form",
-      "cf_challenge",
-      "turnstile",
-      "cf-content",
-      "_cf_chl_opt",
       "cf_chl_prog"
     ];
 
-    return patterns.any((pattern) => html.contains(pattern));
+    // 필수 패턴 중 하나라도 있으면 캡차로 판단
+    if (requiredPatterns.any((pattern) => htmlLower.contains(pattern))) {
+      return true;
+    }
+
+    // 추가 패턴이 2개 이상 매칭되면 캡차로 판단
+    int matchCount = 0;
+    for (var pattern in additionalPatterns) {
+      if (htmlLower.contains(pattern)) {
+        matchCount++;
+        if (matchCount >= 2) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 }

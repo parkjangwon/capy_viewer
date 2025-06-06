@@ -5,8 +5,8 @@ import 'package:path_provider/path_provider.dart';
 
 class DatabaseHelper {
   static const _databaseName = "capy_viewer.db";
-  // 데이터베이스 버전을 8로 올립니다
-  static const _databaseVersion = 8;
+  // 데이터베이스 버전을 10으로 올립니다
+  static const _databaseVersion = 10;
 
   DatabaseHelper._privateConstructor();
   static final DatabaseHelper instance = DatabaseHelper._privateConstructor();
@@ -53,7 +53,7 @@ class DatabaseHelper {
       )
     ''');
 
-    // 최근 본 회차 테이블 (최신 스키마)
+    // 최근 본 회차 테이블 (외래 키 제약 제거)
     await db.execute('''
       CREATE TABLE recent_chapters (
         id TEXT PRIMARY KEY,
@@ -61,8 +61,7 @@ class DatabaseHelper {
         chapter_title TEXT NOT NULL,
         thumbnail_url TEXT NOT NULL DEFAULT '',
         last_read INTEGER NOT NULL,
-        last_page INTEGER NOT NULL DEFAULT 0,
-        FOREIGN KEY (manga_id) REFERENCES liked_manga(id) ON DELETE CASCADE
+        last_page INTEGER NOT NULL DEFAULT 0
       )
     ''');
 
@@ -110,8 +109,7 @@ class DatabaseHelper {
           thumbnail_url TEXT NOT NULL DEFAULT '',
           author TEXT NOT NULL DEFAULT '',
           last_read INTEGER NOT NULL,
-          last_page INTEGER NOT NULL DEFAULT 0,
-          FOREIGN KEY (manga_id) REFERENCES liked_manga(id) ON DELETE CASCADE
+          last_page INTEGER NOT NULL DEFAULT 0
         )
       ''');
 
@@ -139,8 +137,7 @@ class DatabaseHelper {
           thumbnail_url TEXT NOT NULL DEFAULT '',
           author TEXT,
           last_read INTEGER NOT NULL,
-          last_page INTEGER NOT NULL DEFAULT 0,
-          FOREIGN KEY (manga_id) REFERENCES liked_manga(id) ON DELETE CASCADE
+          last_page INTEGER NOT NULL DEFAULT 0
         )
       ''');
 
@@ -167,8 +164,34 @@ class DatabaseHelper {
           chapter_title TEXT NOT NULL,
           thumbnail_url TEXT NOT NULL DEFAULT '',
           last_read INTEGER NOT NULL,
-          last_page INTEGER NOT NULL DEFAULT 0,
-          FOREIGN KEY (manga_id) REFERENCES liked_manga(id) ON DELETE CASCADE
+          last_page INTEGER NOT NULL DEFAULT 0
+        )
+      ''');
+
+      await db.execute('''
+        INSERT INTO recent_chapters (
+          id, manga_id, chapter_title, thumbnail_url, last_read, last_page
+        )
+        SELECT id, manga_id, chapter_title, thumbnail_url, last_read, last_page 
+        FROM recent_chapters_old
+      ''');
+
+      await db.execute('DROP TABLE recent_chapters_old');
+    }
+
+    if (oldVersion < 10) {
+      // recent_chapters 테이블에서 author 필드 제거
+      await db
+          .execute('ALTER TABLE recent_chapters RENAME TO recent_chapters_old');
+
+      await db.execute('''
+        CREATE TABLE recent_chapters (
+          id TEXT PRIMARY KEY,
+          manga_id TEXT NOT NULL,
+          chapter_title TEXT NOT NULL,
+          thumbnail_url TEXT NOT NULL DEFAULT '',
+          last_read INTEGER NOT NULL,
+          last_page INTEGER NOT NULL DEFAULT 0
         )
       ''');
 
@@ -283,15 +306,8 @@ class DatabaseHelper {
   }) async {
     final db = await database;
 
-    // 기존 데이터 삭제
-    await db.delete(
-      'recent_chapters',
-      where: 'manga_id = ?',
-      whereArgs: [mangaId],
-    );
-
-    // 새로운 데이터 추가
-    await db.insert(
+    // 기존 데이터 삭제 대신 업데이트
+    await db.update(
       'recent_chapters',
       {
         'id': chapterId,
@@ -301,6 +317,8 @@ class DatabaseHelper {
         'last_read': DateTime.now().millisecondsSinceEpoch,
         'last_page': lastPage,
       },
+      where: 'manga_id = ?',
+      whereArgs: [mangaId],
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
