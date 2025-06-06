@@ -739,7 +739,7 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
                       ),
                       const SizedBox(height: 16),
                       const Text(
-                        '페이지를 불러올 수 없습니다',
+                        '페이지를 불러올 수 없습니다. "캡차 인증" 버튼을 눌러보세요.',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -780,45 +780,17 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
                                             _isLoading = true;
                                           });
 
-                                          // 페이지 리로드
-                                          await _controller.reload();
+                                          // 원래 보려고 했던 챕터의 URL로 직접 이동
+                                          final baseUrl =
+                                              ref.read(siteUrlServiceProvider);
+                                          final targetUrl = widget.chapterId
+                                                  .startsWith('http')
+                                              ? widget.chapterId
+                                              : '$baseUrl/comic/${widget.chapterId}';
 
-                                          // 페이지 로드 완료까지 대기
-                                          await Future.delayed(const Duration(
-                                              milliseconds: 500));
-
-                                          // 현재 페이지의 HTML을 가져와서 처리
-                                          final currentHtml = await _controller
-                                              .runJavaScriptReturningResult(
-                                            'document.documentElement.outerHTML',
+                                          await _controller.loadRequest(
+                                            Uri.parse(targetUrl),
                                           );
-
-                                          if (currentHtml != null && mounted) {
-                                            final htmlStr =
-                                                currentHtml.toString();
-
-                                            // 마나토끼 캡차 확인
-                                            if (ManatokiCaptchaHelper
-                                                .isCaptchaRequired(htmlStr)) {
-                                              final baseUrl = ref
-                                                  .read(siteUrlServiceProvider);
-                                              final captchaInfo =
-                                                  ManatokiCaptchaHelper
-                                                      .extractCaptchaInfo(
-                                                          htmlStr, baseUrl);
-
-                                              if (captchaInfo != null) {
-                                                setState(() {
-                                                  _showManatokiCaptcha = true;
-                                                  _captchaInfo = captchaInfo;
-                                                  _isLoading = false;
-                                                });
-                                                return;
-                                              }
-                                            }
-
-                                            _processHtml(htmlStr);
-                                          }
 
                                           if (mounted) {
                                             ScaffoldMessenger.of(context)
@@ -1300,19 +1272,91 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
     }
   }
 
-  void _onPageFinished(String url) async {
-    if (_isInitialLoad) {
+  Future<void> _onPageFinished(String url) async {
+    print('[웹뷰] 페이지 로딩 완료: $url');
+
+    if (!mounted) return;
+
+    try {
       final html = await _controller.runJavaScriptReturningResult(
         'document.documentElement.outerHTML',
-      ) as String;
+      );
 
-      _parseChapterList(html);
-      _parseNavigationLinks(html);
-      _parseImages(html);
+      if (!mounted) return;
 
+      final htmlString = html.toString();
+
+      // 클라우드플레어 캡차 확인
+      if (htmlString.contains('challenge-form') ||
+          htmlString.contains('cf-please-wait') ||
+          htmlString.contains('turnstile') ||
+          htmlString.contains('_cf_chl_opt')) {
+        print('[뷰어] 클라우드플레어 캡차 감지됨');
+
+        if (mounted) {
+          final baseUrl = ref.read(siteUrlServiceProvider);
+          final targetUrl = '$baseUrl/comic/129241'; // 베르세르크 페이지로 고정
+
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CaptchaPage(
+                url: targetUrl,
+                onHtmlReceived: (html) {
+                  if (mounted) {
+                    setState(() {
+                      _showError = false;
+                      _isLoading = true;
+                    });
+                    _controller.reload();
+
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('캡차 인증이 완료되었습니다.'),
+                      ),
+                    );
+                  }
+                },
+              ),
+            ),
+          );
+          return;
+        }
+      }
+
+      // 마나토끼 캡차 확인
+      if (ManatokiCaptchaHelper.isCaptchaRequired(htmlString)) {
+        print('[뷰어] 마나토끼 캡차 감지됨');
+        final baseUrl = ref.read(siteUrlServiceProvider);
+        final captchaInfo =
+            ManatokiCaptchaHelper.extractCaptchaInfo(htmlString, baseUrl);
+
+        if (captchaInfo != null) {
+          setState(() {
+            _showManatokiCaptcha = true;
+            _captchaInfo = captchaInfo;
+            _isLoading = false;
+          });
+          return;
+        }
+      }
+
+      // 페이지 처리를 위해 _isInitialLoad 설정
       setState(() {
-        _isInitialLoad = false;
+        _isInitialLoad = true;
+        _isLoading = true;
       });
+
+      // 일반 페이지 처리
+      await _loadPageContent();
+    } catch (e) {
+      print('[웹뷰] 페이지 처리 오류: $e');
+      if (mounted) {
+        setState(() {
+          _showError = true;
+          _isLoading = false;
+        });
+      }
     }
   }
 
