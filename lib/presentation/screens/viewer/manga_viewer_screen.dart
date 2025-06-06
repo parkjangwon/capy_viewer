@@ -1248,27 +1248,41 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
 
   void _parseChapterList(String htmlString) {
     try {
+      print('[회차 목록] 파싱 시작');
       final document = html_parser.parse(htmlString);
+
+      // select 태그 찾기
       final select = document.querySelector('select[name="wr_id"]');
+      print('[회차 목록] select 태그 ${select != null ? "발견" : "없음"}');
 
       if (select != null) {
+        // select 태그의 HTML 출력
+        print('[회차 목록] select HTML: ${select.outerHtml}');
+
         final options = select.querySelectorAll('option');
+        print('[회차 목록] option 태그 수: ${options.length}');
+
         _chapters = options.map((option) {
           final id = option.attributes['value'] ?? '';
-          final title = option.text;
+          final title = option.text.trim();
           final url = 'https://manatoki468.net/comic/$id';
-
-          return Chapter(
-            id: id,
-            title: title,
-            url: url,
-          );
+          print('[회차 목록] 회차 발견: id=$id, title=$title');
+          return Chapter(id: id, title: title, url: url);
         }).toList();
 
         setState(() {});
+        print('[회차 목록] 총 ${_chapters.length}개의 회차를 파싱했습니다.');
+      } else {
+        print('[회차 목록] select 태그를 찾을 수 없음');
+        // toon-nav 요소 확인
+        final toonNav = document.querySelector('.toon-nav');
+        if (toonNav != null) {
+          print('[회차 목록] toon-nav HTML: ${toonNav.outerHtml}');
+        }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('[회차 목록] 파싱 실패: $e');
+      print('[회차 목록] 스택 트레이스: $stackTrace');
     }
   }
 
@@ -1278,6 +1292,7 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
     if (!mounted) return;
 
     try {
+      // JavaScript를 실행하여 전체 HTML을 가져옴
       final html = await _controller.runJavaScriptReturningResult(
         'document.documentElement.outerHTML',
       );
@@ -1285,6 +1300,11 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
       if (!mounted) return;
 
       final htmlString = html.toString();
+      print('[웹뷰] HTML 길이: ${htmlString.length}');
+
+      // 네비게이션 링크와 회차 목록 파싱
+      _parseNavigationLinks(htmlString);
+      _parseChapterList(htmlString);
 
       // 클라우드플레어 캡차 확인
       if (htmlString.contains('challenge-form') ||
@@ -1295,7 +1315,7 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
 
         if (mounted) {
           final baseUrl = ref.read(siteUrlServiceProvider);
-          final targetUrl = '$baseUrl/comic/129241'; // 베르세르크 페이지로 고정
+          final targetUrl = '$baseUrl/comic/129241';
 
           final result = await Navigator.push(
             context,
@@ -1349,8 +1369,9 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
 
       // 일반 페이지 처리
       await _loadPageContent();
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('[웹뷰] 페이지 처리 오류: $e');
+      print('[웹뷰] 스택 트레이스: $stackTrace');
       if (mounted) {
         setState(() {
           _showError = true;

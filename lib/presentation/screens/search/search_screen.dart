@@ -549,6 +549,7 @@ class _GenreSelectSheetState extends State<GenreSelectSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -566,9 +567,18 @@ class _GenreSelectSheetState extends State<GenreSelectSheet> {
                 '장르 선택',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
-              TextButton(
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.colorScheme.primary,
+                  foregroundColor: theme.colorScheme.onPrimary,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
                 onPressed: () => Navigator.pop(context, _tempSelected),
-                child: const Text('확인'),
+                child: const Text(
+                  '확인',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),
