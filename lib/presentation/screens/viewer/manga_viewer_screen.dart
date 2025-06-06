@@ -9,6 +9,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 
 import '../../../data/providers/site_url_provider.dart';
 import '../../../utils/manatoki_captcha_helper.dart';
@@ -16,6 +17,8 @@ import '../../widgets/manatoki_captcha_widget.dart';
 import '../../viewmodels/global_cookie_provider.dart';
 import '../../../data/database/database_helper.dart';
 import '../../providers/secret_mode_provider.dart';
+import '../../../data/models/manga_viewer_state.dart';
+import '../captcha_page.dart';
 import 'comments_screen.dart';
 
 /// 만화 뷰어 화면
@@ -209,8 +212,12 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setNavigationDelegate(
         NavigationDelegate(
-          onPageFinished: (String url) {
-            _loadPageContent();
+          onPageStarted: (String url) {
+            print('[웹뷰] 페이지 로딩 시작: $url');
+          },
+          onPageFinished: _onPageFinished,
+          onNavigationRequest: (NavigationRequest request) {
+            return NavigationDecision.navigate;
           },
         ),
       )
@@ -525,6 +532,50 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
     }
   }
 
+  String _extractThumbnail(String htmlString) {
+    try {
+      final document = html_parser.parse(htmlString);
+
+      // 썸네일 추출을 위한 선택자들
+      final selectors = [
+        '.comic-thumbnail img',
+        '.manga-thumbnail img',
+        '.thumbnail img',
+        'img.thumbnail',
+        '.comic-info img',
+        '.manga-info img',
+        '.series-info img',
+      ];
+
+      for (final selector in selectors) {
+        final element = document.querySelector(selector);
+        if (element != null) {
+          final src = element.attributes['src'];
+          if (src != null && src.isNotEmpty) {
+            return src;
+          }
+        }
+      }
+
+      // 선택자로 찾지 못한 경우 모든 이미지를 검사
+      final images = document.querySelectorAll('img');
+      for (final img in images) {
+        final src = img.attributes['src'];
+        if (src != null &&
+            src.isNotEmpty &&
+            !src.contains('/tokinbtoki/') &&
+            (src.contains('thumb') || src.contains('cover'))) {
+          return src;
+        }
+      }
+    } catch (e) {
+      print('[썸네일 추출] 실패: $e');
+    }
+
+    // 썸네일을 찾지 못한 경우 첫 페이지 이미지 사용
+    return _imageUrls.isNotEmpty ? _imageUrls[0] : '';
+  }
+
   Future<void> _addToRecentChapters() async {
     if (_currentTitle.isNotEmpty) {
       print('[최근에 본 작품] 저장 시도');
@@ -540,21 +591,41 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
       }
 
       try {
+        // 웹페이지 HTML 가져오기
+        final html = await _controller.runJavaScriptReturningResult(
+          'document.documentElement.outerHTML',
+        ) as String;
+
         // 썸네일 URL 추출
-        String thumbnailUrl = '';
-        if (_imageUrls.isNotEmpty) {
-          thumbnailUrl = _imageUrls[0];
-        }
+        final thumbnailUrl = _extractThumbnail(html);
         print('[최근에 본 작품] 썸네일 URL: $thumbnailUrl');
 
-        await _db.addRecentChapter(
-          chapterId: widget.chapterId,
-          mangaId: widget.title,
-          chapterTitle: _currentTitle,
-          thumbnailUrl: thumbnailUrl,
-          lastPage: _currentPage,
-        );
-        print('[최근에 본 작품] 추가됨: ${widget.chapterId} - $_currentTitle');
+        // 기존 최근 본 작품 정보 가져오기
+        final existingChapter = await _db.getRecentChapter(widget.title);
+
+        // 만화 ID가 같은 경우 기존 데이터 업데이트
+        if (existingChapter != null) {
+          await _db.updateRecentChapter(
+            chapterId: widget.chapterId,
+            mangaId: widget.title,
+            chapterTitle: _currentTitle,
+            thumbnailUrl: thumbnailUrl.isNotEmpty
+                ? thumbnailUrl
+                : existingChapter['thumbnail_url'] as String,
+            lastPage: _currentPage,
+          );
+          print('[최근에 본 작품] 업데이트됨: ${widget.chapterId} - $_currentTitle');
+        } else {
+          // 새로운 데이터 추가
+          await _db.addRecentChapter(
+            chapterId: widget.chapterId,
+            mangaId: widget.title,
+            chapterTitle: _currentTitle,
+            thumbnailUrl: thumbnailUrl,
+            lastPage: _currentPage,
+          );
+          print('[최근에 본 작품] 추가됨: ${widget.chapterId} - $_currentTitle');
+        }
       } catch (e) {
         print('[최근에 본 작품] 추가 실패 상세: $e');
         print('[최근에 본 작품] 추가 실패: $e');
@@ -575,8 +646,20 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
     }
 
     try {
-      await _db.updateLastPage(widget.chapterId, pageNumber);
-      print('[최근에 본 작품] 페이지 업데이트: ${widget.chapterId} - $pageNumber');
+      // 기존 데이터 가져오기
+      final existingChapter = await _db.getRecentChapter(widget.title);
+      if (existingChapter != null) {
+        await _db.updateRecentChapter(
+          chapterId: widget.chapterId,
+          mangaId: widget.title,
+          chapterTitle: _currentTitle.isNotEmpty
+              ? _currentTitle
+              : existingChapter['chapter_title'] as String,
+          thumbnailUrl: existingChapter['thumbnail_url'] as String,
+          lastPage: pageNumber,
+        );
+        print('[최근에 본 작품] 페이지 업데이트: ${widget.chapterId} - $pageNumber');
+      }
     } catch (e) {
       print('[최근에 본 작품] 페이지 업데이트 실패 상세: $e');
       print('[최근에 본 작품] 페이지 업데이트 실패: $e');
@@ -635,36 +718,136 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
               ),
 
             if (_showError)
-              Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.error_outline,
-                      color: Colors.red,
-                      size: 48,
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      '페이지를 불러올 수 없습니다',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
+              Scaffold(
+                appBar: AppBar(
+                  backgroundColor: Colors.black,
+                  elevation: 0,
+                  leading: IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+                backgroundColor: Colors.black,
+                body: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        color: Colors.red,
+                        size: 48,
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton(
-                      onPressed: () {
-                        setState(() {
-                          _isLoading = true;
-                          _showError = false;
-                          _isInitialLoad = true;
-                        });
-                        _controller.reload();
-                      },
-                      child: const Text('다시 시도'),
-                    ),
-                  ],
+                      const SizedBox(height: 16),
+                      const Text(
+                        '페이지를 불러올 수 없습니다',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          ElevatedButton(
+                            onPressed: () {
+                              setState(() {
+                                _isLoading = true;
+                                _showError = false;
+                                _isInitialLoad = true;
+                              });
+                              _controller.reload();
+                            },
+                            child: const Text('다시 시도'),
+                          ),
+                          const SizedBox(width: 16),
+                          ElevatedButton(
+                            onPressed: () async {
+                              final baseUrl = ref.read(siteUrlServiceProvider);
+                              final targetUrl =
+                                  '$baseUrl/comic/129241'; // 베르세르크 페이지로 고정
+
+                              if (mounted) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => CaptchaPage(
+                                      url: targetUrl,
+                                      onHtmlReceived: (html) async {
+                                        if (mounted) {
+                                          setState(() {
+                                            _showError = false;
+                                            _isLoading = true;
+                                          });
+
+                                          // 페이지 리로드
+                                          await _controller.reload();
+
+                                          // 페이지 로드 완료까지 대기
+                                          await Future.delayed(const Duration(
+                                              milliseconds: 500));
+
+                                          // 현재 페이지의 HTML을 가져와서 처리
+                                          final currentHtml = await _controller
+                                              .runJavaScriptReturningResult(
+                                            'document.documentElement.outerHTML',
+                                          );
+
+                                          if (currentHtml != null && mounted) {
+                                            final htmlStr =
+                                                currentHtml.toString();
+
+                                            // 마나토끼 캡차 확인
+                                            if (ManatokiCaptchaHelper
+                                                .isCaptchaRequired(htmlStr)) {
+                                              final baseUrl = ref
+                                                  .read(siteUrlServiceProvider);
+                                              final captchaInfo =
+                                                  ManatokiCaptchaHelper
+                                                      .extractCaptchaInfo(
+                                                          htmlStr, baseUrl);
+
+                                              if (captchaInfo != null) {
+                                                setState(() {
+                                                  _showManatokiCaptcha = true;
+                                                  _captchaInfo = captchaInfo;
+                                                  _isLoading = false;
+                                                });
+                                                return;
+                                              }
+                                            }
+
+                                            _processHtml(htmlStr);
+                                          }
+
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(context)
+                                                .showSnackBar(
+                                              const SnackBar(
+                                                content:
+                                                    Text('캡차 인증이 완료되었습니다.'),
+                                              ),
+                                            );
+                                          }
+                                        }
+                                      },
+                                    ),
+                                  ),
+                                );
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor:
+                                  Theme.of(context).colorScheme.primary,
+                              foregroundColor:
+                                  Theme.of(context).colorScheme.onPrimary,
+                            ),
+                            child: const Text('캡차 인증'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
 
@@ -791,6 +974,11 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
                               ),
                             );
                           },
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.list, color: Colors.white),
+                          onPressed: _showChapterList,
                         ),
                         const SizedBox(width: 8),
                         IconButton(
@@ -1001,6 +1189,239 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
     } else {
       print('[파서] .toon-nav를 찾을 수 없음');
     }
+  }
+
+  void _showChapterList() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.black.withOpacity(0.9),
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          minChildSize: 0.5,
+          maxChildSize: 0.9,
+          builder: (context, scrollController) {
+            return Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      const Text(
+                        '회차 목록',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    controller: scrollController,
+                    itemCount: _chapters.length,
+                    itemBuilder: (context, index) {
+                      final chapter = _chapters[index];
+                      final isCurrentChapter = chapter.id == widget.chapterId;
+
+                      return ListTile(
+                        title: Text(
+                          chapter.title,
+                          style: TextStyle(
+                            color:
+                                isCurrentChapter ? Colors.blue : Colors.white,
+                            fontWeight: isCurrentChapter
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                        onTap: () {
+                          Navigator.pop(context);
+                          if (!isCurrentChapter) {
+                            _navigateToChapter(chapter.id);
+                          }
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _navigateToChapter(String chapterId) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MangaViewerScreen(
+          title: widget.title,
+          chapterId: chapterId,
+        ),
+      ),
+    );
+  }
+
+  List<Chapter> _chapters = [];
+
+  void _parseChapterList(String htmlString) {
+    try {
+      final document = html_parser.parse(htmlString);
+      final select = document.querySelector('select[name="wr_id"]');
+
+      if (select != null) {
+        final options = select.querySelectorAll('option');
+        _chapters = options.map((option) {
+          final id = option.attributes['value'] ?? '';
+          final title = option.text;
+          final url = 'https://manatoki468.net/comic/$id';
+
+          return Chapter(
+            id: id,
+            title: title,
+            url: url,
+          );
+        }).toList();
+
+        setState(() {});
+      }
+    } catch (e) {
+      print('[회차 목록] 파싱 실패: $e');
+    }
+  }
+
+  void _onPageFinished(String url) async {
+    if (_isInitialLoad) {
+      final html = await _controller.runJavaScriptReturningResult(
+        'document.documentElement.outerHTML',
+      ) as String;
+
+      _parseChapterList(html);
+      _parseNavigationLinks(html);
+      _parseImages(html);
+
+      setState(() {
+        _isInitialLoad = false;
+      });
+    }
+  }
+
+  void _parseImages(String htmlString) {
+    try {
+      final document = html_parser.parse(htmlString);
+      final article = document.querySelector('article[itemprop="articleBody"]');
+
+      if (article != null) {
+        final images = article.querySelectorAll('img');
+        final urls = images
+            .map((img) {
+              final dataUrl = img.attributes.entries
+                  .where((attr) =>
+                      (attr.key as String).startsWith('data-') &&
+                      attr.value.contains('://'))
+                  .map((attr) => attr.value)
+                  .firstOrNull;
+
+              final src = dataUrl ?? img.attributes['src'] ?? '';
+              if (src.isNotEmpty && !src.contains('/tokinbtoki/')) {
+                return src;
+              }
+              return '';
+            })
+            .where((url) => url.isNotEmpty)
+            .toList();
+
+        setState(() {
+          _imageUrls = urls;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _showError = true;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('[이미지 파싱] 실패: $e');
+      setState(() {
+        _showError = true;
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _loadChapter() async {
+    final baseUrl = ref.read(siteUrlServiceProvider);
+    final url = widget.chapterId.startsWith('http')
+        ? widget.chapterId
+        : '$baseUrl/comic/${widget.chapterId}';
+
+    try {
+      final response = await http.get(Uri.parse(url));
+      final html = response.body;
+
+      if (mounted) {
+        _processHtml(html);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _showError = true;
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _processHtml(String html) {
+    if (ManatokiCaptchaHelper.isCaptchaRequired(html)) {
+      print('[뷰어] 마나토끼 캡차 감지됨');
+      final baseUrl = ref.read(siteUrlServiceProvider);
+      final captchaInfo =
+          ManatokiCaptchaHelper.extractCaptchaInfo(html, baseUrl);
+
+      if (captchaInfo != null) {
+        setState(() {
+          _showManatokiCaptcha = true;
+          _captchaInfo = captchaInfo;
+          _isLoading = false;
+        });
+        return;
+      }
+    }
+
+    final document = html_parser.parse(html);
+    final imageElements = document.querySelectorAll('img.page-data');
+    final urls = imageElements
+        .map((e) => e.attributes['src'])
+        .where((url) => url != null)
+        .map((url) => url!)
+        .toList();
+
+    if (urls.isEmpty) {
+      setState(() {
+        _showError = true;
+        _isLoading = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _imageUrls = urls;
+      _isLoading = false;
+      _showError = false;
+      _showManatokiCaptcha = false;
+    });
   }
 }
 

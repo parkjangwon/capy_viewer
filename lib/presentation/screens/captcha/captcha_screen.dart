@@ -21,15 +21,14 @@ class _CaptchaScreenState extends State<CaptchaScreen> {
   bool _hasSeenChallenge = false;
 
   String get _targetUrl {
-    final baseUrl = widget.url.endsWith('/') ? widget.url : '${widget.url}/';
-    return '${baseUrl}comic/129241';
+    return widget.url;
   }
 
   bool _isChallengeUrl(String url) {
-    return url.contains('challenge') || 
-           url.contains('cloudflare') ||
-           url.contains('captcha') ||
-           url.contains('cdn-cgi');
+    return url.contains('challenge') ||
+        url.contains('cloudflare') ||
+        url.contains('captcha') ||
+        url.contains('cdn-cgi');
   }
 
   @override
@@ -47,7 +46,8 @@ class _CaptchaScreenState extends State<CaptchaScreen> {
           InAppWebView(
             initialUrlRequest: URLRequest(url: WebUri(_targetUrl)),
             initialSettings: InAppWebViewSettings(
-              userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+              userAgent:
+                  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
               javaScriptEnabled: true,
               clearCache: true,
             ),

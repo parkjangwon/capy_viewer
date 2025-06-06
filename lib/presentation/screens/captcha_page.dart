@@ -79,7 +79,7 @@ class _CaptchaPageState extends ConsumerState<CaptchaPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('캡차 인증'),
+        title: const Text('클라우드플레어 캡차 인증'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

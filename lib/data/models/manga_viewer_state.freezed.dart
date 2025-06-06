@@ -15,6 +15,166 @@ final _privateConstructorUsedError = UnsupportedError(
     'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models');
 
 /// @nodoc
+mixin _$Chapter {
+  String get id => throw _privateConstructorUsedError;
+  String get title => throw _privateConstructorUsedError;
+  String get url => throw _privateConstructorUsedError;
+
+  @JsonKey(ignore: true)
+  $ChapterCopyWith<Chapter> get copyWith => throw _privateConstructorUsedError;
+}
+
+/// @nodoc
+abstract class $ChapterCopyWith<$Res> {
+  factory $ChapterCopyWith(Chapter value, $Res Function(Chapter) then) =
+      _$ChapterCopyWithImpl<$Res, Chapter>;
+  @useResult
+  $Res call({String id, String title, String url});
+}
+
+/// @nodoc
+class _$ChapterCopyWithImpl<$Res, $Val extends Chapter>
+    implements $ChapterCopyWith<$Res> {
+  _$ChapterCopyWithImpl(this._value, this._then);
+
+  // ignore: unused_field
+  final $Val _value;
+  // ignore: unused_field
+  final $Res Function($Val) _then;
+
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? id = null,
+    Object? title = null,
+    Object? url = null,
+  }) {
+    return _then(_value.copyWith(
+      id: null == id
+          ? _value.id
+          : id // ignore: cast_nullable_to_non_nullable
+              as String,
+      title: null == title
+          ? _value.title
+          : title // ignore: cast_nullable_to_non_nullable
+              as String,
+      url: null == url
+          ? _value.url
+          : url // ignore: cast_nullable_to_non_nullable
+              as String,
+    ) as $Val);
+  }
+}
+
+/// @nodoc
+abstract class _$$ChapterImplCopyWith<$Res> implements $ChapterCopyWith<$Res> {
+  factory _$$ChapterImplCopyWith(
+          _$ChapterImpl value, $Res Function(_$ChapterImpl) then) =
+      __$$ChapterImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call({String id, String title, String url});
+}
+
+/// @nodoc
+class __$$ChapterImplCopyWithImpl<$Res>
+    extends _$ChapterCopyWithImpl<$Res, _$ChapterImpl>
+    implements _$$ChapterImplCopyWith<$Res> {
+  __$$ChapterImplCopyWithImpl(
+      _$ChapterImpl _value, $Res Function(_$ChapterImpl) _then)
+      : super(_value, _then);
+
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? id = null,
+    Object? title = null,
+    Object? url = null,
+  }) {
+    return _then(_$ChapterImpl(
+      id: null == id
+          ? _value.id
+          : id // ignore: cast_nullable_to_non_nullable
+              as String,
+      title: null == title
+          ? _value.title
+          : title // ignore: cast_nullable_to_non_nullable
+              as String,
+      url: null == url
+          ? _value.url
+          : url // ignore: cast_nullable_to_non_nullable
+              as String,
+    ));
+  }
+}
+
+/// @nodoc
+
+class _$ChapterImpl with DiagnosticableTreeMixin implements _Chapter {
+  const _$ChapterImpl({required this.id, required this.title, this.url = ''});
+
+  @override
+  final String id;
+  @override
+  final String title;
+  @override
+  @JsonKey()
+  final String url;
+
+  @override
+  String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) {
+    return 'Chapter(id: $id, title: $title, url: $url)';
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties
+      ..add(DiagnosticsProperty('type', 'Chapter'))
+      ..add(DiagnosticsProperty('id', id))
+      ..add(DiagnosticsProperty('title', title))
+      ..add(DiagnosticsProperty('url', url));
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _$ChapterImpl &&
+            (identical(other.id, id) || other.id == id) &&
+            (identical(other.title, title) || other.title == title) &&
+            (identical(other.url, url) || other.url == url));
+  }
+
+  @override
+  int get hashCode => Object.hash(runtimeType, id, title, url);
+
+  @JsonKey(ignore: true)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$ChapterImplCopyWith<_$ChapterImpl> get copyWith =>
+      __$$ChapterImplCopyWithImpl<_$ChapterImpl>(this, _$identity);
+}
+
+abstract class _Chapter implements Chapter {
+  const factory _Chapter(
+      {required final String id,
+      required final String title,
+      final String url}) = _$ChapterImpl;
+
+  @override
+  String get id;
+  @override
+  String get title;
+  @override
+  String get url;
+  @override
+  @JsonKey(ignore: true)
+  _$$ChapterImplCopyWith<_$ChapterImpl> get copyWith =>
+      throw _privateConstructorUsedError;
+}
+
+/// @nodoc
 mixin _$MangaViewerState {
   bool get isLoading => throw _privateConstructorUsedError;
   bool get hasError => throw _privateConstructorUsedError;
@@ -29,6 +189,8 @@ mixin _$MangaViewerState {
   String get chapterTitle => throw _privateConstructorUsedError;
   String get prevChapterUrl => throw _privateConstructorUsedError;
   String get nextChapterUrl => throw _privateConstructorUsedError;
+  List<Chapter> get chapters => throw _privateConstructorUsedError;
+  String get currentChapterId => throw _privateConstructorUsedError;
 
   @JsonKey(ignore: true)
   $MangaViewerStateCopyWith<MangaViewerState> get copyWith =>
@@ -54,7 +216,9 @@ abstract class $MangaViewerStateCopyWith<$Res> {
       String seriesTitle,
       String chapterTitle,
       String prevChapterUrl,
-      String nextChapterUrl});
+      String nextChapterUrl,
+      List<Chapter> chapters,
+      String currentChapterId});
 }
 
 /// @nodoc
@@ -83,6 +247,8 @@ class _$MangaViewerStateCopyWithImpl<$Res, $Val extends MangaViewerState>
     Object? chapterTitle = null,
     Object? prevChapterUrl = null,
     Object? nextChapterUrl = null,
+    Object? chapters = null,
+    Object? currentChapterId = null,
   }) {
     return _then(_value.copyWith(
       isLoading: null == isLoading
@@ -137,6 +303,14 @@ class _$MangaViewerStateCopyWithImpl<$Res, $Val extends MangaViewerState>
           ? _value.nextChapterUrl
           : nextChapterUrl // ignore: cast_nullable_to_non_nullable
               as String,
+      chapters: null == chapters
+          ? _value.chapters
+          : chapters // ignore: cast_nullable_to_non_nullable
+              as List<Chapter>,
+      currentChapterId: null == currentChapterId
+          ? _value.currentChapterId
+          : currentChapterId // ignore: cast_nullable_to_non_nullable
+              as String,
     ) as $Val);
   }
 }
@@ -162,7 +336,9 @@ abstract class _$$MangaViewerStateImplCopyWith<$Res>
       String seriesTitle,
       String chapterTitle,
       String prevChapterUrl,
-      String nextChapterUrl});
+      String nextChapterUrl,
+      List<Chapter> chapters,
+      String currentChapterId});
 }
 
 /// @nodoc
@@ -189,6 +365,8 @@ class __$$MangaViewerStateImplCopyWithImpl<$Res>
     Object? chapterTitle = null,
     Object? prevChapterUrl = null,
     Object? nextChapterUrl = null,
+    Object? chapters = null,
+    Object? currentChapterId = null,
   }) {
     return _then(_$MangaViewerStateImpl(
       isLoading: null == isLoading
@@ -243,6 +421,14 @@ class __$$MangaViewerStateImplCopyWithImpl<$Res>
           ? _value.nextChapterUrl
           : nextChapterUrl // ignore: cast_nullable_to_non_nullable
               as String,
+      chapters: null == chapters
+          ? _value._chapters
+          : chapters // ignore: cast_nullable_to_non_nullable
+              as List<Chapter>,
+      currentChapterId: null == currentChapterId
+          ? _value.currentChapterId
+          : currentChapterId // ignore: cast_nullable_to_non_nullable
+              as String,
     ));
   }
 }
@@ -265,9 +451,12 @@ class _$MangaViewerStateImpl
       this.seriesTitle = '',
       this.chapterTitle = '',
       this.prevChapterUrl = '',
-      this.nextChapterUrl = ''})
+      this.nextChapterUrl = '',
+      final List<Chapter> chapters = const [],
+      this.currentChapterId = ''})
       : _pages = pages,
-        _captchaInfo = captchaInfo;
+        _captchaInfo = captchaInfo,
+        _chapters = chapters;
 
   @override
   @JsonKey()
@@ -321,10 +510,22 @@ class _$MangaViewerStateImpl
   @override
   @JsonKey()
   final String nextChapterUrl;
+  final List<Chapter> _chapters;
+  @override
+  @JsonKey()
+  List<Chapter> get chapters {
+    if (_chapters is EqualUnmodifiableListView) return _chapters;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_chapters);
+  }
+
+  @override
+  @JsonKey()
+  final String currentChapterId;
 
   @override
   String toString({DiagnosticLevel minLevel = DiagnosticLevel.info}) {
-    return 'MangaViewerState(isLoading: $isLoading, hasError: $hasError, errorMessage: $errorMessage, pages: $pages, currentPageIndex: $currentPageIndex, viewMode: $viewMode, readingDirection: $readingDirection, captchaType: $captchaType, captchaInfo: $captchaInfo, seriesTitle: $seriesTitle, chapterTitle: $chapterTitle, prevChapterUrl: $prevChapterUrl, nextChapterUrl: $nextChapterUrl)';
+    return 'MangaViewerState(isLoading: $isLoading, hasError: $hasError, errorMessage: $errorMessage, pages: $pages, currentPageIndex: $currentPageIndex, viewMode: $viewMode, readingDirection: $readingDirection, captchaType: $captchaType, captchaInfo: $captchaInfo, seriesTitle: $seriesTitle, chapterTitle: $chapterTitle, prevChapterUrl: $prevChapterUrl, nextChapterUrl: $nextChapterUrl, chapters: $chapters, currentChapterId: $currentChapterId)';
   }
 
   @override
@@ -344,7 +545,9 @@ class _$MangaViewerStateImpl
       ..add(DiagnosticsProperty('seriesTitle', seriesTitle))
       ..add(DiagnosticsProperty('chapterTitle', chapterTitle))
       ..add(DiagnosticsProperty('prevChapterUrl', prevChapterUrl))
-      ..add(DiagnosticsProperty('nextChapterUrl', nextChapterUrl));
+      ..add(DiagnosticsProperty('nextChapterUrl', nextChapterUrl))
+      ..add(DiagnosticsProperty('chapters', chapters))
+      ..add(DiagnosticsProperty('currentChapterId', currentChapterId));
   }
 
   @override
@@ -376,7 +579,10 @@ class _$MangaViewerStateImpl
             (identical(other.prevChapterUrl, prevChapterUrl) ||
                 other.prevChapterUrl == prevChapterUrl) &&
             (identical(other.nextChapterUrl, nextChapterUrl) ||
-                other.nextChapterUrl == nextChapterUrl));
+                other.nextChapterUrl == nextChapterUrl) &&
+            const DeepCollectionEquality().equals(other._chapters, _chapters) &&
+            (identical(other.currentChapterId, currentChapterId) ||
+                other.currentChapterId == currentChapterId));
   }
 
   @override
@@ -394,7 +600,9 @@ class _$MangaViewerStateImpl
       seriesTitle,
       chapterTitle,
       prevChapterUrl,
-      nextChapterUrl);
+      nextChapterUrl,
+      const DeepCollectionEquality().hash(_chapters),
+      currentChapterId);
 
   @JsonKey(ignore: true)
   @override
@@ -418,7 +626,9 @@ abstract class _MangaViewerState implements MangaViewerState {
       final String seriesTitle,
       final String chapterTitle,
       final String prevChapterUrl,
-      final String nextChapterUrl}) = _$MangaViewerStateImpl;
+      final String nextChapterUrl,
+      final List<Chapter> chapters,
+      final String currentChapterId}) = _$MangaViewerStateImpl;
 
   @override
   bool get isLoading;
@@ -446,6 +656,10 @@ abstract class _MangaViewerState implements MangaViewerState {
   String get prevChapterUrl;
   @override
   String get nextChapterUrl;
+  @override
+  List<Chapter> get chapters;
+  @override
+  String get currentChapterId;
   @override
   @JsonKey(ignore: true)
   _$$MangaViewerStateImplCopyWith<_$MangaViewerStateImpl> get copyWith =>

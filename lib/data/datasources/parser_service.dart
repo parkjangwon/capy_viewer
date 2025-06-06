@@ -1,7 +1,7 @@
 import 'package:html/parser.dart' as parser;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../models/manga.dart';
-import '../models/chapter.dart';
+import '../models/chapter.dart' as model;
 import '../models/manga_title.dart';
 import '../models/manga_viewer_state.dart';
 import 'dart:math' as math;
@@ -33,7 +33,7 @@ class ParserService extends _$ParserService {
   }
 
   // 챕터 목록 파싱
-  List<Chapter> parseChapters(String html) {
+  List<model.Chapter> parseChapters(String html) {
     _logger.i('챕터 목록 HTML 파싱 시작');
     if (html.isEmpty) {
       _logger.w('빈 HTML 문자열이 전달됨');
@@ -79,7 +79,7 @@ class ParserService extends _$ParserService {
                 return null;
               }
 
-              return Chapter(
+              return model.Chapter(
                 id: chapterId,
                 title: titleText,
                 url: url,
@@ -93,7 +93,7 @@ class ParserService extends _$ParserService {
             }
           })
           .where((chapter) => chapter != null)
-          .cast<Chapter>()
+          .cast<model.Chapter>()
           .toList();
     } catch (e, stack) {
       _logger.e('챕터 목록 파싱 중 오류 발생', error: e, stackTrace: stack);

@@ -25,6 +25,15 @@ enum ReadingDirection {
 }
 
 @freezed
+class Chapter with _$Chapter {
+  const factory Chapter({
+    required String id,
+    required String title,
+    @Default('') String url,
+  }) = _Chapter;
+}
+
+@freezed
 class MangaViewerState with _$MangaViewerState {
   const factory MangaViewerState({
     @Default(false) bool isLoading,
@@ -40,5 +49,7 @@ class MangaViewerState with _$MangaViewerState {
     @Default('') String chapterTitle,
     @Default('') String prevChapterUrl,
     @Default('') String nextChapterUrl,
+    @Default([]) List<Chapter> chapters,
+    @Default('') String currentChapterId,
   }) = _MangaViewerState;
 }

@@ -339,7 +339,7 @@ class _ManatokiCaptchaWidgetState extends ConsumerState<ManatokiCaptchaWidget> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const Text(
-              '캡챠 인증',
+              '마나토끼 캡차 인증',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 18,
