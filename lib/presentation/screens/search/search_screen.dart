@@ -442,9 +442,23 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                                         List<String>>(
                                       context: context,
                                       isScrollControlled: true,
-                                      builder: (context) => GenreSelectSheet(
-                                        allGenres: _genreOptions,
-                                        selected: _selectedGenres,
+                                      backgroundColor: Colors.transparent,
+                                      constraints: BoxConstraints(
+                                        maxHeight:
+                                            MediaQuery.of(context).size.height *
+                                                0.75,
+                                      ),
+                                      builder: (context) => Padding(
+                                        padding: EdgeInsets.only(
+                                          top: MediaQuery.of(context)
+                                                  .padding
+                                                  .top +
+                                              10,
+                                        ),
+                                        child: GenreSelectSheet(
+                                          allGenres: _genreOptions,
+                                          selected: _selectedGenres,
+                                        ),
                                       ),
                                     );
                                     if (result != null) {
@@ -551,21 +565,37 @@ class _GenreSelectSheetState extends State<GenreSelectSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(16),
+        ),
+      ),
+      padding: const EdgeInsets.only(
         left: 16,
         right: 16,
-        top: 24,
+        top: 16,
+        bottom: 16,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // 드래그 핸들
+          Container(
+            width: 40,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 16),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.onSurfaceVariant.withOpacity(0.4),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
                 '장르 선택',
-                style: Theme.of(context).textTheme.titleLarge,
+                style: theme.textTheme.titleLarge,
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(
@@ -585,6 +615,7 @@ class _GenreSelectSheetState extends State<GenreSelectSheet> {
           const SizedBox(height: 16),
           Expanded(
             child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
               child: Wrap(
                 spacing: 8,
                 runSpacing: 8,
