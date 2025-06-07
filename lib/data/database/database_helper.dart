@@ -53,7 +53,7 @@ class DatabaseHelper {
       )
     ''');
 
-    // 최근 본 회차 테이블 (외래 키 제약 제거)
+    // 최근 본 회차 테이블
     await db.execute('''
       CREATE TABLE recent_chapters (
         id TEXT PRIMARY KEY,
@@ -61,7 +61,8 @@ class DatabaseHelper {
         chapter_title TEXT NOT NULL,
         thumbnail_url TEXT NOT NULL DEFAULT '',
         last_read INTEGER NOT NULL,
-        last_page INTEGER NOT NULL DEFAULT 0
+        last_page INTEGER NOT NULL DEFAULT 0,
+        UNIQUE(manga_id)
       )
     ''');
 
@@ -306,21 +307,29 @@ class DatabaseHelper {
   }) async {
     final db = await database;
 
-    // 기존 데이터 삭제 대신 업데이트
-    await db.update(
-      'recent_chapters',
-      {
-        'id': chapterId,
-        'manga_id': mangaId,
-        'chapter_title': chapterTitle,
-        'thumbnail_url': thumbnailUrl,
-        'last_read': DateTime.now().millisecondsSinceEpoch,
-        'last_page': lastPage,
-      },
-      where: 'manga_id = ?',
-      whereArgs: [mangaId],
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    // 기존 데이터 삭제 후 새로운 데이터 추가
+    await db.transaction((txn) async {
+      // 기존 데이터 삭제
+      await txn.delete(
+        'recent_chapters',
+        where: 'manga_id = ?',
+        whereArgs: [mangaId],
+      );
+
+      // 새로운 데이터 추가
+      await txn.insert(
+        'recent_chapters',
+        {
+          'id': chapterId,
+          'manga_id': mangaId,
+          'chapter_title': chapterTitle,
+          'thumbnail_url': thumbnailUrl,
+          'last_read': DateTime.now().millisecondsSinceEpoch,
+          'last_page': lastPage,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    });
   }
 
   Future<void> addRecentChapter({

@@ -20,6 +20,7 @@ import '../../providers/secret_mode_provider.dart';
 import '../../../data/models/manga_viewer_state.dart';
 import '../captcha_page.dart';
 import 'comments_screen.dart';
+import '../../../utils/manga_detail_parser.dart';
 
 /// 만화 뷰어 화면
 /// 만화 페이지를 표시하고 캡차 처리를 담당합니다.
@@ -27,12 +28,14 @@ class MangaViewerScreen extends ConsumerStatefulWidget {
   final String title;
   final String chapterId;
   final int initialPage;
+  final String? thumbnailUrl;
 
   const MangaViewerScreen({
     super.key,
     required this.title,
     required this.chapterId,
     this.initialPage = 0,
+    this.thumbnailUrl,
   });
 
   @override
@@ -532,48 +535,29 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
     }
   }
 
-  String _extractThumbnail(String htmlString) {
+  String _extractThumbnail(String html) {
     try {
-      final document = html_parser.parse(htmlString);
+      final document = html_parser.parse(html);
 
-      // 썸네일 추출을 위한 선택자들
-      final selectors = [
-        '.comic-thumbnail img',
-        '.manga-thumbnail img',
-        '.thumbnail img',
-        'img.thumbnail',
-        '.comic-info img',
-        '.manga-info img',
-        '.series-info img',
-      ];
-
-      for (final selector in selectors) {
-        final element = document.querySelector(selector);
-        if (element != null) {
-          final src = element.attributes['src'];
+      // 정확한 구조로 썸네일 찾기
+      final postImage = document.querySelector('.post-image');
+      if (postImage != null) {
+        final imgItem = postImage.querySelector('.img-item img');
+        if (imgItem != null) {
+          final src = imgItem.attributes['src'];
           if (src != null && src.isNotEmpty) {
+            print('[썸네일 추출] 성공: $src');
             return src;
           }
         }
       }
 
-      // 선택자로 찾지 못한 경우 모든 이미지를 검사
-      final images = document.querySelectorAll('img');
-      for (final img in images) {
-        final src = img.attributes['src'];
-        if (src != null &&
-            src.isNotEmpty &&
-            !src.contains('/tokinbtoki/') &&
-            (src.contains('thumb') || src.contains('cover'))) {
-          return src;
-        }
-      }
+      print('[썸네일 추출] .post-image > .img-item > img 구조에서 썸네일을 찾지 못함');
+      return '';
     } catch (e) {
       print('[썸네일 추출] 실패: $e');
+      return '';
     }
-
-    // 썸네일을 찾지 못한 경우 첫 페이지 이미지 사용
-    return _imageUrls.isNotEmpty ? _imageUrls[0] : '';
   }
 
   Future<void> _addToRecentChapters() async {
@@ -582,6 +566,7 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
       print('[최근에 본 작품] ID: ${widget.chapterId}');
       print('[최근에 본 작품] 작품 ID: ${widget.title}');
       print('[최근에 본 작품] 제목: $_currentTitle');
+      print('[최근에 본 작품] 썸네일: ${widget.thumbnailUrl}');
 
       // 시크릿 모드 상태 확인
       final isSecretMode = ref.read(secretModeProvider);
@@ -591,27 +576,23 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
       }
 
       try {
-        // 웹페이지 HTML 가져오기
-        final html = await _controller.runJavaScriptReturningResult(
-          'document.documentElement.outerHTML',
-        ) as String;
-
-        // 썸네일 URL 추출
-        final thumbnailUrl = _extractThumbnail(html);
-        print('[최근에 본 작품] 썸네일 URL: $thumbnailUrl');
-
         // 기존 최근 본 작품 정보 가져오기
         final existingChapter = await _db.getRecentChapter(widget.title);
 
         // 만화 ID가 같은 경우 기존 데이터 업데이트
         if (existingChapter != null) {
+          // 썸네일 우선순위:
+          // 1. 새로 전달받은 썸네일
+          // 2. 기존에 저장된 썸네일
+          final thumbnailUrl = widget.thumbnailUrl?.isNotEmpty == true
+              ? widget.thumbnailUrl!
+              : existingChapter['thumbnail_url'] as String;
+
           await _db.updateRecentChapter(
             chapterId: widget.chapterId,
             mangaId: widget.title,
             chapterTitle: _currentTitle,
-            thumbnailUrl: thumbnailUrl.isNotEmpty
-                ? thumbnailUrl
-                : existingChapter['thumbnail_url'] as String,
+            thumbnailUrl: thumbnailUrl,
             lastPage: _currentPage,
           );
           print('[최근에 본 작품] 업데이트됨: ${widget.chapterId} - $_currentTitle');
@@ -621,17 +602,14 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
             chapterId: widget.chapterId,
             mangaId: widget.title,
             chapterTitle: _currentTitle,
-            thumbnailUrl: thumbnailUrl,
+            thumbnailUrl: widget.thumbnailUrl ?? '', // 전달받은 썸네일 사용
             lastPage: _currentPage,
           );
           print('[최근에 본 작품] 추가됨: ${widget.chapterId} - $_currentTitle');
         }
       } catch (e) {
-        print('[최근에 본 작품] 추가 실패 상세: $e');
-        print('[최근에 본 작품] 추가 실패: $e');
+        print('[최근에 본 작품] 저장 실패: $e');
       }
-    } else {
-      print('[최근에 본 작품] 제목이 비어있어 저장하지 않음');
     }
   }
 
@@ -1239,6 +1217,7 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
         builder: (context) => MangaViewerScreen(
           title: widget.title,
           chapterId: chapterId,
+          thumbnailUrl: widget.thumbnailUrl,
         ),
       ),
     );

@@ -138,6 +138,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                               chapterId: chapter['id'],
                                               initialPage:
                                                   chapter['last_page'] ?? 0,
+                                              thumbnailUrl:
+                                                  chapter['thumbnail_url'],
                                             ),
                                           ),
                                         );
@@ -312,6 +314,7 @@ class _HorizontalCardList extends StatelessWidget {
                         builder: (_) => MangaViewerScreen(
                           chapterId: viewerUrl,
                           title: item.title,
+                          thumbnailUrl: item.thumbnailUrl,
                         ),
                       ),
                     );

@@ -825,6 +825,7 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
                               builder: (context) => MangaViewerScreen(
                                 chapterId: firstChapter.id,
                                 title: firstChapter.title,
+                                thumbnailUrl: _mangaDetail?.thumbnailUrl,
                               ),
                             ),
                           );
@@ -867,6 +868,7 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
                               builder: (context) => MangaViewerScreen(
                                 chapterId: chapter.id,
                                 title: chapter.title,
+                                thumbnailUrl: _mangaDetail?.thumbnailUrl,
                               ),
                             ),
                           );

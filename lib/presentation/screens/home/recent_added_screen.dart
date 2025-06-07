@@ -193,6 +193,7 @@ class _RecentAddedListItem extends ConsumerWidget {
               builder: (_) => MangaViewerScreen(
                 chapterId: viewerUrl,
                 title: item.title,
+                thumbnailUrl: item.thumbnailUrl,
               ),
             ),
           );
