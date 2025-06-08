@@ -39,7 +39,10 @@ dependencies:
   path: ^1.9.1
   path_provider: ^2.1.5
   file_picker: ^10.1.9
-  share_plus: ^7.2.1
+  share_plus: ^11.0.0
+  pdf: ^3.11.3
+  archive: ^4.0.7
+  flutter_local_notifications: ^16.3.2
 
 dev_dependencies:
   flutter_test:

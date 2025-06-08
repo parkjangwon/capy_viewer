@@ -1,13 +1,19 @@
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:html/parser.dart' as html_parser;
+import 'package:path_provider/path_provider.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:share_plus/share_plus.dart';
+import 'package:http/http.dart' as http;
+import 'package:archive/archive.dart';
 import '../../../data/models/manga_detail.dart';
 import '../../../data/providers/site_url_provider.dart';
 import '../../../utils/manga_detail_parser.dart';
 import '../../../utils/manatoki_captcha_helper.dart';
 
-import '../../../utils/network_image_with_headers.dart';
 import '../../widgets/manatoki_captcha_widget.dart';
 import '../../viewmodels/global_cookie_provider.dart';
 
@@ -15,6 +21,7 @@ import '../manga/manga_captcha_screen.dart';
 import '../viewer/manga_viewer_screen.dart';
 import '../../providers/tab_provider.dart';
 import '../../../data/database/database_helper.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class MangaDetailScreen extends ConsumerStatefulWidget {
   final String? mangaId;
@@ -52,7 +59,15 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
 
   final ScrollController _scrollController = ScrollController();
   int _selectedIndex = 0;
-  bool _isLiked = false;
+
+  // 저장 관련 상태 변수
+  bool _isSaving = false;
+  Set<String> _selectedChapters = {};
+  bool _showSaveDialog = false;
+
+  final FlutterLocalNotificationsPlugin _notificationsPlugin =
+      FlutterLocalNotificationsPlugin();
+  bool _isDownloading = false;
 
   @override
   void initState() {
@@ -60,6 +75,7 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
     _initWebView();
     _loadMangaDetail();
     _checkLikeStatus();
+    _initializeNotifications();
   }
 
   @override
@@ -568,12 +584,501 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
     }
   }
 
+  // 회차의 이미지 URL 목록을 가져오는 함수
+  Future<List<String>> _getChapterImageUrls(String chapterId) async {
+    try {
+      final baseUrl = ref.read(siteUrlServiceProvider);
+      final url = '$baseUrl/comic/$chapterId';
+
+      // 웹뷰 컨트롤러 생성
+      final controller = WebViewController();
+      await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
+
+      // 쿠키 설정
+      final cookieManager = WebViewCookieManager();
+      final jar = ref.read(globalCookieJarProvider);
+      final cookies = await jar.loadForRequest(Uri.parse(baseUrl));
+
+      // 기존 쿠키 제거
+      await cookieManager.clearCookies();
+
+      // 새로운 쿠키 설정
+      for (final cookie in cookies) {
+        await cookieManager.setCookie(
+          WebViewCookie(
+            name: cookie.name,
+            value: cookie.value,
+            domain: Uri.parse(baseUrl).host,
+          ),
+        );
+      }
+
+      // 페이지 로드
+      await controller.loadRequest(Uri.parse(url));
+
+      // 페이지 로드 완료 대기
+      await Future.delayed(const Duration(seconds: 2));
+
+      // HTML 콘텐츠 가져오기
+      final htmlContent = await controller
+          .runJavaScriptReturningResult('document.documentElement.outerHTML');
+      final document = html_parser.parse(htmlContent.toString());
+
+      final imageUrls = <String>[];
+
+      // 이미지 파싱
+      final article = document.querySelector('article[itemprop="articleBody"]');
+      if (article != null) {
+        final images = article.querySelectorAll('img');
+        print('[이미지 파싱] 찾은 이미지 태그 개수: ${images.length}');
+
+        for (final img in images) {
+          String? imageUrl;
+
+          // data- 속성에서 URL 찾기
+          for (final attr in img.attributes.entries) {
+            if ((attr.key as String).startsWith('data-') &&
+                attr.value.contains('://') &&
+                !attr.value.contains('loading-image.gif') &&
+                !attr.value.contains('/tokinbtoki/') &&
+                !attr.value.contains('banner') &&
+                !attr.value.contains('ads')) {
+              imageUrl = attr.value;
+              break;
+            }
+          }
+
+          // data-original 속성 확인
+          if (imageUrl == null) {
+            final dataOriginal = img.attributes['data-original'];
+            if (dataOriginal != null &&
+                !dataOriginal.contains('loading-image.gif') &&
+                !dataOriginal.contains('/tokinbtoki/') &&
+                !dataOriginal.contains('banner') &&
+                !dataOriginal.contains('ads')) {
+              imageUrl = dataOriginal;
+            }
+          }
+
+          // data-src 속성 확인
+          if (imageUrl == null) {
+            final dataSrc = img.attributes['data-src'];
+            if (dataSrc != null &&
+                !dataSrc.contains('loading-image.gif') &&
+                !dataSrc.contains('/tokinbtoki/') &&
+                !dataSrc.contains('banner') &&
+                !dataSrc.contains('ads')) {
+              imageUrl = dataSrc;
+            }
+          }
+
+          // src 속성 확인
+          if (imageUrl == null) {
+            final src = img.attributes['src'];
+            if (src != null &&
+                !src.contains('loading-image.gif') &&
+                !src.contains('/tokinbtoki/') &&
+                !src.contains('banner') &&
+                !src.contains('ads')) {
+              imageUrl = src;
+            }
+          }
+
+          if (imageUrl != null && imageUrl.isNotEmpty) {
+            if (!imageUrl.startsWith('http')) {
+              imageUrl = imageUrl.startsWith('/')
+                  ? baseUrl + imageUrl
+                  : '$baseUrl/$imageUrl';
+            }
+            imageUrls.add(imageUrl);
+          }
+        }
+      }
+
+      print('[이미지 파싱] 추출된 이미지 URL 개수: ${imageUrls.length}');
+      return imageUrls;
+    } catch (e) {
+      print('이미지 URL 가져오기 실패: $e');
+      return [];
+    }
+  }
+
+  // 이미지 다운로드 함수
+  Future<Uint8List?> _downloadImage(String url) async {
+    try {
+      final jar = ref.read(globalCookieJarProvider);
+      final cookies = await jar.loadForRequest(Uri.parse(url));
+      final cookieString =
+          cookies.map((cookie) => '${cookie.name}=${cookie.value}').join('; ');
+      final headers = {
+        'Cookie': cookieString,
+        'User-Agent':
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+        'Referer': ref.read(siteUrlServiceProvider),
+      };
+      final response = await http.get(Uri.parse(url), headers: headers);
+      return response.bodyBytes;
+    } catch (e) {
+      print('이미지 다운로드 실패: $e');
+      return null;
+    }
+  }
+
+  // PDF 파일 생성 함수
+  Future<File?> _createPdf(String chapterId, String chapterTitle) async {
+    try {
+      final imageUrls = await _getChapterImageUrls(chapterId);
+      if (imageUrls.isEmpty) {
+        throw Exception('이미지를 찾을 수 없습니다.');
+      }
+
+      final pdf = pw.Document();
+
+      // 각 이미지를 PDF 페이지로 변환
+      for (var i = 0; i < imageUrls.length; i++) {
+        final imageUrl = imageUrls[i];
+        final imageBytes = await _downloadImage(imageUrl);
+
+        if (imageBytes != null) {
+          final image = pw.MemoryImage(imageBytes);
+          pdf.addPage(
+            pw.Page(
+              build: (context) {
+                return pw.Center(
+                  child: pw.Image(image, fit: pw.BoxFit.contain),
+                );
+              },
+            ),
+          );
+        }
+      }
+
+      // PDF 파일 저장
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/$chapterTitle.pdf');
+      await file.writeAsBytes(await pdf.save());
+      return file;
+    } catch (e) {
+      print('PDF 생성 실패: $e');
+      return null;
+    }
+  }
+
+  // ZIP 파일 생성 함수
+  Future<File?> _createZipFile(String title, List<File> files) async {
+    try {
+      final archive = Archive();
+
+      for (var file in files) {
+        final bytes = await file.readAsBytes();
+        final archiveFile = ArchiveFile(
+          file.path.split('/').last,
+          bytes.length,
+          bytes,
+        );
+        archive.addFile(archiveFile);
+      }
+
+      final zipData = ZipEncoder().encode(archive);
+      if (zipData == null) return null;
+
+      final tempDir = await getTemporaryDirectory();
+      final zipFile = File('${tempDir.path}/$title.zip');
+      await zipFile.writeAsBytes(zipData);
+
+      return zipFile;
+    } catch (e) {
+      print('ZIP 파일 생성 실패: $e');
+      return null;
+    }
+  }
+
+  // 선택된 회차 저장 함수 수정
+  Future<void> _saveSelectedChapters() async {
+    if (_selectedChapters.isEmpty || _mangaDetail == null) return;
+
+    setState(() {
+      _isSaving = true;
+      _showSaveDialog = false;
+    });
+
+    try {
+      final selectedChaptersList = _mangaDetail!.chapters
+          .where((chapter) => _selectedChapters.contains(chapter.id))
+          .toList();
+
+      if (selectedChaptersList.isEmpty) return;
+
+      // 단일 회차인 경우
+      if (selectedChaptersList.length == 1) {
+        final chapter = selectedChaptersList.first;
+        final imageUrls = await _getChapterImageUrls(chapter.id);
+
+        if (imageUrls.isEmpty) {
+          throw Exception('이미지를 찾을 수 없습니다.');
+        }
+
+        final images = <Uint8List>[];
+        for (var url in imageUrls) {
+          final imageData = await _downloadImage(url);
+          if (imageData != null) {
+            images.add(imageData);
+          }
+        }
+
+        if (images.isEmpty) {
+          throw Exception('이미지 다운로드에 실패했습니다.');
+        }
+
+        final pdfFile = await _createPdf(chapter.id, chapter.title);
+        if (pdfFile != null) {
+          await Share.shareXFiles([XFile(pdfFile.path)]);
+        }
+      }
+      // 다중 회차인 경우
+      else {
+        final tempDir = await getTemporaryDirectory();
+        final pdfs = <File>[];
+
+        for (var chapter in selectedChaptersList) {
+          final imageUrls = await _getChapterImageUrls(chapter.id);
+          if (imageUrls.isNotEmpty) {
+            final images = <Uint8List>[];
+            for (var url in imageUrls) {
+              final imageData = await _downloadImage(url);
+              if (imageData != null) {
+                images.add(imageData);
+              }
+            }
+            if (images.isNotEmpty) {
+              final pdfFile = await _createPdf(chapter.id, chapter.title);
+              if (pdfFile != null) {
+                pdfs.add(pdfFile);
+              }
+            }
+          }
+        }
+
+        if (pdfs.isEmpty) {
+          throw Exception('PDF 생성에 실패했습니다.');
+        }
+
+        // ZIP 파일 생성
+        final zipFile = await _createZipFile(_mangaDetail!.title, pdfs);
+        if (zipFile != null) {
+          await Share.shareXFiles([XFile(zipFile.path)]);
+        } else {
+          throw Exception('ZIP 파일 생성에 실패했습니다.');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('저장 실패: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+          _selectedChapters.clear();
+        });
+      }
+    }
+  }
+
+  // 단일 회차 저장 함수
+  Future<void> _saveSingleChapter(MangaChapter chapter) async {
+    if (_isDownloading) return;
+    _isDownloading = true;
+
+    try {
+      await _showProgressNotification(
+        '다운로드 시작',
+        '${_mangaDetail!.title} - ${chapter.title} 다운로드를 시작합니다.',
+      );
+
+      final pdfFile = await _createPdf(chapter.id, chapter.title);
+      if (pdfFile != null) {
+        await _showProgressNotification(
+          '다운로드 완료',
+          '${_mangaDetail!.title} - ${chapter.title} 다운로드가 완료되었습니다.',
+        );
+        await Share.shareXFiles([XFile(pdfFile.path)]);
+        await pdfFile.delete();
+      }
+    } catch (e) {
+      await _showProgressNotification(
+        '다운로드 실패',
+        '${_mangaDetail!.title} - ${chapter.title} 다운로드 중 오류가 발생했습니다.',
+      );
+      print('단일 회차 저장 실패: $e');
+    } finally {
+      _isDownloading = false;
+    }
+  }
+
+  // 여러 회차 저장 함수
+  Future<void> _saveMultipleChapters(List<MangaChapter> chapters) async {
+    if (_isDownloading) return;
+    _isDownloading = true;
+
+    try {
+      final pdfs = <File>[];
+      final total = chapters.length;
+
+      await _showProgressNotification(
+        '다운로드 시작',
+        '${_mangaDetail!.title} - 총 $total 회차 다운로드를 시작합니다.',
+      );
+
+      for (var i = 0; i < chapters.length; i++) {
+        final chapter = chapters[i];
+        await _showProgressNotification(
+          '다운로드 진행 중',
+          '${_mangaDetail!.title} - ${i + 1}/$total 회차 다운로드 중',
+        );
+
+        final pdfFile = await _createPdf(chapter.id, chapter.title);
+        if (pdfFile != null) {
+          pdfs.add(pdfFile);
+        }
+      }
+
+      if (pdfs.isNotEmpty) {
+        await _showProgressNotification(
+          'ZIP 파일 생성 중',
+          '${_mangaDetail!.title} - ZIP 파일을 생성하고 있습니다.',
+        );
+
+        final archive = Archive();
+        for (final pdf in pdfs) {
+          final bytes = await pdf.readAsBytes();
+          archive.addFile(
+            ArchiveFile(pdf.path.split('/').last, bytes.length, bytes),
+          );
+        }
+
+        final dir = await getTemporaryDirectory();
+        final zipFile = File('${dir.path}/${_mangaDetail!.title}.zip');
+        await zipFile.writeAsBytes(ZipEncoder().encode(archive)!);
+
+        await _showProgressNotification(
+          '다운로드 완료',
+          '${_mangaDetail!.title} - 다운로드가 완료되었습니다.',
+        );
+
+        await Share.shareXFiles([XFile(zipFile.path)]);
+
+        // 임시 파일 정리
+        for (final pdf in pdfs) {
+          await pdf.delete();
+        }
+        await zipFile.delete();
+      }
+    } catch (e) {
+      await _showProgressNotification(
+        '다운로드 실패',
+        '${_mangaDetail!.title} - 다운로드 중 오류가 발생했습니다.',
+      );
+      print('여러 회차 저장 실패: $e');
+    } finally {
+      _isDownloading = false;
+    }
+  }
+
+  // 회차 선택 다이얼로그를 표시하는 함수
+  Future<void> _showChapterSelectionDialog() async {
+    if (_mangaDetail == null) return;
+
+    final selectedChapters = <MangaChapter>{};
+    bool selectAll = false;
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('저장할 회차 선택'),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 전체 선택 버튼
+                    CheckboxListTile(
+                      title: const Text('전체 선택'),
+                      value: selectAll,
+                      onChanged: (bool? value) {
+                        setState(() {
+                          selectAll = value ?? false;
+                          if (selectAll) {
+                            selectedChapters.addAll(_mangaDetail!.chapters);
+                          } else {
+                            selectedChapters.clear();
+                          }
+                        });
+                      },
+                    ),
+                    const Divider(),
+                    Flexible(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: _mangaDetail!.chapters.length,
+                        itemBuilder: (context, index) {
+                          final chapter = _mangaDetail!.chapters[index];
+                          return CheckboxListTile(
+                            title: Text(chapter.title),
+                            value: selectedChapters.contains(chapter),
+                            onChanged: (bool? value) {
+                              setState(() {
+                                if (value ?? false) {
+                                  selectedChapters.add(chapter);
+                                } else {
+                                  selectedChapters.remove(chapter);
+                                }
+                                selectAll = selectedChapters.length ==
+                                    _mangaDetail!.chapters.length;
+                              });
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('취소'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    if (selectedChapters.length == 1) {
+                      _saveSingleChapter(selectedChapters.first);
+                    } else if (selectedChapters.length > 1) {
+                      _saveMultipleChapters(selectedChapters.toList());
+                    }
+                  },
+                  child: const Text('저장'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _checkLikeStatus() async {
-    if (widget.mangaId != null) {
+    if (widget.mangaId != null && _mangaDetail != null) {
       final isLiked = await _db.isLiked(widget.mangaId!);
       if (mounted) {
         setState(() {
-          _isLiked = isLiked;
+          _mangaDetail = _mangaDetail!.copyWith(isLiked: isLiked);
         });
       }
     }
@@ -581,9 +1086,9 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
 
   Future<void> _toggleLike() async {
     if (widget.mangaId != null && _mangaDetail != null) {
-      if (_isLiked) {
-        await _db.removeLike(widget.mangaId!);
-      } else {
+      final newLikeStatus = !(_mangaDetail!.isLiked);
+
+      if (newLikeStatus) {
         await _db.insertLike(
           widget.mangaId!,
           _mangaDetail!.title,
@@ -591,9 +1096,45 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
           _mangaDetail!.thumbnailUrl,
           _mangaDetail!.genres,
         );
+      } else {
+        await _db.removeLike(widget.mangaId!);
       }
-      await _checkLikeStatus();
+
+      if (mounted) {
+        setState(() {
+          _mangaDetail = _mangaDetail!.copyWith(isLiked: newLikeStatus);
+        });
+      }
     }
+  }
+
+  Future<void> _initializeNotifications() async {
+    const initializationSettingsIOS = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+    const initializationSettings = InitializationSettings(
+      iOS: initializationSettingsIOS,
+    );
+    await _notificationsPlugin.initialize(initializationSettings);
+  }
+
+  Future<void> _showProgressNotification(String title, String body) async {
+    const notificationDetails = NotificationDetails(
+      iOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: false,
+      ),
+    );
+
+    await _notificationsPlugin.show(
+      0, // notification id
+      title,
+      body,
+      notificationDetails,
+    );
   }
 
   @override
@@ -601,12 +1142,20 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('작품 상세 보기'),
+        title: Text(_mangaDetail?.title ?? ''),
         actions: [
+          // 저장 버튼
+          IconButton(
+            icon: const Icon(Icons.save),
+            onPressed: _showChapterSelectionDialog,
+          ),
+          // 좋아요 버튼
           IconButton(
             icon: Icon(
-              _isLiked ? Icons.favorite : Icons.favorite_border,
-              color: _isLiked ? Colors.red : null,
+              _mangaDetail?.isLiked ?? false
+                  ? Icons.favorite
+                  : Icons.favorite_border,
+              color: _mangaDetail?.isLiked ?? false ? Colors.red : null,
             ),
             onPressed: _toggleLike,
           ),
@@ -637,39 +1186,34 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
                         ],
                       ),
                     )
-                  : _showManatokiCaptcha
-                      ? _captchaInfo != null
-                          ? ManatokiCaptchaWidget(
-                              captchaInfo: _captchaInfo!,
-                              onCaptchaComplete: (success) {
-                                if (success) {
-                                  _retryAfterCaptcha();
-                                }
-                              },
-                            )
-                          : Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(Icons.security,
-                                      size: 48, color: Colors.orange),
-                                  const SizedBox(height: 16),
-                                  const Text('캡챠 인증이 필요합니다.'),
-                                  const SizedBox(height: 16),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      setState(() {
-                                        _showManatokiCaptcha = false;
-                                        _isLoading = true;
-                                      });
-                                      _getHtmlContent();
-                                    },
-                                    child: const Text('캡챠 완료 확인'),
-                                  ),
-                                ],
-                              ),
-                            )
+                  : _showManatokiCaptcha && _captchaInfo != null
+                      ? ManatokiCaptchaWidget(
+                          captchaInfo: _captchaInfo!,
+                          onSuccess: _retryAfterCaptcha,
+                        )
                       : _buildTestContent(),
+
+          // 저장 다이얼로그
+          if (_showSaveDialog) _buildSaveDialog(),
+
+          // 저장 중 로딩 인디케이터
+          if (_isSaving)
+            Container(
+              color: Colors.black54,
+              child: const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text(
+                      '저장 중...',
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -1037,6 +1581,92 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
             child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSaveDialog() {
+    return Container(
+      color: Colors.black54,
+      child: Center(
+        child: Card(
+          margin: const EdgeInsets.all(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      '저장할 회차 선택',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () {
+                        setState(() {
+                          _showSaveDialog = false;
+                          _selectedChapters.clear();
+                        });
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 300,
+                  child: ListView.builder(
+                    itemCount: _mangaDetail?.chapters.length ?? 0,
+                    itemBuilder: (context, index) {
+                      final chapter = _mangaDetail!.chapters[index];
+                      return CheckboxListTile(
+                        title: Text(chapter.title),
+                        value: _selectedChapters.contains(chapter.id),
+                        onChanged: (bool? value) {
+                          setState(() {
+                            if (value == true) {
+                              _selectedChapters.add(chapter.id);
+                            } else {
+                              _selectedChapters.remove(chapter.id);
+                            }
+                          });
+                        },
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _showSaveDialog = false;
+                          _selectedChapters.clear();
+                        });
+                      },
+                      child: const Text('취소'),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: _selectedChapters.isEmpty
+                          ? null
+                          : _saveSelectedChapters,
+                      child: const Text('저장'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

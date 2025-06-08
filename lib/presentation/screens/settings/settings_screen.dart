@@ -336,10 +336,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         child: Text('좋아요'),
                       ),
                       DropdownMenuItem(
-                        value: 'saved',
-                        child: Text('저장한 작품'),
-                      ),
-                      DropdownMenuItem(
                         value: 'settings',
                         child: Text('설정'),
                       ),

@@ -15,12 +15,12 @@ import '../../../utils/manatoki_captcha_helper.dart';
 /// 마나토끼 캡챠 위젯
 class ManatokiCaptchaWidget extends ConsumerStatefulWidget {
   final ManatokiCaptchaInfo captchaInfo;
-  final Function(bool success) onCaptchaComplete;
+  final Function() onSuccess;
 
   const ManatokiCaptchaWidget({
     super.key,
     required this.captchaInfo,
-    required this.onCaptchaComplete,
+    required this.onSuccess,
   });
 
   @override
@@ -293,7 +293,7 @@ class _ManatokiCaptchaWidgetState extends ConsumerState<ManatokiCaptchaWidget> {
           print('캡챠 인증 성공, 콜백 호출');
           Future.delayed(const Duration(milliseconds: 500), () {
             if (mounted) {
-              widget.onCaptchaComplete(true);
+              widget.onSuccess();
             }
           });
         }

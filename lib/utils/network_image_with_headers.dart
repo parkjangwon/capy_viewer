@@ -6,6 +6,8 @@ import '../data/providers/site_url_provider.dart';
 import '../presentation/viewmodels/global_cookie_provider.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:http/http.dart' as http;
+import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart';
 
 class NetworkImageWithHeaders extends ConsumerWidget {
   final String url;
@@ -320,7 +322,8 @@ class NetworkImageWithHeaders extends ConsumerWidget {
           );
         } else if (snapshot.connectionState == ConnectionState.done) {
           // Diagnostic error widget for debugging black screen issues
-          final errorMsg = '이미지 로딩 실패!\nURL: $url\n에러: ${(snapshot.error ?? 'Unknown error').toString()}';
+          final errorMsg =
+              '이미지 로딩 실패!\nURL: $url\n에러: ${(snapshot.error ?? 'Unknown error').toString()}';
           print('[NetworkImageWithHeaders] $errorMsg');
           return errorWidget ??
               Container(
@@ -332,12 +335,14 @@ class NetworkImageWithHeaders extends ConsumerWidget {
                   children: [
                     const Icon(Icons.broken_image, size: 40, color: Colors.red),
                     const SizedBox(height: 8),
-                    Text('이미지 로딩 오류', style: const TextStyle(color: Colors.red)),
+                    Text('이미지 로딩 오류',
+                        style: const TextStyle(color: Colors.red)),
                     Padding(
                       padding: const EdgeInsets.all(4.0),
                       child: Text(
                         'URL: $url',
-                        style: const TextStyle(fontSize: 10, color: Colors.black87),
+                        style: const TextStyle(
+                            fontSize: 10, color: Colors.black87),
                         overflow: TextOverflow.ellipsis,
                         maxLines: 2,
                         textAlign: TextAlign.center,
@@ -347,7 +352,8 @@ class NetworkImageWithHeaders extends ConsumerWidget {
                       padding: const EdgeInsets.all(4.0),
                       child: Text(
                         '에러: ${(snapshot.error ?? 'Unknown error').toString()}',
-                        style: const TextStyle(fontSize: 10, color: Colors.black54),
+                        style: const TextStyle(
+                            fontSize: 10, color: Colors.black54),
                         overflow: TextOverflow.ellipsis,
                         maxLines: 2,
                         textAlign: TextAlign.center,
@@ -367,5 +373,20 @@ class NetworkImageWithHeaders extends ConsumerWidget {
         }
       },
     );
+  }
+}
+
+class NetworkImageWithHeadersLoader {
+  final String url;
+  final Map<String, String> headers;
+
+  NetworkImageWithHeadersLoader(this.url, this.headers);
+
+  Future<ui.Image> load() async {
+    final response = await http.get(Uri.parse(url), headers: headers);
+    final bytes = response.bodyBytes;
+    final codec = await ui.instantiateImageCodec(bytes);
+    final frame = await codec.getNextFrame();
+    return frame.image;
   }
 }

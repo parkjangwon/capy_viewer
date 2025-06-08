@@ -804,14 +804,8 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
             if (_showManatokiCaptcha && _captchaInfo != null)
               ManatokiCaptchaWidget(
                 captchaInfo: _captchaInfo!,
-                onCaptchaComplete: (success) {
-                  if (success) {
-                    _onCaptchaVerified();
-                  } else {
-                    setState(() {
-                      _isLoading = false;
-                    });
-                  }
+                onSuccess: () {
+                  _onCaptchaVerified();
                 },
               ),
 
