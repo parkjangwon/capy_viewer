@@ -5,7 +5,6 @@ import 'presentation/screens/home/home_screen.dart';
 import 'presentation/screens/search/search_screen.dart';
 import 'presentation/screens/recent/recent_screen.dart';
 import 'presentation/screens/liked/liked_manga_screen.dart';
-import 'presentation/screens/saved/saved_screen.dart';
 import 'presentation/screens/settings/settings_screen.dart';
 import 'presentation/viewmodels/theme_provider.dart';
 import 'presentation/viewmodels/navigator_provider.dart';
@@ -87,7 +86,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       const SearchScreen(),
       const RecentScreen(),
       const LikedMangaScreen(),
-      const SavedScreen(),
       const SettingsScreen(),
     ];
 
