@@ -78,7 +78,6 @@ class MainScreen extends ConsumerStatefulWidget {
 class _MainScreenState extends ConsumerState<MainScreen> {
   @override
   Widget build(BuildContext context) {
-    // 선택된 탭 인덱스를 프로바이더에서 가져옴
     final selectedIndex = ref.watch(selectedTabProvider);
 
     final screens = [
@@ -93,7 +92,25 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     ];
 
     return Scaffold(
-      body: screens[selectedIndex],
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        transitionBuilder: (Widget child, Animation<double> animation) {
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0.05, 0),
+                end: Offset.zero,
+              ).animate(animation),
+              child: child,
+            ),
+          );
+        },
+        child: KeyedSubtree(
+          key: ValueKey<int>(selectedIndex),
+          child: screens[selectedIndex],
+        ),
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: selectedIndex,
         onDestinationSelected: (index) {

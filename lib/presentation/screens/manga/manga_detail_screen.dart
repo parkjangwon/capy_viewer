@@ -821,12 +821,23 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
                           final firstChapter = _mangaDetail!.chapters.last;
                           Navigator.push(
                             context,
-                            MaterialPageRoute(
-                              builder: (context) => MangaViewerScreen(
+                            PageRouteBuilder(
+                              pageBuilder:
+                                  (context, animation, secondaryAnimation) =>
+                                      MangaViewerScreen(
                                 chapterId: firstChapter.id,
                                 title: firstChapter.title,
                                 thumbnailUrl: _mangaDetail?.thumbnailUrl,
                               ),
+                              transitionsBuilder: (context, animation,
+                                  secondaryAnimation, child) {
+                                return FadeTransition(
+                                  opacity: animation,
+                                  child: child,
+                                );
+                              },
+                              transitionDuration:
+                                  const Duration(milliseconds: 300),
                             ),
                           );
                         },
@@ -863,13 +874,25 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
                         onTap: () {
                           print(
                               '뷰어 진입: chapter.id=${chapter.id}, title=${chapter.title}, fullViewUrl=${chapter.fullViewUrl}');
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => MangaViewerScreen(
+                          Navigator.push(
+                            context,
+                            PageRouteBuilder(
+                              pageBuilder:
+                                  (context, animation, secondaryAnimation) =>
+                                      MangaViewerScreen(
                                 chapterId: chapter.id,
                                 title: chapter.title,
                                 thumbnailUrl: _mangaDetail?.thumbnailUrl,
                               ),
+                              transitionsBuilder: (context, animation,
+                                  secondaryAnimation, child) {
+                                return FadeTransition(
+                                  opacity: animation,
+                                  child: child,
+                                );
+                              },
+                              transitionDuration:
+                                  const Duration(milliseconds: 300),
                             ),
                           );
                         },

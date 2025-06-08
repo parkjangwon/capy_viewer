@@ -9,6 +9,28 @@ import '../../presentation/screens/recent/recent_chapters_screen.dart';
 
 part 'router.g.dart';
 
+// 페이지 전환 애니메이션을 위한 커스텀 페이지 빌더
+Page<dynamic> _buildPageWithAnimation(
+    BuildContext context, GoRouterState state, Widget child) {
+  return CustomTransitionPage(
+    key: state.pageKey,
+    child: child,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      return FadeTransition(
+        opacity: CurveTween(curve: Curves.easeInOut).animate(animation),
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0.05, 0),
+            end: Offset.zero,
+          ).animate(animation),
+          child: child,
+        ),
+      );
+    },
+    transitionDuration: const Duration(milliseconds: 300),
+  );
+}
+
 @riverpod
 GoRouter router(RouterRef ref) {
   return GoRouter(
@@ -64,27 +86,35 @@ GoRouter router(RouterRef ref) {
         routes: [
           GoRoute(
             path: '/',
-            builder: (context, state) => const HomeScreen(),
+            pageBuilder: (context, state) =>
+                _buildPageWithAnimation(context, state, const HomeScreen()),
           ),
           GoRoute(
             path: '/search',
-            builder: (context, state) => const SearchScreen(),
+            pageBuilder: (context, state) =>
+                _buildPageWithAnimation(context, state, const SearchScreen()),
           ),
           GoRoute(
             path: '/recent',
-            builder: (context, state) => const RecentChaptersScreen(),
+            pageBuilder: (context, state) => _buildPageWithAnimation(
+                context, state, const RecentChaptersScreen()),
           ),
           GoRoute(
             path: '/settings',
-            builder: (context, state) => const SettingsScreen(),
+            pageBuilder: (context, state) =>
+                _buildPageWithAnimation(context, state, const SettingsScreen()),
           ),
         ],
       ),
       GoRoute(
         path: '/viewer/:titleId/:chapterId',
-        builder: (context, state) => MangaViewerScreen(
-          chapterId: state.pathParameters['chapterId'] ?? '',
-          title: state.pathParameters['titleId'] ?? '',
+        pageBuilder: (context, state) => _buildPageWithAnimation(
+          context,
+          state,
+          MangaViewerScreen(
+            chapterId: state.pathParameters['chapterId'] ?? '',
+            title: state.pathParameters['titleId'] ?? '',
+          ),
         ),
       ),
     ],
