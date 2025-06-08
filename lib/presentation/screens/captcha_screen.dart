@@ -175,10 +175,35 @@ class _CaptchaScreenState extends State<CaptchaScreen> {
               _logger.d('[CAPTCHA] 페이지 로드 시작: $urlStr');
               _updateLoadingState(true);
             },
-            onLoadStop: (controller, url) {
+            onLoadStop: (controller, url) async {
               final urlStr = url?.toString() ?? '';
               _logger.d('[CAPTCHA] 페이지 로드 완료: $urlStr');
               _updateLoadingState(false);
+
+              // HTML 내용 가져오기
+              final html = await controller.evaluateJavascript(
+                  source: 'document.documentElement.outerHTML');
+              final htmlStr = html.toString();
+
+              // 클라우드플레어 캡차 페이지인지 확인
+              final isCaptchaPage = htmlStr.contains('challenge-form') ||
+                  htmlStr.contains('cf-please-wait') ||
+                  htmlStr.contains('turnstile') ||
+                  htmlStr.contains('_cf_chl_opt');
+
+              // 이전에 캡차 페이지였다가 이제 아니면 캡차 통과로 간주
+              if (_lastUrl?.contains('challenges.cloudflare.com') == true &&
+                  !isCaptchaPage) {
+                _logger.i('[CAPTCHA] 클라우드플레어 캡차 통과 감지');
+                if (_mounted) {
+                  _isCaptchaVerified = true;
+                  _saveCaptchaTime();
+                  widget.onCaptchaVerified();
+                }
+                return;
+              }
+
+              _lastUrl = urlStr;
               _injectHelperScript();
             },
             onReceivedError: (controller, request, error) {
@@ -199,9 +224,8 @@ class _CaptchaScreenState extends State<CaptchaScreen> {
                 return NavigationActionPolicy.CANCEL;
               }
 
-              // 캡차 인증 성공 후 리다이렉션 처리
-              if (url.contains('manatoki') &&
-                  !url.contains('challenges.cloudflare.com') &&
+              // 클라우드플레어 캡차 페이지에서 다른 페이지로 이동하면 인증 완료로 간주
+              if (!url.contains('challenges.cloudflare.com') &&
                   _lastUrl?.contains('challenges.cloudflare.com') == true) {
                 if (_mounted) {
                   _isCaptchaVerified = true;

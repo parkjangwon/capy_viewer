@@ -6,7 +6,7 @@ part of 'parser_service.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$parserServiceHash() => r'933cdd5ca6b252f12957933654e769e762a074a5';
+String _$parserServiceHash() => r'91fe2f583ab9a858bd77f6b8f898abe1f694637e';
 
 /// See also [ParserService].
 @ProviderFor(ParserService)

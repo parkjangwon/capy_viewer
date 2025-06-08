@@ -56,17 +56,17 @@ class _CloudflareCaptchaWidgetState
     _callbackTriggered = true;
 
     cf_utils.CloudflareCaptcha.saveCaptchaVerifiedTime();
+    cf_utils.CloudflareCaptcha.saveCaptchaCookies(cookies, widget.url);
 
     setState(() {
       _isLoading = false;
     });
 
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) {
-        _logger.i('[캡차 위젯] 콜백 호출');
-        widget.onCaptchaComplete(true);
-      }
-    });
+    // 즉시 콜백 호출
+    if (mounted) {
+      _logger.i('[캡차 위젯] 콜백 즉시 호출');
+      widget.onCaptchaComplete(true);
+    }
   }
 
   // 캡차 실패 처리
