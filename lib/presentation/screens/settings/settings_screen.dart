@@ -12,6 +12,7 @@ import '../../../presentation/screens/captcha_page.dart';
 import '../../providers/secret_mode_provider.dart';
 import '../../../data/database/database_helper.dart';
 import '../../providers/recent_chapters_provider.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -526,12 +527,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   const SizedBox(height: 12),
                   ElevatedButton(
                     onPressed: () async {
+                      // Dio 쿠키 삭제
                       final cookieJar = ref.read(globalCookieJarProvider);
                       await cookieJar.deleteAll();
+
+                      // WebView 쿠키 삭제
+                      final cookieManager = WebViewCookieManager();
+                      await cookieManager.clearCookies();
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('모든 쿠키가 삭제되었습니다.'),
+                            content:
+                                Text('모든 쿠키가 삭제되었습니다. 필요한 경우 캡차 인증을 다시 해주세요.'),
+                            duration: Duration(seconds: 3),
                           ),
                         );
                       }
