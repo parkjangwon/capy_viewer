@@ -10,6 +10,7 @@ import 'package:path/path.dart' as path;
 import '../../../data/providers/global_cookie_jar_provider.dart';
 import '../../../presentation/screens/captcha_page.dart';
 import '../../providers/secret_mode_provider.dart';
+import '../../providers/keep_screen_on_provider.dart';
 import '../../../data/database/database_helper.dart';
 import '../../providers/recent_chapters_provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -386,7 +387,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    '콘텐츠 필터',
+                    '유용한 설정',
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -426,24 +427,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                     ],
                   ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '시크릿 모드',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
                   const SizedBox(height: 16),
                   Row(
                     children: [
@@ -473,6 +456,39 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         value: isSecretMode,
                         onChanged: (value) {
                           ref.read(secretModeProvider.notifier).toggle();
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '화면 꺼짐 방지',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              '앱 사용 중 화면이 꺼지지 않도록 합니다',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        value: ref.watch(keepScreenOnProvider),
+                        onChanged: (value) {
+                          ref.read(keepScreenOnProvider.notifier).toggle();
                         },
                       ),
                     ],

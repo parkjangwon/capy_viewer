@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -590,136 +591,208 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
       final baseUrl = ref.read(siteUrlServiceProvider);
       final url = '$baseUrl/comic/$chapterId';
 
-      // 웹뷰 컨트롤러 생성
-      final controller = WebViewController();
-      await controller.setJavaScriptMode(JavaScriptMode.unrestricted);
+      print('[이미지 파싱] URL: $url');
 
-      // 쿠키 설정
-      final cookieManager = WebViewCookieManager();
+      // 쿠키 가져오기
       final jar = ref.read(globalCookieJarProvider);
-      final cookies = await jar.loadForRequest(Uri.parse(baseUrl));
+      final cookies = await jar.loadForRequest(Uri.parse(url));
+      final cookieString =
+          cookies.map((cookie) => '${cookie.name}=${cookie.value}').join('; ');
 
-      // 기존 쿠키 제거
-      await cookieManager.clearCookies();
+      // HTTP 요청 보내기
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Cookie': cookieString,
+          'User-Agent':
+              'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+          'Referer': baseUrl,
+        },
+      );
 
-      // 새로운 쿠키 설정
-      for (final cookie in cookies) {
-        await cookieManager.setCookie(
-          WebViewCookie(
-            name: cookie.name,
-            value: cookie.value,
-            domain: Uri.parse(baseUrl).host,
-          ),
-        );
+      if (response.statusCode != 200) {
+        throw Exception('페이지를 불러올 수 없습니다. (${response.statusCode})');
       }
 
-      // 페이지 로드
-      await controller.loadRequest(Uri.parse(url));
-
-      // 페이지 로드 완료 대기
-      await Future.delayed(const Duration(seconds: 2));
-
-      // HTML 콘텐츠 가져오기
-      final htmlContent = await controller
-          .runJavaScriptReturningResult('document.documentElement.outerHTML');
-      final document = html_parser.parse(htmlContent.toString());
-
+      final document = html_parser.parse(response.body);
       final imageUrls = <String>[];
 
-      // 이미지 파싱
-      final article = document.querySelector('article[itemprop="articleBody"]');
-      if (article != null) {
-        final images = article.querySelectorAll('img');
-        print('[이미지 파싱] 찾은 이미지 태그 개수: ${images.length}');
+      // 다양한 선택자로 이미지 찾기
+      final imgContainers = [
+        ...document.querySelectorAll('.view-content img'), // 뷰어 컨텐츠 내 이미지
+        ...document
+            .querySelectorAll('.comicdetail img'), // comicdetail 클래스 내 이미지
+        ...document
+            .querySelectorAll('article[itemprop="articleBody"] img'), // 본문 이미지
+        ...document.querySelectorAll('.post-content img'), // post-content 내 이미지
+        ...document
+            .querySelectorAll('.entry-content img'), // entry-content 내 이미지
+        ...document.querySelectorAll('.comic-images img'), // comic-images 내 이미지
+        ...document.querySelectorAll('.manga-images img'), // manga-images 내 이미지
+        ...document
+            .querySelectorAll('.chapter-content img'), // chapter-content 내 이미지
+      ];
 
-        for (final img in images) {
-          String? imageUrl;
+      print('[이미지 파싱] HTML 구조 분석:');
+      print('- 전체 HTML 길이: ${response.body.length}');
+      print('- 이미지 태그 총 개수: ${document.querySelectorAll('img').length}');
+      print('- 선택자별 이미지 개수:');
+      print(
+          '  * .view-content img: ${document.querySelectorAll('.view-content img').length}');
+      print(
+          '  * .comicdetail img: ${document.querySelectorAll('.comicdetail img').length}');
+      print(
+          '  * article[itemprop="articleBody"] img: ${document.querySelectorAll('article[itemprop="articleBody"] img').length}');
+      print(
+          '  * .post-content img: ${document.querySelectorAll('.post-content img').length}');
+      print(
+          '  * .entry-content img: ${document.querySelectorAll('.entry-content img').length}');
+      print(
+          '  * .comic-images img: ${document.querySelectorAll('.comic-images img').length}');
+      print(
+          '  * .manga-images img: ${document.querySelectorAll('.manga-images img').length}');
+      print(
+          '  * .chapter-content img: ${document.querySelectorAll('.chapter-content img').length}');
 
-          // data- 속성에서 URL 찾기
-          for (final attr in img.attributes.entries) {
-            if ((attr.key as String).startsWith('data-') &&
-                attr.value.contains('://') &&
-                !attr.value.contains('loading-image.gif') &&
-                !attr.value.contains('/tokinbtoki/') &&
-                !attr.value.contains('banner') &&
-                !attr.value.contains('ads')) {
-              imageUrl = attr.value;
+      print('[이미지 파싱] 찾은 이미지 태그 개수: ${imgContainers.length}');
+
+      for (var img in imgContainers) {
+        String? imageUrl;
+        final attributes = img.attributes;
+
+        print('\n[이미지 파싱] 이미지 태그 분석:');
+        print('- 클래스: ${attributes['class']}');
+        print('- src: ${attributes['src']}');
+        print('- data-original: ${attributes['data-original']}');
+        print('- data-src: ${attributes['data-src']}');
+
+        // data- 속성 모두 확인
+        final dataAttributes = attributes.entries
+            .where((attr) =>
+                (attr.key as String).startsWith('data-') &&
+                attr.value.isNotEmpty)
+            .map((attr) => attr.value)
+            .toList();
+
+        print('- data- 속성들: $dataAttributes');
+
+        // 1. data- 속성 확인
+        if (dataAttributes.isNotEmpty) {
+          for (var attr in dataAttributes) {
+            if (!attr.contains('loading-image.gif')) {
+              imageUrl = attr;
+              print('- data- 속성에서 URL 발견: $imageUrl');
               break;
             }
           }
+        }
 
-          // data-original 속성 확인
-          if (imageUrl == null) {
-            final dataOriginal = img.attributes['data-original'];
-            if (dataOriginal != null &&
-                !dataOriginal.contains('loading-image.gif') &&
-                !dataOriginal.contains('/tokinbtoki/') &&
-                !dataOriginal.contains('banner') &&
-                !dataOriginal.contains('ads')) {
-              imageUrl = dataOriginal;
-            }
+        // 2. data-original 속성 확인
+        if (imageUrl == null || imageUrl.isEmpty) {
+          final dataOriginal = attributes['data-original'];
+          if (dataOriginal != null &&
+              dataOriginal.isNotEmpty &&
+              !dataOriginal.contains('loading-image.gif')) {
+            imageUrl = dataOriginal;
+            print('- data-original에서 URL 발견: $imageUrl');
+          }
+        }
+
+        // 3. data-src 속성 확인
+        if (imageUrl == null || imageUrl.isEmpty) {
+          final dataSrc = attributes['data-src'];
+          if (dataSrc != null &&
+              dataSrc.isNotEmpty &&
+              !dataSrc.contains('loading-image.gif')) {
+            imageUrl = dataSrc;
+            print('- data-src에서 URL 발견: $imageUrl');
+          }
+        }
+
+        // 4. src 속성 확인
+        if (imageUrl == null || imageUrl.isEmpty) {
+          final src = attributes['src'];
+          if (src != null &&
+              src.isNotEmpty &&
+              !src.contains('loading-image.gif')) {
+            imageUrl = src;
+            print('- src에서 URL 발견: $imageUrl');
+          }
+        }
+
+        // URL이 발견되었고 광고나 배너가 아닌 경우에만 추가
+        if (imageUrl != null &&
+            imageUrl.isNotEmpty &&
+            !imageUrl.contains('loading-image.gif') &&
+            !imageUrl.contains('banner') &&
+            !imageUrl.contains('ads')) {
+          // 상대 경로를 절대 경로로 변환
+          if (!imageUrl.startsWith('http')) {
+            imageUrl = imageUrl.startsWith('/')
+                ? baseUrl + imageUrl
+                : '$baseUrl/$imageUrl';
           }
 
-          // data-src 속성 확인
-          if (imageUrl == null) {
-            final dataSrc = img.attributes['data-src'];
-            if (dataSrc != null &&
-                !dataSrc.contains('loading-image.gif') &&
-                !dataSrc.contains('/tokinbtoki/') &&
-                !dataSrc.contains('banner') &&
-                !dataSrc.contains('ads')) {
-              imageUrl = dataSrc;
+          // URL이 유효한지 확인
+          try {
+            final uri = Uri.parse(imageUrl);
+            if (uri.hasScheme && uri.host.isNotEmpty) {
+              print('[이미지 파싱] 유효한 이미지 URL 추가: $imageUrl');
+              imageUrls.add(imageUrl);
             }
+          } catch (e) {
+            print('[이미지 파싱] 유효하지 않은 이미지 URL: $imageUrl (에러: $e)');
+            continue;
           }
-
-          // src 속성 확인
-          if (imageUrl == null) {
-            final src = img.attributes['src'];
-            if (src != null &&
-                !src.contains('loading-image.gif') &&
-                !src.contains('/tokinbtoki/') &&
-                !src.contains('banner') &&
-                !src.contains('ads')) {
-              imageUrl = src;
-            }
-          }
-
-          if (imageUrl != null && imageUrl.isNotEmpty) {
-            if (!imageUrl.startsWith('http')) {
-              imageUrl = imageUrl.startsWith('/')
-                  ? baseUrl + imageUrl
-                  : '$baseUrl/$imageUrl';
-            }
-            imageUrls.add(imageUrl);
-          }
+        } else {
+          print('[이미지 파싱] 이미지 URL 필터링됨: $imageUrl');
         }
       }
 
       print('[이미지 파싱] 추출된 이미지 URL 개수: ${imageUrls.length}');
+
+      if (imageUrls.isEmpty) {
+        print('[이미지 파싱] HTML 내용 확인:');
+        print(response.body.substring(0, min(1000, response.body.length)));
+        throw Exception('이미지를 찾을 수 없습니다.');
+      }
+
       return imageUrls;
-    } catch (e) {
+    } catch (e, stack) {
       print('이미지 URL 가져오기 실패: $e');
-      return [];
+      print('스택 트레이스: $stack');
+      rethrow;
     }
   }
 
   // 이미지 다운로드 함수
   Future<Uint8List?> _downloadImage(String url) async {
     try {
+      print('[이미지 다운로드] 시작: $url');
       final jar = ref.read(globalCookieJarProvider);
       final cookies = await jar.loadForRequest(Uri.parse(url));
       final cookieString =
           cookies.map((cookie) => '${cookie.name}=${cookie.value}').join('; ');
+
       final headers = {
         'Cookie': cookieString,
         'User-Agent':
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
         'Referer': ref.read(siteUrlServiceProvider),
       };
+
       final response = await http.get(Uri.parse(url), headers: headers);
+
+      if (response.statusCode != 200) {
+        print('[이미지 다운로드] 실패 - 상태 코드: ${response.statusCode}');
+        return null;
+      }
+
+      print('[이미지 다운로드] 성공 - 크기: ${response.bodyBytes.length} bytes');
       return response.bodyBytes;
-    } catch (e) {
-      print('이미지 다운로드 실패: $e');
+    } catch (e, stack) {
+      print('[이미지 다운로드] 실패: $e');
+      print('[이미지 다운로드] 스택 트레이스: $stack');
       return null;
     }
   }
@@ -733,24 +806,34 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
       }
 
       final pdf = pw.Document();
+      final images = <Uint8List>[];
 
-      // 각 이미지를 PDF 페이지로 변환
+      // 각 이미지 다운로드
       for (var i = 0; i < imageUrls.length; i++) {
         final imageUrl = imageUrls[i];
         final imageBytes = await _downloadImage(imageUrl);
-
         if (imageBytes != null) {
-          final image = pw.MemoryImage(imageBytes);
-          pdf.addPage(
-            pw.Page(
-              build: (context) {
-                return pw.Center(
-                  child: pw.Image(image, fit: pw.BoxFit.contain),
-                );
-              },
-            ),
-          );
+          images.add(imageBytes);
         }
+      }
+
+      // 다운로드된 이미지가 없으면 에러
+      if (images.isEmpty) {
+        throw Exception('이미지 다운로드에 실패했습니다.');
+      }
+
+      // 각 이미지를 PDF 페이지로 변환
+      for (var imageBytes in images) {
+        final image = pw.MemoryImage(imageBytes);
+        pdf.addPage(
+          pw.Page(
+            build: (context) {
+              return pw.Center(
+                child: pw.Image(image, fit: pw.BoxFit.contain),
+              );
+            },
+          ),
+        );
       }
 
       // PDF 파일 저장

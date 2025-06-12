@@ -1,45 +1,42 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'data/database/database_helper.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import 'presentation/screens/home/home_screen.dart';
 import 'presentation/screens/search/search_screen.dart';
 import 'presentation/screens/recent/recent_screen.dart';
 import 'presentation/screens/liked/liked_manga_screen.dart';
 import 'presentation/screens/settings/settings_screen.dart';
 import 'presentation/viewmodels/theme_provider.dart';
-import 'presentation/viewmodels/navigator_provider.dart';
-import 'presentation/viewmodels/manga_viewer_view_model.dart';
+import 'presentation/providers/keep_screen_on_provider.dart';
 import 'presentation/providers/tab_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 데이터베이스 초기화
-  final db = DatabaseHelper.instance;
-  await db.database;
-
-  final container = ProviderContainer();
-
   runApp(
-    UncontrolledProviderScope(
-      container: container,
-      child: const MyApp(),
+    const ProviderScope(
+      child: MyApp(),
     ),
   );
-} // 아래에서 MyApp에 navigatorKey를 전달하도록 수정 예정
+}
 
 class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final navKey = ref.watch(navigatorKeyProvider);
     final themeMode = ref.watch(themeProvider);
-    final hiddenWebView =
-        ref.watch(globalInAppWebViewWidgetProvider); // 숨겨진 WebView
+
+    // 화면 꺼짐 방지 설정 적용
+    final keepScreenOn = ref.watch(keepScreenOnProvider);
+    if (keepScreenOn) {
+      WakelockPlus.enable();
+    } else {
+      WakelockPlus.disable();
+    }
 
     return MaterialApp(
-      navigatorKey: navKey,
       title: 'MangaView',
       debugShowCheckedModeBanner: false,
       themeMode: themeMode,
@@ -57,12 +54,7 @@ class MyApp extends ConsumerWidget {
         ),
         useMaterial3: true,
       ),
-      home: Stack(
-        children: [
-          const MainScreen(),
-          hiddenWebView, // 이제 Directionality가 보장됨
-        ],
-      ),
+      home: const MainScreen(),
     );
   }
 }

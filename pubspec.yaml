@@ -43,6 +43,7 @@ dependencies:
   pdf: ^3.11.3
   archive: ^4.0.7
   flutter_local_notifications: ^16.3.2
+  wakelock_plus: ^1.1.4
 
 dev_dependencies:
   flutter_test:
