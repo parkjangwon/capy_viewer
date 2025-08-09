@@ -15,7 +15,7 @@ class SiteUrlService extends StateNotifier<String> {
   final _logger = Logger();
   final _dio = Dio();
   bool _isAutoMode = true;
-  final _telegramChannelUrl = 'https://t.me/s/newtoki5';
+  final _telegramChannelUrl = 'https://t.me/s/p48v267tsgubym7';
   final _defaultUrl = 'https://manatoki468.net';
   
   bool get isAutoMode => _isAutoMode;
