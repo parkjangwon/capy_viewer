@@ -70,6 +70,24 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
       FlutterLocalNotificationsPlugin();
   bool _isDownloading = false;
 
+  String _normalizeHtmlFromJsResult(Object? rawResult) {
+    var html = rawResult?.toString() ?? '';
+
+    if (html.startsWith('"') && html.endsWith('"') && html.length >= 2) {
+      html = html.substring(1, html.length - 1);
+    }
+
+    return html
+        .replaceAll(r'\u003C', '<')
+        .replaceAll(r'\u003E', '>')
+        .replaceAll(r'\u0026', '&')
+        .replaceAll(r'\"', '"')
+        .replaceAll(r"\'", "'")
+        .replaceAll(r'\/', '/')
+        .replaceAll(r'\n', '\n')
+        .replaceAll(r'\r', '\r');
+  }
+
   @override
   void initState() {
     super.initState();
@@ -160,7 +178,7 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
       try {
         final html = await _controller
             .runJavaScriptReturningResult('document.documentElement.outerHTML');
-        htmlStr = html.toString();
+        htmlStr = _normalizeHtmlFromJsResult(html);
         // 크기 제한을 위해 최대 길이 제한
         if (htmlStr.length > 500000) {
           print('매우 큰 HTML 감지. 잘라냄: ${htmlStr.length} -> 500000');
@@ -517,7 +535,7 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
         // JavaScript를 사용하여 HTML 내용을 가져옵니다.
         final html = await _controller
             .runJavaScriptReturningResult('document.documentElement.outerHTML');
-        final htmlStr = html.toString();
+        final htmlStr = _normalizeHtmlFromJsResult(html);
 
         // 캡챠가 더 이상 필요하지 않은지 확인
         if (!ManatokiCaptchaHelper.isCaptchaRequired(htmlStr)) {

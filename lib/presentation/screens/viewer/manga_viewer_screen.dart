@@ -56,6 +56,7 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
   String? _prevChapterUrl;
   String? _nextChapterUrl;
   bool _isInitialLoad = true;
+  bool _isCaptchaFlowInProgress = false;
   Timer? _dragTimer;
   Timer? _loadingTimer;
   Timer? _overscrollTimer;
@@ -246,6 +247,27 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
     await _controller.loadRequest(Uri.parse(fullUrl));
   }
 
+  String _normalizeHtmlFromJsResult(Object? rawResult) {
+    var html = rawResult?.toString() ?? '';
+
+    // Android WebView에서 JS 결과가 JSON string 형태로 들어오는 케이스 정규화
+    if (html.startsWith('"') && html.endsWith('"') && html.length >= 2) {
+      html = html.substring(1, html.length - 1);
+    }
+
+    html = html
+        .replaceAll(r'\u003C', '<')
+        .replaceAll(r'\u003E', '>')
+        .replaceAll(r'\u0026', '&')
+        .replaceAll(r'\"', '"')
+        .replaceAll(r"\'", "'")
+        .replaceAll(r'\/', '/')
+        .replaceAll(r'\n', '\n')
+        .replaceAll(r'\r', '\r');
+
+    return html;
+  }
+
   Future<void> _loadPageContent() async {
     if (!mounted || !_isInitialLoad) return;
 
@@ -279,7 +301,7 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
 
       if (!mounted) return;
 
-      final htmlString = html.toString();
+      final htmlString = _normalizeHtmlFromJsResult(html);
       print('[뷰어] HTML 길이: ${htmlString.length}');
 
       // HTML 파싱
@@ -310,6 +332,7 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
         if (captchaInfo != null) {
           setState(() {
             _showManatokiCaptcha = true;
+            _showError = false;
             _captchaInfo = captchaInfo;
             _isLoading = false;
           });
@@ -408,6 +431,12 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
             _isLoading = false;
           });
         }
+      } else {
+        print('[뷰어] 본문(articleBody)을 찾을 수 없음');
+        setState(() {
+          _showError = true;
+          _isLoading = false;
+        });
       }
 
       _isInitialLoad = false;
@@ -1259,6 +1288,37 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
     }
   }
 
+  Future<void> _openCaptchaFallback(String currentUrl) async {
+    if (!mounted || _isCaptchaFlowInProgress) return;
+
+    _isCaptchaFlowInProgress = true;
+    try {
+      final targetUrl = currentUrl.isNotEmpty
+          ? currentUrl
+          : '${ref.read(siteUrlServiceProvider)}/comic/${widget.chapterId}';
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => CaptchaPage(
+            url: targetUrl,
+            onHtmlReceived: (_) async {
+              if (!mounted) return;
+              setState(() {
+                _showError = false;
+                _isLoading = true;
+                _showManatokiCaptcha = false;
+              });
+              await _loadUrl();
+            },
+          ),
+        ),
+      );
+    } finally {
+      _isCaptchaFlowInProgress = false;
+    }
+  }
+
   Future<void> _onPageFinished(String url) async {
     print('[웹뷰] 페이지 로딩 완료: $url');
 
@@ -1272,7 +1332,7 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
 
       if (!mounted) return;
 
-      final htmlString = html.toString();
+      final htmlString = _normalizeHtmlFromJsResult(html);
       print('[웹뷰] HTML 길이: ${htmlString.length}');
 
       // 네비게이션 링크와 회차 목록 파싱
@@ -1327,9 +1387,16 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
         if (captchaInfo != null) {
           setState(() {
             _showManatokiCaptcha = true;
+            _showError = false;
             _captchaInfo = captchaInfo;
             _isLoading = false;
           });
+          return;
+        }
+
+        // 일부 캡차 HTML은 fcaptcha 폼이 없어 파싱 실패하므로 WebView 캡차로 폴백
+        if (url.contains('/bbs/captcha.php')) {
+          await _openCaptchaFallback(url);
           return;
         }
       }
@@ -1431,6 +1498,7 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
       if (captchaInfo != null) {
         setState(() {
           _showManatokiCaptcha = true;
+          _showError = false;
           _captchaInfo = captchaInfo;
           _isLoading = false;
         });

@@ -329,15 +329,23 @@ class _ManatokiCaptchaWidgetState extends ConsumerState<ManatokiCaptchaWidget> {
     final effectiveImageUrl = isValidUrl ? imageUrl : '$baseUrl$imageUrl';
     print('최종 이미지 URL: $effectiveImageUrl');
 
-    return Container(
-      padding: const EdgeInsets.all(16.0),
-      width: double.infinity,
-      height: double.infinity,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
+    return SafeArea(
+      child: Container(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          16 + MediaQuery.of(context).viewInsets.bottom,
+        ),
+        width: double.infinity,
+        height: double.infinity,
+        child: SingleChildScrollView(
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
             const Text(
               '마나토끼 캡차 인증',
               style: TextStyle(
@@ -459,14 +467,29 @@ class _ManatokiCaptchaWidgetState extends ConsumerState<ManatokiCaptchaWidget> {
                   // 캡챠 입력 필드
                   TextField(
                     controller: _captchaController,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    cursorColor: Colors.white,
                     decoration: InputDecoration(
                       hintText: '캡챠 코드 입력',
+                      hintStyle: const TextStyle(color: Colors.white70),
                       errorText:
                           _errorMessage.isNotEmpty ? _errorMessage : null,
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.08),
                       border: const OutlineInputBorder(),
+                      enabledBorder: const OutlineInputBorder(
+                        borderSide: BorderSide(color: Colors.white54),
+                      ),
+                      focusedBorder: const OutlineInputBorder(
+                        borderSide: BorderSide(color: Colors.white, width: 2),
+                      ),
                     ),
                     textAlign: TextAlign.center,
-                    keyboardType: TextInputType.number,
+                    keyboardType: TextInputType.text,
                     autofocus: true,
                     onSubmitted: (_) => _isLoading ? null : _submitCaptcha(),
                   ),
@@ -550,7 +573,9 @@ class _ManatokiCaptchaWidgetState extends ConsumerState<ManatokiCaptchaWidget> {
                   ),
                 ),
               ),
-          ],
+              ],
+            ),
+          ),
         ),
       ),
     );
