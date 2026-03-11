@@ -921,14 +921,12 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
         }
       }
 
-      if (lastError.toString().contains('(403)')) {
-        final webViewFallback = await _getChapterImageUrlsViaWebView(
-          candidateUrls.toList(),
-          baseUrl,
-        );
-        if (webViewFallback.isNotEmpty) {
-          return webViewFallback;
-        }
+      final webViewFallback = await _getChapterImageUrlsViaWebView(
+        candidateUrls.toList(),
+        baseUrl,
+      );
+      if (webViewFallback.isNotEmpty) {
+        return webViewFallback;
       }
 
       throw (lastError ?? Exception('이미지를 찾을 수 없습니다.'));
@@ -943,6 +941,52 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
     List<String> candidateUrls,
     String baseUrl,
   ) async {
+    String toAbs(String raw) {
+      if (raw.startsWith('http')) return raw;
+      if (raw.startsWith('/')) return '$baseUrl$raw';
+      return '$baseUrl/$raw';
+    }
+
+    List<String> extractImagesFromDoc(dynamic doc) {
+      final imageUrls = <String>[];
+      final imgs = doc.querySelectorAll('article[itemprop="articleBody"] img');
+      for (final img in imgs) {
+        String? src = img.attributes['data-original'] ??
+            img.attributes['data-src'] ??
+            img.attributes['src'];
+        if (src == null || src.isEmpty) continue;
+        src = toAbs(src);
+        if (!src.contains('loading-image.gif') &&
+            !src.contains('banner') &&
+            !src.contains('ads')) {
+          imageUrls.add(src);
+        }
+      }
+      return imageUrls.toSet().toList();
+    }
+
+    String? extractComicUrl(dynamic doc) {
+      final links = doc.querySelectorAll('a[href*="/comic/"]');
+      if (links.isNotEmpty) {
+        final href = links.first.attributes['href'];
+        if (href != null && href.isNotEmpty) return toAbs(href);
+      }
+
+      final onclickNodes = doc.querySelectorAll('[onclick]');
+      for (final node in onclickNodes) {
+        final onclick = node.attributes['onclick'] ?? '';
+        if (!onclick.contains('/comic/')) continue;
+
+        final single = RegExp(r"'([^']*?/comic/[^']+)'").firstMatch(onclick);
+        if (single != null) return toAbs(single.group(1)!);
+
+        final double = RegExp(r'"([^"]*?/comic/[^"]+)"').firstMatch(onclick);
+        if (double != null) return toAbs(double.group(1)!);
+      }
+
+      return null;
+    }
+
     for (final url in candidateUrls) {
       try {
         await _controller.loadRequest(Uri.parse(url));
@@ -954,28 +998,29 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
         if (html.isEmpty) continue;
 
         final document = html_parser.parse(html);
-        final imageUrls = <String>[];
-        final imgs =
-            document.querySelectorAll('article[itemprop="articleBody"] img');
-
-        for (final img in imgs) {
-          String? src = img.attributes['data-original'] ??
-              img.attributes['data-src'] ??
-              img.attributes['src'];
-          if (src == null || src.isEmpty) continue;
-          if (!src.startsWith('http')) {
-            src = src.startsWith('/') ? '$baseUrl$src' : '$baseUrl/$src';
-          }
-          if (!src.contains('loading-image.gif') &&
-              !src.contains('banner') &&
-              !src.contains('ads')) {
-            imageUrls.add(src);
-          }
+        final images = extractImagesFromDoc(document);
+        if (images.isNotEmpty) {
+          _lastImageSourcePageUrl = url;
+          return images;
         }
 
-        if (imageUrls.isNotEmpty) {
-          _lastImageSourcePageUrl = url;
-          return imageUrls.toSet().toList();
+        final comicUrl = extractComicUrl(document);
+        if (comicUrl != null && comicUrl != url) {
+          await _controller.loadRequest(Uri.parse(comicUrl));
+          await Future.delayed(const Duration(milliseconds: 1200));
+
+          final comicHtmlResult =
+              await _controller.runJavaScriptReturningResult(
+                  'document.documentElement.outerHTML');
+          final comicHtml = _normalizeHtmlFromJsResult(comicHtmlResult);
+          if (comicHtml.isEmpty) continue;
+
+          final comicDoc = html_parser.parse(comicHtml);
+          final comicImages = extractImagesFromDoc(comicDoc);
+          if (comicImages.isNotEmpty) {
+            _lastImageSourcePageUrl = comicUrl;
+            return comicImages;
+          }
         }
       } catch (_) {
         continue;
