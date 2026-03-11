@@ -743,26 +743,6 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
             }
           }
 
-          if (imageUrls.isEmpty) {
-            final html = response.body;
-            final regex = RegExp(
-              '(https?:\\/\\/[^"\\\'\\s)]+\\.(?:jpg|jpeg|png|webp|gif))',
-              caseSensitive: false,
-            );
-            final fallback = regex
-                .allMatches(html)
-                .map((m) => (m.group(1) ?? '').replaceAll('\\/', '/'))
-                .where((u) =>
-                    u.isNotEmpty &&
-                    !u.contains('loading-image.gif') &&
-                    !u.contains('banner') &&
-                    !u.contains('ads'))
-                .toSet()
-                .toList();
-
-            imageUrls.addAll(fallback);
-          }
-
           if (imageUrls.isNotEmpty) {
             return imageUrls;
           }
