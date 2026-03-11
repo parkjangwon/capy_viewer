@@ -851,43 +851,6 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
                 }
               }
             }
-
-            // 마지막 폴백: 현재 HTML에서 /comic/{id} 링크 추출 후 해당 페이지 재시도
-            if (imageUrls.isEmpty) {
-              final comicMatch =
-                  RegExp(r'/comic/(\\d+)').firstMatch(response.body);
-              final comicId = comicMatch?.group(1);
-              if (comicId != null && comicId.isNotEmpty) {
-                final comicUrl = '$baseUrl/comic/$comicId';
-                final comicRes = await http.get(
-                  Uri.parse(comicUrl),
-                  headers: {
-                    'Cookie': cookieString,
-                    'User-Agent':
-                        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-                    'Referer': url,
-                  },
-                );
-
-                if (comicRes.statusCode == 200) {
-                  final comicDoc = html_parser.parse(comicRes.body);
-                  final comicImgs = comicDoc
-                      .querySelectorAll('article[itemprop="articleBody"] img');
-                  for (final img in comicImgs) {
-                    String? src = img.attributes['data-original'] ??
-                        img.attributes['data-src'] ??
-                        img.attributes['src'];
-                    src = resolveToAbsolute(src);
-                    if (src != null &&
-                        !src.contains('loading-image.gif') &&
-                        !src.contains('banner') &&
-                        !src.contains('ads')) {
-                      imageUrls.add(src);
-                    }
-                  }
-                }
-              }
-            }
           }
 
           if (imageUrls.isEmpty) {
