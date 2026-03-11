@@ -42,21 +42,18 @@ Future<String?> getCookieString(CookieJar jar, String url) async {
 class _ManatokiCaptchaWidgetState extends ConsumerState<ManatokiCaptchaWidget> {
   final TextEditingController _captchaController = TextEditingController();
   bool _isLoading = false;
-  bool _isInitialLoading = true; // 초기 로딩 상태 추가
   String _errorMessage = '';
   String _refreshKey = '';
+  late String _effectiveImageUrl;
 
   @override
   void initState() {
     super.initState();
-    // 약간의 지연 후 초기 로딩 상태 해제
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) {
-        setState(() {
-          _isInitialLoading = false;
-        });
-      }
-    });
+
+    final imageUrl = widget.captchaInfo.captchaImageUrl;
+    final isValidUrl = Uri.tryParse(imageUrl)?.hasScheme ?? false;
+    final baseUrl = ref.read(siteUrlServiceProvider);
+    _effectiveImageUrl = isValidUrl ? imageUrl : '$baseUrl$imageUrl';
   }
 
   @override
@@ -314,21 +311,6 @@ class _ManatokiCaptchaWidgetState extends ConsumerState<ManatokiCaptchaWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // 캡챠 이미지 URL 디버깅
-    print('캡챠 이미지 URL: ${widget.captchaInfo.captchaImageUrl}');
-    print('캡챠 폼 액션: ${widget.captchaInfo.formAction}');
-    print('캡챠 리다이렉트 URL: ${widget.captchaInfo.redirectUrl}');
-
-    // 이미지 URL이 유효한지 확인
-    final imageUrl = widget.captchaInfo.captchaImageUrl;
-    final isValidUrl = Uri.tryParse(imageUrl)?.hasScheme ?? false;
-    print('유효한 URL인가요? $isValidUrl');
-
-    // 이미지 URL 수정 (필요한 경우)
-    final baseUrl = ref.read(siteUrlServiceProvider); // 동적 URL 사용
-    final effectiveImageUrl = isValidUrl ? imageUrl : '$baseUrl$imageUrl';
-    print('최종 이미지 URL: $effectiveImageUrl');
-
     return SafeArea(
       child: Container(
         padding: EdgeInsets.fromLTRB(
@@ -346,233 +328,209 @@ class _ManatokiCaptchaWidgetState extends ConsumerState<ManatokiCaptchaWidget> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-            const Text(
-              '마나토끼 캡차 인증',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            Container(
-              constraints: const BoxConstraints(maxWidth: 400),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    '아래 이미지에 표시된 문자를 입력해주세요.',
-                    style: TextStyle(color: Colors.white),
-                    textAlign: TextAlign.center,
+                const Text(
+                  '마나토끼 캡차 인증',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
                   ),
-                  const SizedBox(height: 16),
-                  // 캡챠 이미지
-                  Container(
-                    width: 200,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Stack(
-                      children: [
-                        // 이미지 로드 시도: DirectCaptchaImage 위젯 사용
-                        ClipRRect(
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                Container(
+                  constraints: const BoxConstraints(maxWidth: 400),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        '아래 이미지에 표시된 문자를 입력해주세요.',
+                        style: TextStyle(color: Colors.white),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      // 캡챠 이미지
+                      Container(
+                        width: 200,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey),
                           borderRadius: BorderRadius.circular(8),
-                          child: DirectCaptchaImage(
-                            url: effectiveImageUrl +
-                                (_refreshKey.isEmpty ? '' : '?t=$_refreshKey'),
-                            width: 200,
-                            height: 80,
-                            fit: BoxFit.contain,
-                            loadingWidget: Container(
-                              color: Colors.grey[100],
-                              child: const Center(
-                                child: Column(
+                        ),
+                        child: Stack(
+                          children: [
+                            // 이미지 로드 시도: DirectCaptchaImage 위젯 사용
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: DirectCaptchaImage(
+                                url: _effectiveImageUrl +
+                                    (_refreshKey.isEmpty
+                                        ? ''
+                                        : '?t=$_refreshKey'),
+                                width: 200,
+                                height: 80,
+                                fit: BoxFit.contain,
+                                loadingWidget: Container(
+                                  color: Colors.grey[100],
+                                  child: const Center(
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        SizedBox(
+                                          width: 30,
+                                          height: 30,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 3,
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                    Colors.deepPurple),
+                                          ),
+                                        ),
+                                        SizedBox(height: 8),
+                                        Text(
+                                          '캡챠 이미지 로딩 중...',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.deepPurple,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                errorWidget: Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    SizedBox(
-                                      width: 30,
-                                      height: 30,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 3,
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                                Colors.deepPurple),
+                                    const Text('이미지 로드 오류',
+                                        style: TextStyle(fontSize: 10)),
+                                    const SizedBox(height: 4),
+                                    ElevatedButton(
+                                      onPressed: () => setState(() {}),
+                                      style: ElevatedButton.styleFrom(
+                                        minimumSize: const Size(30, 20),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 4),
                                       ),
-                                    ),
-                                    SizedBox(height: 8),
-                                    Text(
-                                      '캡챠 이미지 로딩 중...',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.deepPurple,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                      child: const Text('재시도',
+                                          style: TextStyle(fontSize: 10)),
                                     ),
                                   ],
                                 ),
                               ),
                             ),
-                            errorWidget: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Text('이미지 로드 오류',
-                                    style: TextStyle(fontSize: 10)),
-                                const SizedBox(height: 4),
-                                ElevatedButton(
-                                  onPressed: () => setState(() {}),
-                                  style: ElevatedButton.styleFrom(
-                                    minimumSize: const Size(30, 20),
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 4),
-                                  ),
-                                  child: const Text('재시도',
-                                      style: TextStyle(fontSize: 10)),
+                            // 새로고침 버튼 추가
+                            Positioned(
+                              right: 4,
+                              top: 4,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.3),
+                                  borderRadius: BorderRadius.circular(4),
                                 ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        // 새로고침 버튼 추가
-                        Positioned(
-                          right: 4,
-                          top: 4,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.3),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: IconButton(
-                              icon: const Icon(Icons.refresh,
-                                  color: Colors.white, size: 20),
-                              padding: const EdgeInsets.all(4),
-                              constraints: const BoxConstraints(),
-                              onPressed: () {
-                                setState(() {
-                                  _refreshKey = DateTime.now()
-                                      .millisecondsSinceEpoch
-                                      .toString();
-                                });
-                              },
-                              tooltip: '새로고침',
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16.0),
-                  // 캡챠 입력 필드
-                  TextField(
-                    controller: _captchaController,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    cursorColor: Colors.white,
-                    decoration: InputDecoration(
-                      hintText: '캡챠 코드 입력',
-                      hintStyle: const TextStyle(color: Colors.white70),
-                      errorText:
-                          _errorMessage.isNotEmpty ? _errorMessage : null,
-                      filled: true,
-                      fillColor: Colors.white.withOpacity(0.08),
-                      border: const OutlineInputBorder(),
-                      enabledBorder: const OutlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white54),
-                      ),
-                      focusedBorder: const OutlineInputBorder(
-                        borderSide: BorderSide(color: Colors.white, width: 2),
-                      ),
-                    ),
-                    textAlign: TextAlign.center,
-                    keyboardType: TextInputType.text,
-                    autofocus: true,
-                    onSubmitted: (_) => _isLoading ? null : _submitCaptcha(),
-                  ),
-                  const SizedBox(height: 16.0),
-                  // 제출 버튼
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _submitCaptcha,
-                      child: _isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.0,
+                                child: IconButton(
+                                  icon: const Icon(Icons.refresh,
+                                      color: Colors.white, size: 20),
+                                  padding: const EdgeInsets.all(4),
+                                  constraints: const BoxConstraints(),
+                                  onPressed: () {
+                                    setState(() {
+                                      _refreshKey = DateTime.now()
+                                          .millisecondsSinceEpoch
+                                          .toString();
+                                    });
+                                  },
+                                  tooltip: '새로고침',
+                                ),
                               ),
-                            )
-                          : const Text('확인'),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16.0),
+                      // 캡챠 입력 필드
+                      TextField(
+                        controller: _captchaController,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        cursorColor: Colors.white,
+                        decoration: InputDecoration(
+                          hintText: '캡챠 코드 입력',
+                          hintStyle: const TextStyle(color: Colors.white70),
+                          errorText:
+                              _errorMessage.isNotEmpty ? _errorMessage : null,
+                          filled: true,
+                          fillColor: Colors.white.withOpacity(0.08),
+                          border: const OutlineInputBorder(),
+                          enabledBorder: const OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.white54),
+                          ),
+                          focusedBorder: const OutlineInputBorder(
+                            borderSide:
+                                BorderSide(color: Colors.white, width: 2),
+                          ),
+                        ),
+                        textAlign: TextAlign.center,
+                        keyboardType: TextInputType.text,
+                        autofocus: true,
+                        onSubmitted: (_) =>
+                            _isLoading ? null : _submitCaptcha(),
+                      ),
+                      const SizedBox(height: 16.0),
+                      // 제출 버튼
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _submitCaptcha,
+                          child: _isLoading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.0,
+                                  ),
+                                )
+                              : const Text('확인'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // 전체 화면 로딩 인디케이터
+                if (_isLoading)
+                  Container(
+                    color: Colors.black.withOpacity(0.3),
+                    child: const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 40,
+                            height: 40,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 4,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            '캡챠 인증 중...',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ],
-              ),
-            ),
-            // 초기 로딩 인디케이터
-            if (_isInitialLoading)
-              Container(
-                color: Colors.white,
-                child: const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 50,
-                        height: 50,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 4,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.deepPurple),
-                        ),
-                      ),
-                      SizedBox(height: 16),
-                      Text(
-                        '캡챠 페이지 준비 중...',
-                        style: TextStyle(
-                          color: Colors.deepPurple,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            // 전체 화면 로딩 인디케이터
-            if (_isLoading)
-              Container(
-                color: Colors.black.withOpacity(0.3),
-                child: const Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 40,
-                        height: 40,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 4,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      ),
-                      SizedBox(height: 16),
-                      Text(
-                        '캡챠 인증 중...',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
               ],
             ),
           ),

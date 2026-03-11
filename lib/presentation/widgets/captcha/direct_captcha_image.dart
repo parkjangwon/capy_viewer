@@ -38,10 +38,7 @@ class _DirectCaptchaImageState extends ConsumerState<DirectCaptchaImage> {
   @override
   void initState() {
     super.initState();
-    // 약간의 지연 후 이미지 로드 (쿠키가 준비되도록)
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) _loadImage();
-    });
+    _loadImage();
   }
 
   @override
