@@ -79,6 +79,8 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
 
   bool _isDownloading = false;
   String? _lastImageSourcePageUrl;
+  String? _lastTriedPageUrl;
+  int? _lastPageStatusCode;
 
   String _normalizeHtmlFromJsResult(Object? rawResult) {
     var html = rawResult?.toString() ?? '';
@@ -650,6 +652,7 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
               .map((cookie) => '${cookie.name}=${cookie.value}')
               .join('; ');
 
+          _lastTriedPageUrl = url;
           final response = await http.get(
             Uri.parse(url),
             headers: {
@@ -659,6 +662,8 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
               'Referer': baseUrl,
             },
           );
+
+          _lastPageStatusCode = response.statusCode;
 
           if (response.statusCode != 200) {
             lastError = Exception('페이지를 불러올 수 없습니다. (${response.statusCode})');
@@ -1320,8 +1325,11 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
       _showSavedSnack(saved.path);
     } catch (e) {
       if (mounted) {
+        final debugInfo = (_lastTriedPageUrl != null)
+            ? ' [url=${_lastTriedPageUrl}, status=${_lastPageStatusCode ?? '-'}]'
+            : '';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('저장 실패: $e')),
+          SnackBar(content: Text('저장 실패: $e$debugInfo')),
         );
       }
       _log('단일 회차 저장 실패: $e');
@@ -1367,8 +1375,11 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
       _showSavedSnack(saved.path);
     } catch (e) {
       if (mounted) {
+        final debugInfo = (_lastTriedPageUrl != null)
+            ? ' [url=${_lastTriedPageUrl}, status=${_lastPageStatusCode ?? '-'}]'
+            : '';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('저장 실패: $e')),
+          SnackBar(content: Text('저장 실패: $e$debugInfo')),
         );
       }
       _log('여러 회차 저장 실패: $e');
