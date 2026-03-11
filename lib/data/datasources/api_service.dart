@@ -206,16 +206,49 @@ class ApiService extends _$ApiService {
         _logger.w('[REQUEST] 쿠키 로드 실패: $e');
       }
 
-      final response = await _dio.get<T>(
+      final requestOptions = (options ??
+              Options(
+                responseType: ResponseType.plain,
+                headers: {
+                  'Referer': baseUrl,
+                },
+              ))
+          .copyWith(
+        // 3xx(리다이렉트)를 예외로 던지지 않고 직접 분석해 캡차 분기 처리
+        validateStatus: (status) => status != null && status < 500,
+      );
+
+      var response = await _dio.get<T>(
         url,
-        options: options ??
-            Options(
-              responseType: ResponseType.plain,
+        options: requestOptions,
+      );
+
+      // 일반 리다이렉트는 1회 수동 추적 (followRedirects=false 보완)
+      final initialStatus = response.statusCode ?? 0;
+      final initialLocation = response.headers.value('location');
+      if (initialStatus >= 300 &&
+          initialStatus < 400 &&
+          initialLocation != null &&
+          initialLocation.isNotEmpty) {
+        final lowerLocation = initialLocation.toLowerCase();
+        final looksLikeCaptcha = lowerLocation.contains('captcha') ||
+            lowerLocation.contains('challenge') ||
+            lowerLocation.contains('cdn-cgi') ||
+            lowerLocation.contains('cloudflare');
+
+        if (!looksLikeCaptcha) {
+          _logger.i('[REQUEST] 일반 리다이렉트 추적: $url -> $initialLocation');
+          response = await _dio.get<T>(
+            initialLocation,
+            options: requestOptions.copyWith(
               headers: {
-                'Referer': baseUrl,
+                ...?requestOptions.headers,
+                'Referer': url,
               },
             ),
-      );
+          );
+        }
+      }
 
       // 응답 정보 로그
       _logger.i('[RESPONSE] 상태코드: ${response.statusCode}');
@@ -240,6 +273,35 @@ class ApiService extends _$ApiService {
         final preview =
             html.length > 500 ? html.substring(0, 500) + '...' : html;
         _logger.d('[RESPONSE] HTML 미리보기: $preview');
+      }
+
+      final statusCode = response.statusCode ?? 0;
+      final location = (response.headers.value('location') ?? '').toLowerCase();
+      final isRedirect = statusCode >= 300 && statusCode < 400;
+      final isCaptchaRedirect = location.contains('captcha') ||
+          location.contains('challenge') ||
+          location.contains('cdn-cgi') ||
+          location.contains('cloudflare');
+
+      // Android에서 Cloudflare가 302로 바로 튕기는 케이스 처리
+      if (isRedirect && isCaptchaRedirect) {
+        _logger.w('[REQUEST] 리다이렉트 캡차 감지: status=$statusCode, location=$location');
+        if (bypassCaptchaOnBlocked) {
+          final success = await bypassCaptcha(url);
+          if (success) {
+            _logger.i('[REQUEST] 리다이렉트 캡차 우회 성공, 재시도');
+            return _request(path,
+                queryParameters: queryParameters,
+                options: options,
+                bypassCaptchaOnBlocked: false);
+          }
+          _logger.e('[REQUEST] 리다이렉트 캡차 우회 실패');
+          throw DioException(
+              requestOptions: response.requestOptions,
+              response: response,
+              error: '리다이렉트 캡차 우회 실패',
+              type: DioExceptionType.badResponse);
+        }
       }
 
       // 요청 성공 후 _lastRequestUrl 초기화

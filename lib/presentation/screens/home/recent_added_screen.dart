@@ -86,12 +86,13 @@ class _RecentAddedScreenState extends ConsumerState<RecentAddedScreen> {
   }
 
   void _onItemTapped(int index) {
-    if (index != _selectedIndex) {
-      // 먼저 탭 상태를 변경
-      ref.read(selectedTabProvider.notifier).state = index;
-      // 그 다음 네비게이션 수행
-      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-    }
+    if (index == _selectedIndex) return;
+
+    // 메인 탭 개수(0..4)와 맞추기
+    final targetIndex = index.clamp(0, 4);
+
+    ref.read(selectedTabProvider.notifier).state = targetIndex;
+    Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
   }
 
   @override

@@ -1,5 +1,13 @@
 import 'package:html/parser.dart' as html_parser;
 
+String _cleanText(String input) {
+  return input
+      .replaceAll(RegExp(r'[\t\r\n]+'), ' ')
+      .replaceAll(RegExp(r'\\t|\\r|\\n'), ' ')
+      .replaceAll(RegExp(r'\s{2,}'), ' ')
+      .trim();
+}
+
 class ParsedMangaItem {
   final String href;
   final String title;
@@ -31,7 +39,7 @@ List<ParsedMangaItem> parseMangaListFromHtml(String html) {
       // 링크와 제목
       final titleElement = item.querySelector('.in-lable a');
       final href = titleElement?.attributes['href'] ?? '';
-      final title = titleElement?.querySelector('.title')?.text ?? '';
+      final title = _cleanText(titleElement?.querySelector('.title')?.text ?? '');
 
       // 썸네일
       final imgElement = item.querySelector('.img-item img');
@@ -39,15 +47,15 @@ List<ParsedMangaItem> parseMangaListFromHtml(String html) {
 
       // 작가
       final authorElement = item.querySelector('.list-artist a');
-      final author = authorElement?.text ?? '';
+      final author = _cleanText(authorElement?.text ?? '');
 
       // 발행 주기
       final periodElement = item.querySelector('.list-publish a');
-      final period = periodElement?.text ?? '';
+      final period = _cleanText(periodElement?.text ?? '');
 
       // 업데이트 날짜
       final dateElement = item.querySelector('.list-date');
-      final updateDate = dateElement?.text.trim() ?? '';
+      final updateDate = _cleanText(dateElement?.text ?? '');
 
       if (href.isNotEmpty && title.isNotEmpty) {
         items.add(ParsedMangaItem(

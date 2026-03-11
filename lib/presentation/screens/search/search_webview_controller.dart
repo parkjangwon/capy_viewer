@@ -5,6 +5,24 @@ class SearchWebViewController {
   late final WebViewController controller;
   bool _isInitialized = false;
 
+  String _normalizeHtmlFromJsResult(Object? rawResult) {
+    var html = rawResult?.toString() ?? '';
+
+    if (html.startsWith('"') && html.endsWith('"') && html.length >= 2) {
+      html = html.substring(1, html.length - 1);
+    }
+
+    return html
+        .replaceAll(r'\u003C', '<')
+        .replaceAll(r'\u003E', '>')
+        .replaceAll(r'\u0026', '&')
+        .replaceAll(r'\"', '"')
+        .replaceAll(r"\'", "'")
+        .replaceAll(r'\/', '/')
+        .replaceAll(r'\n', '\n')
+        .replaceAll(r'\r', '\r');
+  }
+
   Future<void> initialize() async {
     if (_isInitialized) return;
     controller = WebViewController()
@@ -39,7 +57,7 @@ class SearchWebViewController {
     await Future.delayed(const Duration(seconds: 2));
     final html = await controller
         .runJavaScriptReturningResult('document.documentElement.outerHTML');
-    return html.toString();
+    return _normalizeHtmlFromJsResult(html);
   }
 
   void dispose() {

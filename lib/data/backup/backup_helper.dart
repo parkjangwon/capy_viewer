@@ -3,16 +3,14 @@ import 'dart:convert';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../database/database_helper.dart';
-import 'package:sqflite/sqflite.dart';
+
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:cross_file/cross_file.dart';
 import 'package:flutter/foundation.dart';
+import '../database/database_helper.dart';
 
 class BackupHelper {
   static const String backupVersion = '1.0.0';
-  final _db = DatabaseHelper.instance;
 
   Future<String> createBackup() async {
     try {
@@ -46,10 +44,14 @@ class BackupHelper {
       final backupFile = File(join(backupDir.path, backupFileName));
       debugPrint('백업 파일 경로: ${backupFile.path}');
 
-      // 4. 데이터베이스 파일 복사
-      final dbPath = await getDatabasesPath();
-      final dbFile = File(join(dbPath, 'capy_viewer.db'));
+      // 4. 데이터베이스 파일 경로 확인 (DatabaseHelper와 동일 경로 사용)
+      final db = await DatabaseHelper.instance.database;
+      final dbFile = File(db.path);
       debugPrint('데이터베이스 파일 경로: ${dbFile.path}');
+
+      if (!await dbFile.exists()) {
+        throw Exception('데이터베이스 파일을 찾을 수 없습니다: ${dbFile.path}');
+      }
 
       // 5. ZIP 파일 생성 (데이터베이스 + 설정)
       final archive = {
@@ -61,24 +63,17 @@ class BackupHelper {
       await backupFile.writeAsString(json.encode(archive));
       debugPrint('백업 파일 저장 완료');
 
-      // iOS의 경우 파일 공유 시트 표시
+      // iOS는 기존처럼 공유 시트 사용
       if (Platform.isIOS) {
         debugPrint('iOS 공유 시트 표시 시도');
         try {
           await Share.shareXFiles(
             [XFile(backupFile.path)],
             subject: '카피 뷰어 백업 파일',
-          ).then((_) async {
-            // 공유가 완료된 후 임시 파일 삭제
-            if (await backupFile.exists()) {
-              await backupFile.delete();
-              debugPrint('임시 백업 파일 삭제 완료');
-            }
-          });
+          );
           debugPrint('iOS 공유 완료');
         } catch (e) {
           debugPrint('iOS 공유 실패: $e');
-          rethrow;
         }
       }
 
@@ -106,17 +101,25 @@ class BackupHelper {
         throw Exception('지원하지 않는 백업 버전입니다.');
       }
 
-      // 3. 데이터베이스 복원
-      final dbPath = await getDatabasesPath();
-      final dbFile = File(join(dbPath, 'capy_viewer.db'));
+      // 3. 데이터베이스 복원 (DatabaseHelper 실제 경로 기준)
+      final db = await DatabaseHelper.instance.database;
+      final dbFile = File(db.path);
 
-      // 데이터베이스 파일이 있다면 삭제
+      // 파일 교체 전 DB 핸들 닫기
+      await DatabaseHelper.instance.close();
+      DatabaseHelper.resetDatabase();
+
       if (await dbFile.exists()) {
         await dbFile.delete();
       }
 
+      final rawDb = archive['database'];
+      if (rawDb is! List) {
+        throw Exception('백업 파일의 데이터베이스 형식이 올바르지 않습니다.');
+      }
+
       // 새 데이터베이스 파일 생성
-      await dbFile.writeAsBytes(List<int>.from(archive['database']));
+      await dbFile.writeAsBytes(rawDb.cast<int>(), flush: true);
 
       // 4. 설정 복원
       await _restorePreferences(
@@ -162,12 +165,19 @@ class BackupHelper {
 
   Future<Directory> _getBackupDirectory() async {
     if (Platform.isAndroid) {
-      // Android의 경우 Download 폴더
-      final directory = Directory('/storage/emulated/0/Download');
-      if (!await directory.exists()) {
-        throw Exception('다운로드 폴더를 찾을 수 없습니다.');
+      // Android: Download 폴더 우선 사용
+      final downloadDir = Directory('/storage/emulated/0/Download');
+      if (await downloadDir.exists()) {
+        return downloadDir;
       }
-      return directory;
+
+      // 폴더 접근 실패 시 앱 전용 폴더로 폴백
+      final appDocDir = await getApplicationDocumentsDirectory();
+      final backupDir = Directory(join(appDocDir.path, 'backups'));
+      if (!await backupDir.exists()) {
+        await backupDir.create(recursive: true);
+      }
+      return backupDir;
     } else if (Platform.isIOS) {
       // iOS의 경우 임시 디렉토리 사용 (공유 후 자동 삭제)
       return await getTemporaryDirectory();

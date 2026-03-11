@@ -2,6 +2,14 @@ import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart';
 import '../data/models/manga_detail.dart';
 
+String _cleanText(String input) {
+  return input
+      .replaceAll(RegExp(r'[\t\r\n]+'), ' ')
+      .replaceAll(RegExp(r'\\t|\\r|\\n'), ' ')
+      .replaceAll(RegExp(r'\s{2,}'), ' ')
+      .trim();
+}
+
 class MangaDetailParseResult {
   final MangaDetail mangaDetail;
   final bool hasCaptcha;
@@ -118,11 +126,11 @@ MangaDetailParseResult parseMangaDetailFromHtml(String html, String mangaId) {
       // 일반적으로 페이지 제목은 "제목 - 사이트이름" 형태
       final parts = pageTitle.split(' - ');
       if (parts.isNotEmpty) {
-        title = parts[0].trim();
+        title = _cleanText(parts[0]);
       }
     }
   } else {
-    title = titleElement.text.trim();
+    title = _cleanText(titleElement.text);
   }
 
   print('제목 추출 ${titleElement != null ? '성공' : '실패'}: $title');
@@ -192,7 +200,7 @@ MangaDetailParseResult parseMangaDetailFromHtml(String html, String mangaId) {
     if (strong.text.trim().contains('작가')) {
       final a = strong.parent?.querySelector('a');
       if (a != null) {
-        author = a.text.trim();
+        author = _cleanText(a.text);
       }
       break;
     }
@@ -211,7 +219,7 @@ MangaDetailParseResult parseMangaDetailFromHtml(String html, String mangaId) {
     if (strong.text.trim().contains('발행구분')) {
       final a = strong.parent?.querySelector('a');
       if (a != null) {
-        releaseStatus = a.text.trim();
+        releaseStatus = _cleanText(a.text);
       }
       break;
     }
@@ -238,7 +246,7 @@ MangaDetailParseResult parseMangaDetailFromHtml(String html, String mangaId) {
         ?.querySelectorAll('.count, .wr-comment, .orangered')
         .forEach((e) => e.remove());
     // 제목 추출 (자식 태그 제거 후 텍스트만)
-    title = aTag?.text.trim() ?? '';
+    title = _cleanText(aTag?.text ?? '');
     final href = aTag?.attributes['href'] ?? '';
     final idMatch = RegExp(r'/comic/(\d+)').firstMatch(href);
     final id = idMatch != null ? idMatch.group(1)! : '';
