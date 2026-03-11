@@ -63,17 +63,17 @@ class BackupHelper {
       await backupFile.writeAsString(json.encode(archive));
       debugPrint('백업 파일 저장 완료');
 
-      // 모바일 플랫폼은 공유 시트로 내보내기 (Android scoped storage 대응)
-      if (Platform.isIOS || Platform.isAndroid) {
-        debugPrint('${Platform.operatingSystem} 공유 시트 표시 시도');
+      // iOS는 기존처럼 공유 시트 사용
+      if (Platform.isIOS) {
+        debugPrint('iOS 공유 시트 표시 시도');
         try {
           await Share.shareXFiles(
             [XFile(backupFile.path)],
             subject: '카피 뷰어 백업 파일',
           );
-          debugPrint('${Platform.operatingSystem} 공유 완료');
+          debugPrint('iOS 공유 완료');
         } catch (e) {
-          debugPrint('${Platform.operatingSystem} 공유 실패: $e');
+          debugPrint('iOS 공유 실패: $e');
         }
       }
 
@@ -165,7 +165,13 @@ class BackupHelper {
 
   Future<Directory> _getBackupDirectory() async {
     if (Platform.isAndroid) {
-      // Android scoped storage 대응: 앱 전용 문서 폴더 사용
+      // Android: Download 폴더 우선 사용
+      final downloadDir = Directory('/storage/emulated/0/Download');
+      if (await downloadDir.exists()) {
+        return downloadDir;
+      }
+
+      // 폴더 접근 실패 시 앱 전용 폴더로 폴백
       final appDocDir = await getApplicationDocumentsDirectory();
       final backupDir = Directory(join(appDocDir.path, 'backups'));
       if (!await backupDir.exists()) {
