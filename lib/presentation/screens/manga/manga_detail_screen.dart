@@ -849,10 +849,11 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
       final cookieString =
           cookies.map((cookie) => '${cookie.name}=${cookie.value}').join('; ');
 
-      final referer =
-          _lastImageSourcePageUrl ?? ref.read(siteUrlServiceProvider);
+      final String referer =
+          (_lastImageSourcePageUrl ?? ref.read(siteUrlServiceProvider))
+              .toString();
 
-      final headers = {
+      final Map<String, String> headers = {
         'Cookie': cookieString,
         'User-Agent':
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
