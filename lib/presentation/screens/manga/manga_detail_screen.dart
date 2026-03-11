@@ -667,36 +667,6 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
           final document = html_parser.parse(response.body);
           final imageUrls = <String>[];
 
-          String? resolveToAbsolute(String? raw) {
-            if (raw == null || raw.isEmpty) return null;
-            if (raw.startsWith('http')) return raw;
-            if (raw.startsWith('/')) return '$baseUrl$raw';
-            return '$baseUrl/$raw';
-          }
-
-          String? extractFullViewUrl(dynamic root) {
-            if (root == null) return null;
-            final fullViewBtn =
-                root.querySelector('button[data-original-title="전편보기"]');
-            if (fullViewBtn != null) {
-              final onclick = fullViewBtn.attributes['onclick'] ?? '';
-              final match =
-                  RegExp(r"location\.href='([^']+)'").firstMatch(onclick);
-              if (match != null) {
-                return resolveToAbsolute(match.group(1));
-              }
-            }
-
-            final links = root.querySelectorAll('a');
-            for (final link in links) {
-              final text = link.text.trim();
-              if (text.contains('전편보기')) {
-                return resolveToAbsolute(link.attributes['href']);
-              }
-            }
-            return null;
-          }
-
           final imgContainers = [
             ...document.querySelectorAll('.view-content img'),
             ...document.querySelectorAll('.comicdetail img'),
@@ -772,39 +742,6 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
                   imageUrls.add(imageUrl);
                 }
               } catch (_) {}
-            }
-          }
-
-          if (imageUrls.isEmpty) {
-            final fullViewUrl = extractFullViewUrl(document);
-            if (fullViewUrl != null && fullViewUrl != url) {
-              final fullViewRes = await http.get(
-                Uri.parse(fullViewUrl),
-                headers: {
-                  'Cookie': cookieString,
-                  'User-Agent':
-                      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-                  'Referer': url,
-                },
-              );
-
-              if (fullViewRes.statusCode == 200) {
-                final fullDoc = html_parser.parse(fullViewRes.body);
-                final fullImgs = fullDoc
-                    .querySelectorAll('article[itemprop="articleBody"] img');
-                for (final img in fullImgs) {
-                  String? src = img.attributes['data-original'] ??
-                      img.attributes['data-src'] ??
-                      img.attributes['src'];
-                  src = resolveToAbsolute(src);
-                  if (src != null &&
-                      !src.contains('loading-image.gif') &&
-                      !src.contains('banner') &&
-                      !src.contains('ads')) {
-                    imageUrls.add(src);
-                  }
-                }
-              }
             }
           }
 
