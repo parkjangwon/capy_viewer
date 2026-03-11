@@ -1282,11 +1282,6 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
       appBar: AppBar(
         title: Text(_mangaDetail?.title ?? ''),
         actions: [
-          // 저장 버튼
-          IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: _showChapterSelectionDialog,
-          ),
           // 좋아요 버튼
           IconButton(
             icon: Icon(
