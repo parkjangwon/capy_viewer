@@ -676,6 +676,7 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
 
           String? extractFullViewUrl(dynamic root) {
             if (root == null) return null;
+
             final fullViewBtn =
                 root.querySelector('button[data-original-title="전편보기"]');
             if (fullViewBtn != null) {
@@ -694,6 +695,32 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
                 return resolveToAbsolute(link.attributes['href']);
               }
             }
+
+            for (final link in links) {
+              final href = link.attributes['href'] ?? '';
+              if (href.contains('/comic/')) {
+                return resolveToAbsolute(href);
+              }
+            }
+
+            final onclickNodes = root.querySelectorAll('[onclick]');
+            for (final node in onclickNodes) {
+              final onclick = node.attributes['onclick'] ?? '';
+              if (!onclick.contains('/comic/')) continue;
+
+              final singleQuoteMatch =
+                  RegExp(r"'([^']*?/comic/[^']+)'").firstMatch(onclick);
+              if (singleQuoteMatch != null) {
+                return resolveToAbsolute(singleQuoteMatch.group(1));
+              }
+
+              final doubleQuoteMatch =
+                  RegExp(r'"([^"]*?/comic/[^"]+)"').firstMatch(onclick);
+              if (doubleQuoteMatch != null) {
+                return resolveToAbsolute(doubleQuoteMatch.group(1));
+              }
+            }
+
             return null;
           }
 
@@ -803,6 +830,24 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
                       !src.contains('ads')) {
                     imageUrls.add(src);
                   }
+                }
+
+                if (imageUrls.isEmpty) {
+                  final regex = RegExp(
+                    '(https?:\\/\\/[^"\\\'\\s)]+\\.(?:jpg|jpeg|png|webp|gif))',
+                    caseSensitive: false,
+                  );
+                  final fallback = regex
+                      .allMatches(fullViewRes.body)
+                      .map((m) => (m.group(1) ?? '').replaceAll('\\/', '/'))
+                      .where((u) =>
+                          u.isNotEmpty &&
+                          !u.contains('loading-image.gif') &&
+                          !u.contains('banner') &&
+                          !u.contains('ads'))
+                      .toSet()
+                      .toList();
+                  imageUrls.addAll(fallback);
                 }
               }
             }
