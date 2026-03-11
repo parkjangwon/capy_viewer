@@ -3,10 +3,11 @@ import 'dart:convert';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sqflite/sqflite.dart';
+
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter/foundation.dart';
+import '../database/database_helper.dart';
 
 class BackupHelper {
   static const String backupVersion = '1.0.0';
@@ -43,10 +44,14 @@ class BackupHelper {
       final backupFile = File(join(backupDir.path, backupFileName));
       debugPrint('백업 파일 경로: ${backupFile.path}');
 
-      // 4. 데이터베이스 파일 복사
-      final dbPath = await getDatabasesPath();
-      final dbFile = File(join(dbPath, 'capy_viewer.db'));
+      // 4. 데이터베이스 파일 경로 확인 (DatabaseHelper와 동일 경로 사용)
+      final db = await DatabaseHelper.instance.database;
+      final dbFile = File(db.path);
       debugPrint('데이터베이스 파일 경로: ${dbFile.path}');
+
+      if (!await dbFile.exists()) {
+        throw Exception('데이터베이스 파일을 찾을 수 없습니다: ${dbFile.path}');
+      }
 
       // 5. ZIP 파일 생성 (데이터베이스 + 설정)
       final archive = {
