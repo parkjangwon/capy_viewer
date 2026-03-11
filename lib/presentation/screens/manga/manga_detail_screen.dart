@@ -613,147 +613,178 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
   }
 
   // 회차의 이미지 URL 목록을 가져오는 함수
-  Future<List<String>> _getChapterImageUrls(
-    String chapterId, {
-    String? fullViewUrl,
-  }) async {
+  Future<List<String>> _getChapterImageUrls(String chapterId) async {
     try {
       final baseUrl = ref.read(siteUrlServiceProvider);
+      final url = '$baseUrl/comic/$chapterId';
 
-      String normalizeUrl(String raw) {
-        if (raw.startsWith('http')) return raw;
-        if (raw.startsWith('/')) return '$baseUrl$raw';
-        return '$baseUrl/$raw';
-      }
+      _log('[이미지 파싱] URL: $url');
 
-      final candidateUrls = <String>{
-        '$baseUrl/comic/$chapterId',
-        '$baseUrl/bbs/board.php?bo_table=comic&wr_id=$chapterId',
-      };
-
-      if (fullViewUrl != null && fullViewUrl.trim().isNotEmpty) {
-        candidateUrls.add(normalizeUrl(fullViewUrl.trim()));
-      }
-
-      _log('[이미지 파싱] 후보 URL: $candidateUrls');
-
+      // 쿠키 가져오기
       final jar = ref.read(globalCookieJarProvider);
-      Exception? lastError;
+      final cookies = await jar.loadForRequest(Uri.parse(url));
+      final cookieString =
+          cookies.map((cookie) => '${cookie.name}=${cookie.value}').join('; ');
 
-      for (final url in candidateUrls) {
-        try {
-          final cookies = await jar.loadForRequest(Uri.parse(url));
-          final cookieString = cookies
-              .map((cookie) => '${cookie.name}=${cookie.value}')
-              .join('; ');
+      // HTTP 요청 보내기
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Cookie': cookieString,
+          'User-Agent':
+              'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+          'Referer': baseUrl,
+        },
+      );
 
-          final response = await http.get(
-            Uri.parse(url),
-            headers: {
-              'Cookie': cookieString,
-              'User-Agent':
-                  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-              'Referer': baseUrl,
-            },
-          );
+      if (response.statusCode != 200) {
+        throw Exception('페이지를 불러올 수 없습니다. (${response.statusCode})');
+      }
 
-          if (response.statusCode != 200) {
-            lastError = Exception('페이지를 불러올 수 없습니다. (${response.statusCode})');
+      final document = html_parser.parse(response.body);
+      final imageUrls = <String>[];
+
+      // 다양한 선택자로 이미지 찾기
+      final imgContainers = [
+        ...document.querySelectorAll('.view-content img'), // 뷰어 컨텐츠 내 이미지
+        ...document
+            .querySelectorAll('.comicdetail img'), // comicdetail 클래스 내 이미지
+        ...document
+            .querySelectorAll('article[itemprop="articleBody"] img'), // 본문 이미지
+        ...document.querySelectorAll('.post-content img'), // post-content 내 이미지
+        ...document
+            .querySelectorAll('.entry-content img'), // entry-content 내 이미지
+        ...document.querySelectorAll('.comic-images img'), // comic-images 내 이미지
+        ...document.querySelectorAll('.manga-images img'), // manga-images 내 이미지
+        ...document
+            .querySelectorAll('.chapter-content img'), // chapter-content 내 이미지
+      ];
+
+      _log('[이미지 파싱] HTML 구조 분석:');
+      _log('- 전체 HTML 길이: ${response.body.length}');
+      _log('- 이미지 태그 총 개수: ${document.querySelectorAll('img').length}');
+      _log('- 선택자별 이미지 개수:');
+      _log(
+          '  * .view-content img: ${document.querySelectorAll('.view-content img').length}');
+      _log(
+          '  * .comicdetail img: ${document.querySelectorAll('.comicdetail img').length}');
+      _log(
+          '  * article[itemprop="articleBody"] img: ${document.querySelectorAll('article[itemprop="articleBody"] img').length}');
+      _log(
+          '  * .post-content img: ${document.querySelectorAll('.post-content img').length}');
+      _log(
+          '  * .entry-content img: ${document.querySelectorAll('.entry-content img').length}');
+      _log(
+          '  * .comic-images img: ${document.querySelectorAll('.comic-images img').length}');
+      _log(
+          '  * .manga-images img: ${document.querySelectorAll('.manga-images img').length}');
+      _log(
+          '  * .chapter-content img: ${document.querySelectorAll('.chapter-content img').length}');
+
+      _log('[이미지 파싱] 찾은 이미지 태그 개수: ${imgContainers.length}');
+
+      for (var img in imgContainers) {
+        String? imageUrl;
+        final attributes = img.attributes;
+
+        _log('\n[이미지 파싱] 이미지 태그 분석:');
+        _log('- 클래스: ${attributes['class']}');
+        _log('- src: ${attributes['src']}');
+        _log('- data-original: ${attributes['data-original']}');
+        _log('- data-src: ${attributes['data-src']}');
+
+        // data- 속성 모두 확인
+        final dataAttributes = attributes.entries
+            .where((attr) =>
+                (attr.key as String).startsWith('data-') &&
+                attr.value.isNotEmpty)
+            .map((attr) => attr.value)
+            .toList();
+
+        _log('- data- 속성들: $dataAttributes');
+
+        // 1. data- 속성 확인
+        if (dataAttributes.isNotEmpty) {
+          for (var attr in dataAttributes) {
+            if (!attr.contains('loading-image.gif')) {
+              imageUrl = attr;
+              _log('- data- 속성에서 URL 발견: $imageUrl');
+              break;
+            }
+          }
+        }
+
+        // 2. data-original 속성 확인
+        if (imageUrl == null || imageUrl.isEmpty) {
+          final dataOriginal = attributes['data-original'];
+          if (dataOriginal != null &&
+              dataOriginal.isNotEmpty &&
+              !dataOriginal.contains('loading-image.gif')) {
+            imageUrl = dataOriginal;
+            _log('- data-original에서 URL 발견: $imageUrl');
+          }
+        }
+
+        // 3. data-src 속성 확인
+        if (imageUrl == null || imageUrl.isEmpty) {
+          final dataSrc = attributes['data-src'];
+          if (dataSrc != null &&
+              dataSrc.isNotEmpty &&
+              !dataSrc.contains('loading-image.gif')) {
+            imageUrl = dataSrc;
+            _log('- data-src에서 URL 발견: $imageUrl');
+          }
+        }
+
+        // 4. src 속성 확인
+        if (imageUrl == null || imageUrl.isEmpty) {
+          final src = attributes['src'];
+          if (src != null &&
+              src.isNotEmpty &&
+              !src.contains('loading-image.gif')) {
+            imageUrl = src;
+            _log('- src에서 URL 발견: $imageUrl');
+          }
+        }
+
+        // URL이 발견되었고 광고나 배너가 아닌 경우에만 추가
+        if (imageUrl != null &&
+            imageUrl.isNotEmpty &&
+            !imageUrl.contains('loading-image.gif') &&
+            !imageUrl.contains('banner') &&
+            !imageUrl.contains('ads')) {
+          // 상대 경로를 절대 경로로 변환
+          if (!imageUrl.startsWith('http')) {
+            imageUrl = imageUrl.startsWith('/')
+                ? baseUrl + imageUrl
+                : '$baseUrl/$imageUrl';
+          }
+
+          // URL이 유효한지 확인
+          try {
+            final uri = Uri.parse(imageUrl);
+            if (uri.hasScheme && uri.host.isNotEmpty) {
+              _log('[이미지 파싱] 유효한 이미지 URL 추가: $imageUrl');
+              imageUrls.add(imageUrl);
+            }
+          } catch (e) {
+            _log('[이미지 파싱] 유효하지 않은 이미지 URL: $imageUrl (에러: $e)');
             continue;
           }
-
-          final document = html_parser.parse(response.body);
-          final imageUrls = <String>[];
-
-          final imgContainers = [
-            ...document.querySelectorAll('.view-content img'),
-            ...document.querySelectorAll('.comicdetail img'),
-            ...document.querySelectorAll('article[itemprop="articleBody"] img'),
-            ...document.querySelectorAll('.post-content img'),
-            ...document.querySelectorAll('.entry-content img'),
-            ...document.querySelectorAll('.comic-images img'),
-            ...document.querySelectorAll('.manga-images img'),
-            ...document.querySelectorAll('.chapter-content img'),
-          ];
-
-          for (final img in imgContainers) {
-            String? imageUrl;
-            final attributes = img.attributes;
-
-            final dataAttributes = attributes.entries
-                .where((attr) =>
-                    (attr.key as String).startsWith('data-') &&
-                    attr.value.isNotEmpty)
-                .map((attr) => attr.value)
-                .toList();
-
-            if (dataAttributes.isNotEmpty) {
-              for (final attr in dataAttributes) {
-                if (!attr.contains('loading-image.gif')) {
-                  imageUrl = attr;
-                  break;
-                }
-              }
-            }
-
-            if (imageUrl == null || imageUrl.isEmpty) {
-              final dataOriginal = attributes['data-original'];
-              if (dataOriginal != null &&
-                  dataOriginal.isNotEmpty &&
-                  !dataOriginal.contains('loading-image.gif')) {
-                imageUrl = dataOriginal;
-              }
-            }
-
-            if (imageUrl == null || imageUrl.isEmpty) {
-              final dataSrc = attributes['data-src'];
-              if (dataSrc != null &&
-                  dataSrc.isNotEmpty &&
-                  !dataSrc.contains('loading-image.gif')) {
-                imageUrl = dataSrc;
-              }
-            }
-
-            if (imageUrl == null || imageUrl.isEmpty) {
-              final src = attributes['src'];
-              if (src != null &&
-                  src.isNotEmpty &&
-                  !src.contains('loading-image.gif')) {
-                imageUrl = src;
-              }
-            }
-
-            if (imageUrl != null &&
-                imageUrl.isNotEmpty &&
-                !imageUrl.contains('loading-image.gif') &&
-                !imageUrl.contains('banner') &&
-                !imageUrl.contains('ads')) {
-              if (!imageUrl.startsWith('http')) {
-                imageUrl = imageUrl.startsWith('/')
-                    ? baseUrl + imageUrl
-                    : '$baseUrl/$imageUrl';
-              }
-
-              try {
-                final uri = Uri.parse(imageUrl);
-                if (uri.hasScheme && uri.host.isNotEmpty) {
-                  imageUrls.add(imageUrl);
-                }
-              } catch (_) {}
-            }
-          }
-
-          if (imageUrls.isNotEmpty) {
-            return imageUrls;
-          }
-
-          lastError = Exception('이미지를 찾을 수 없습니다. URL=$url');
-        } catch (e) {
-          lastError = Exception(e.toString());
+        } else {
+          _log('[이미지 파싱] 이미지 URL 필터링됨: $imageUrl');
         }
       }
 
-      throw (lastError ?? Exception('이미지를 찾을 수 없습니다.'));
+      _log('[이미지 파싱] 추출된 이미지 URL 개수: ${imageUrls.length}');
+
+      if (imageUrls.isEmpty) {
+        _log('[이미지 파싱] HTML 내용 확인:');
+        _log(response.body.substring(0, min(1000, response.body.length)));
+        throw Exception('이미지를 찾을 수 없습니다.');
+      }
+
+      return imageUrls;
     } catch (e, stack) {
       _log('이미지 URL 가져오기 실패: $e');
       _log('스택 트레이스: $stack');
@@ -862,51 +893,54 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
   }
 
   // PDF 파일 생성 함수
-  Future<File> _createPdf(
-    String chapterId,
-    String chapterTitle, {
-    String? fullViewUrl,
-  }) async {
-    final imageUrls = await _getChapterImageUrls(
-      chapterId,
-      fullViewUrl: fullViewUrl,
-    );
-    if (imageUrls.isEmpty) {
-      throw Exception('이미지를 찾을 수 없습니다.');
-    }
-
-    final pdf = pw.Document();
-    final images = <Uint8List>[];
-
-    for (final imageUrl in imageUrls) {
-      final imageBytes = await _downloadImage(imageUrl);
-      if (imageBytes != null) {
-        images.add(imageBytes);
+  Future<File?> _createPdf(String chapterId, String chapterTitle) async {
+    try {
+      final imageUrls = await _getChapterImageUrls(chapterId);
+      if (imageUrls.isEmpty) {
+        throw Exception('이미지를 찾을 수 없습니다.');
       }
-    }
 
-    if (images.isEmpty) {
-      throw Exception('이미지 다운로드에 실패했습니다.');
-    }
+      final pdf = pw.Document();
+      final images = <Uint8List>[];
 
-    for (final imageBytes in images) {
-      final image = pw.MemoryImage(imageBytes);
-      pdf.addPage(
-        pw.Page(
-          build: (context) {
-            return pw.Center(
-              child: pw.Image(image, fit: pw.BoxFit.contain),
-            );
-          },
-        ),
-      );
-    }
+      // 각 이미지 다운로드
+      for (var i = 0; i < imageUrls.length; i++) {
+        final imageUrl = imageUrls[i];
+        final imageBytes = await _downloadImage(imageUrl);
+        if (imageBytes != null) {
+          images.add(imageBytes);
+        }
+      }
 
-    final dir = await getTemporaryDirectory();
-    final safeChapterTitle = _sanitizeFileName(chapterTitle);
-    final file = File('${dir.path}/$safeChapterTitle.pdf');
-    await file.writeAsBytes(await pdf.save());
-    return file;
+      // 다운로드된 이미지가 없으면 에러
+      if (images.isEmpty) {
+        throw Exception('이미지 다운로드에 실패했습니다.');
+      }
+
+      // 각 이미지를 PDF 페이지로 변환
+      for (var imageBytes in images) {
+        final image = pw.MemoryImage(imageBytes);
+        pdf.addPage(
+          pw.Page(
+            build: (context) {
+              return pw.Center(
+                child: pw.Image(image, fit: pw.BoxFit.contain),
+              );
+            },
+          ),
+        );
+      }
+
+      // PDF 파일 저장
+      final dir = await getTemporaryDirectory();
+      final safeChapterTitle = _sanitizeFileName(chapterTitle);
+      final file = File('${dir.path}/$safeChapterTitle.pdf');
+      await file.writeAsBytes(await pdf.save());
+      return file;
+    } catch (e) {
+      _log('PDF 생성 실패: $e');
+      return null;
+    }
   }
 
   // ZIP 파일 생성 함수
@@ -958,8 +992,7 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
       // 단일 회차인 경우
       if (selectedChaptersList.length == 1) {
         final chapter = selectedChaptersList.first;
-        final imageUrls = await _getChapterImageUrls(chapter.id,
-            fullViewUrl: chapter.fullViewUrl);
+        final imageUrls = await _getChapterImageUrls(chapter.id);
 
         if (imageUrls.isEmpty) {
           throw Exception('이미지를 찾을 수 없습니다.');
@@ -977,8 +1010,7 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
           throw Exception('이미지 다운로드에 실패했습니다.');
         }
 
-        final pdfFile = await _createPdf(chapter.id, chapter.title,
-            fullViewUrl: chapter.fullViewUrl);
+        final pdfFile = await _createPdf(chapter.id, chapter.title);
         if (pdfFile != null) {
           await Share.shareXFiles([XFile(pdfFile.path)]);
         }
@@ -989,8 +1021,7 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
         final pdfs = <File>[];
 
         for (var chapter in selectedChaptersList) {
-          final imageUrls = await _getChapterImageUrls(chapter.id,
-              fullViewUrl: chapter.fullViewUrl);
+          final imageUrls = await _getChapterImageUrls(chapter.id);
           if (imageUrls.isNotEmpty) {
             final images = <Uint8List>[];
             for (var url in imageUrls) {
@@ -1000,8 +1031,7 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
               }
             }
             if (images.isNotEmpty) {
-              final pdfFile = await _createPdf(chapter.id, chapter.title,
-                  fullViewUrl: chapter.fullViewUrl);
+              final pdfFile = await _createPdf(chapter.id, chapter.title);
               if (pdfFile != null) {
                 pdfs.add(pdfFile);
               }
@@ -1043,11 +1073,10 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
     _isDownloading = true;
 
     try {
-      final pdfFile = await _createPdf(
-        chapter.id,
-        chapter.title,
-        fullViewUrl: chapter.fullViewUrl,
-      );
+      final pdfFile = await _createPdf(chapter.id, chapter.title);
+      if (pdfFile == null) {
+        throw Exception('PDF 생성에 실패했습니다.');
+      }
 
       final safeTitle = _sanitizeFileName(chapter.title);
       final saved = await _saveFileToDevice(pdfFile, '$safeTitle.pdf');
@@ -1073,12 +1102,10 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
       final pdfs = <File>[];
 
       for (final chapter in chapters) {
-        final pdfFile = await _createPdf(
-          chapter.id,
-          chapter.title,
-          fullViewUrl: chapter.fullViewUrl,
-        );
-        pdfs.add(pdfFile);
+        final pdfFile = await _createPdf(chapter.id, chapter.title);
+        if (pdfFile != null) {
+          pdfs.add(pdfFile);
+        }
       }
 
       if (pdfs.isEmpty) {
