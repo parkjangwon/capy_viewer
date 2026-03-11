@@ -78,7 +78,6 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
   bool _showSaveDialog = false;
 
   bool _isDownloading = false;
-  String? _lastImageSourcePageUrl;
 
   String _normalizeHtmlFromJsResult(Object? rawResult) {
     var html = rawResult?.toString() ?? '';
@@ -630,7 +629,6 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
       final candidateUrls = <String>{
         '$baseUrl/comic/$chapterId',
         '$baseUrl/bbs/board.php?bo_table=comic&wr_id=$chapterId',
-        '$baseUrl/bbs/board.php?bo_table=manga&wr_id=$chapterId',
       };
 
       if (fullViewUrl != null && fullViewUrl.trim().isNotEmpty) {
@@ -766,7 +764,6 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
           }
 
           if (imageUrls.isNotEmpty) {
-            _lastImageSourcePageUrl = url;
             return imageUrls;
           }
 
@@ -793,14 +790,11 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
       final cookieString =
           cookies.map((cookie) => '${cookie.name}=${cookie.value}').join('; ');
 
-      final referer =
-          _lastImageSourcePageUrl ?? ref.read(siteUrlServiceProvider);
-
       final headers = {
         'Cookie': cookieString,
         'User-Agent':
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-        'Referer': referer,
+        'Referer': ref.read(siteUrlServiceProvider),
       };
 
       final response = await http.get(Uri.parse(url), headers: headers);
@@ -912,7 +906,7 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
     }
 
     if (images.isEmpty) {
-      throw Exception('이미지 다운로드에 실패했습니다. (핫링크/리퍼러 차단 가능)');
+      throw Exception('이미지 다운로드에 실패했습니다.');
     }
 
     for (final imageBytes in images) {
