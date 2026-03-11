@@ -23,7 +23,6 @@ import '../manga/manga_captcha_screen.dart';
 import '../viewer/manga_viewer_screen.dart';
 import '../../providers/tab_provider.dart';
 import '../../../data/database/database_helper.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class MangaDetailScreen extends ConsumerStatefulWidget {
   final String? mangaId;
@@ -75,8 +74,6 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
   Set<String> _selectedChapters = {};
   bool _showSaveDialog = false;
 
-  final FlutterLocalNotificationsPlugin _notificationsPlugin =
-      FlutterLocalNotificationsPlugin();
   bool _isDownloading = false;
 
   String _normalizeHtmlFromJsResult(Object? rawResult) {
@@ -103,7 +100,6 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
     _initWebView();
     _loadMangaDetail();
     _checkLikeStatus();
-    _initializeNotifications();
   }
 
   @override
@@ -835,6 +831,43 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
     return sanitized.length > 120 ? sanitized.substring(0, 120) : sanitized;
   }
 
+  Future<Directory> _getDownloadDirectory() async {
+    if (Platform.isAndroid) {
+      final dir = Directory('/storage/emulated/0/Download');
+      if (await dir.exists()) return dir;
+    }
+
+    final docDir = await getApplicationDocumentsDirectory();
+    final fallback = Directory('${docDir.path}/Downloads');
+    if (!await fallback.exists()) {
+      await fallback.create(recursive: true);
+    }
+    return fallback;
+  }
+
+  Future<File> _saveFileToDevice(File sourceFile, String fileName) async {
+    try {
+      final downloadDir = await _getDownloadDirectory();
+      final targetFile = File('${downloadDir.path}/$fileName');
+      return sourceFile.copy(targetFile.path);
+    } catch (_) {
+      final appDocDir = await getApplicationDocumentsDirectory();
+      final fallbackDir = Directory('${appDocDir.path}/Downloads');
+      if (!await fallbackDir.exists()) {
+        await fallbackDir.create(recursive: true);
+      }
+      final fallbackFile = File('${fallbackDir.path}/$fileName');
+      return sourceFile.copy(fallbackFile.path);
+    }
+  }
+
+  void _showSavedSnack(String path) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('저장 완료: $path')),
+    );
+  }
+
   // PDF 파일 생성 함수
   Future<File?> _createPdf(String chapterId, String chapterTitle) async {
     try {
@@ -1016,25 +1049,20 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
     _isDownloading = true;
 
     try {
-      await _showProgressNotification(
-        '다운로드 시작',
-        '${_mangaDetail!.title} - ${chapter.title} 다운로드를 시작합니다.',
-      );
-
       final pdfFile = await _createPdf(chapter.id, chapter.title);
-      if (pdfFile != null) {
-        await _showProgressNotification(
-          '다운로드 완료',
-          '${_mangaDetail!.title} - ${chapter.title} 다운로드가 완료되었습니다.',
-        );
-        await Share.shareXFiles([XFile(pdfFile.path)]);
-        await pdfFile.delete();
+      if (pdfFile == null) {
+        throw Exception('PDF 생성에 실패했습니다.');
       }
+
+      final safeTitle = _sanitizeFileName(chapter.title);
+      final saved = await _saveFileToDevice(pdfFile, '$safeTitle.pdf');
+      _showSavedSnack(saved.path);
     } catch (e) {
-      await _showProgressNotification(
-        '다운로드 실패',
-        '${_mangaDetail!.title} - ${chapter.title} 다운로드 중 오류가 발생했습니다.',
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('저장 실패: $e')),
+        );
+      }
       _log('단일 회차 저장 실패: $e');
     } finally {
       _isDownloading = false;
@@ -1048,63 +1076,38 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
 
     try {
       final pdfs = <File>[];
-      final total = chapters.length;
 
-      await _showProgressNotification(
-        '다운로드 시작',
-        '${_mangaDetail!.title} - 총 $total 회차 다운로드를 시작합니다.',
-      );
-
-      for (var i = 0; i < chapters.length; i++) {
-        final chapter = chapters[i];
-        await _showProgressNotification(
-          '다운로드 진행 중',
-          '${_mangaDetail!.title} - ${i + 1}/$total 회차 다운로드 중',
-        );
-
+      for (final chapter in chapters) {
         final pdfFile = await _createPdf(chapter.id, chapter.title);
         if (pdfFile != null) {
           pdfs.add(pdfFile);
         }
       }
 
-      if (pdfs.isNotEmpty) {
-        await _showProgressNotification(
-          'ZIP 파일 생성 중',
-          '${_mangaDetail!.title} - ZIP 파일을 생성하고 있습니다.',
-        );
-
-        final archive = Archive();
-        for (final pdf in pdfs) {
-          final bytes = await pdf.readAsBytes();
-          archive.addFile(
-            ArchiveFile(pdf.path.split('/').last, bytes.length, bytes),
-          );
-        }
-
-        final dir = await getTemporaryDirectory();
-        final safeTitle = _sanitizeFileName(_mangaDetail!.title);
-        final zipFile = File('${dir.path}/$safeTitle.zip');
-        await zipFile.writeAsBytes(ZipEncoder().encode(archive)!);
-
-        await _showProgressNotification(
-          '다운로드 완료',
-          '${_mangaDetail!.title} - 다운로드가 완료되었습니다.',
-        );
-
-        await Share.shareXFiles([XFile(zipFile.path)]);
-
-        // 임시 파일 정리
-        for (final pdf in pdfs) {
-          await pdf.delete();
-        }
-        await zipFile.delete();
+      if (pdfs.isEmpty) {
+        throw Exception('PDF 생성에 실패했습니다.');
       }
+
+      final archive = Archive();
+      for (final pdf in pdfs) {
+        final bytes = await pdf.readAsBytes();
+        archive.addFile(
+            ArchiveFile(pdf.path.split('/').last, bytes.length, bytes));
+      }
+
+      final dir = await getTemporaryDirectory();
+      final safeTitle = _sanitizeFileName(_mangaDetail!.title);
+      final zipFile = File('${dir.path}/$safeTitle.zip');
+      await zipFile.writeAsBytes(ZipEncoder().encode(archive)!);
+
+      final saved = await _saveFileToDevice(zipFile, '$safeTitle.zip');
+      _showSavedSnack(saved.path);
     } catch (e) {
-      await _showProgressNotification(
-        '다운로드 실패',
-        '${_mangaDetail!.title} - 다운로드 중 오류가 발생했습니다.',
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('저장 실패: $e')),
+        );
+      }
       _log('여러 회차 저장 실패: $e');
     } finally {
       _isDownloading = false;
@@ -1229,49 +1232,6 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
           _mangaDetail = _mangaDetail!.copyWith(isLiked: newLikeStatus);
         });
       }
-    }
-  }
-
-  Future<void> _initializeNotifications() async {
-    const initializationSettings = InitializationSettings(
-      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-      iOS: DarwinInitializationSettings(
-        requestAlertPermission: true,
-        requestBadgePermission: true,
-        requestSoundPermission: true,
-      ),
-    );
-
-    await _notificationsPlugin.initialize(initializationSettings);
-  }
-
-  Future<void> _showProgressNotification(String title, String body) async {
-    try {
-      const notificationDetails = NotificationDetails(
-        android: AndroidNotificationDetails(
-          'download_progress',
-          '다운로드 진행 상태',
-          channelDescription: '회차 PDF 다운로드 진행 상태 알림',
-          importance: Importance.low,
-          priority: Priority.low,
-          playSound: false,
-          showProgress: false,
-        ),
-        iOS: DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: false,
-        ),
-      );
-
-      await _notificationsPlugin.show(
-        0,
-        title,
-        body,
-        notificationDetails,
-      );
-    } catch (_) {
-      // 알림 실패가 저장 흐름을 막지 않도록 무시
     }
   }
 
