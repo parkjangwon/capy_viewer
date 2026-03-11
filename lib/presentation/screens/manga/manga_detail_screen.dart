@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -43,6 +44,8 @@ class MangaDetailScreen extends ConsumerStatefulWidget {
 
 class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
   static const bool _verboseLog = false;
+  static const MethodChannel _downloadChannel =
+      MethodChannel('capy_viewer/downloads');
 
   void _log(String message) {
     if (_verboseLog && kDebugMode) {
@@ -846,6 +849,27 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
   }
 
   Future<File> _saveFileToDevice(File sourceFile, String fileName) async {
+    if (Platform.isAndroid) {
+      try {
+        final savedPath = await _downloadChannel.invokeMethod<String>(
+          'saveToDownloads',
+          {
+            'sourcePath': sourceFile.path,
+            'fileName': fileName,
+            'mimeType': fileName.toLowerCase().endsWith('.zip')
+                ? 'application/zip'
+                : 'application/pdf',
+          },
+        );
+
+        if (savedPath != null && savedPath.isNotEmpty) {
+          return File(savedPath);
+        }
+      } catch (e) {
+        _log('다운로드 폴더 저장 실패(네이티브): $e');
+      }
+    }
+
     try {
       final downloadDir = await _getDownloadDirectory();
       final targetFile = File('${downloadDir.path}/$fileName');
