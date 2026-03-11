@@ -629,13 +629,12 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
 
       final candidateUrls = <String>{
         '$baseUrl/comic/$chapterId',
+        '$baseUrl/bbs/board.php?bo_table=comic&wr_id=$chapterId',
+        '$baseUrl/bbs/board.php?bo_table=manga&wr_id=$chapterId',
       };
 
       if (fullViewUrl != null && fullViewUrl.trim().isNotEmpty) {
-        final normalized = normalizeUrl(fullViewUrl.trim());
-        if (normalized.contains('/comic/')) {
-          candidateUrls.add(normalized);
-        }
+        candidateUrls.add(normalizeUrl(fullViewUrl.trim()));
       }
 
       _log('[이미지 파싱] 후보 URL: $candidateUrls');
@@ -920,6 +919,14 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
         } catch (e) {
           lastError = Exception(e.toString());
         }
+      }
+
+      final webViewFallback = await _getChapterImageUrlsViaWebView(
+        candidateUrls.toList(),
+        baseUrl,
+      );
+      if (webViewFallback.isNotEmpty) {
+        return webViewFallback;
       }
 
       throw (lastError ?? Exception('이미지를 찾을 수 없습니다.'));
