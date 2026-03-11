@@ -776,12 +776,68 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
         }
       }
 
+      if (lastError.toString().contains('(403)')) {
+        final webViewFallback = await _getChapterImageUrlsViaWebView(
+          candidateUrls.toList(),
+          baseUrl,
+        );
+        if (webViewFallback.isNotEmpty) {
+          return webViewFallback;
+        }
+      }
+
       throw (lastError ?? Exception('이미지를 찾을 수 없습니다.'));
     } catch (e, stack) {
       _log('이미지 URL 가져오기 실패: $e');
       _log('스택 트레이스: $stack');
       rethrow;
     }
+  }
+
+  Future<List<String>> _getChapterImageUrlsViaWebView(
+    List<String> candidateUrls,
+    String baseUrl,
+  ) async {
+    for (final url in candidateUrls) {
+      try {
+        await _controller.loadRequest(Uri.parse(url));
+        await Future.delayed(const Duration(milliseconds: 1200));
+
+        final htmlResult = await _controller
+            .runJavaScriptReturningResult('document.documentElement.outerHTML');
+        final html = _normalizeHtmlFromJsResult(htmlResult);
+        if (html.isEmpty) continue;
+
+        final document = html_parser.parse(html);
+        final imageUrls = <String>[];
+        final imgs =
+            document.querySelectorAll('article[itemprop="articleBody"] img');
+
+        for (final img in imgs) {
+          String? src = img.attributes['data-original'] ??
+              img.attributes['data-src'] ??
+              img.attributes['src'];
+          if (src == null || src.isEmpty) continue;
+          if (!src.startsWith('http')) {
+            src = src.startsWith('/') ? '$baseUrl$src' : '$baseUrl/$src';
+          }
+          if (!src.contains('loading-image.gif') &&
+              !src.contains('banner') &&
+              !src.contains('ads')) {
+            imageUrls.add(src);
+          }
+        }
+
+        if (imageUrls.isNotEmpty) {
+          _lastImageSourcePageUrl = url;
+          return imageUrls.toSet().toList();
+        }
+      } catch (_) {
+        continue;
+      }
+    }
+
+    return [];
   }
 
   // 이미지 다운로드 함수
