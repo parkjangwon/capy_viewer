@@ -17,6 +17,7 @@ import '../../widgets/manatoki_captcha_widget.dart';
 import '../../viewmodels/global_cookie_provider.dart';
 import '../../../data/database/database_helper.dart';
 import '../../providers/secret_mode_provider.dart';
+import '../../providers/recent_chapters_provider.dart';
 import '../../../data/models/manga_viewer_state.dart';
 import '../captcha_page.dart';
 import 'comments_screen.dart';
@@ -590,11 +591,15 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
   }
 
   Future<void> _addToRecentChapters() async {
-    if (_currentTitle.isNotEmpty) {
+    final chapterTitle = _currentTitle.trim().isNotEmpty
+        ? _currentTitle.trim()
+        : widget.title.trim();
+
+    if (chapterTitle.isNotEmpty) {
       print('[최근에 본 작품] 저장 시도');
       print('[최근에 본 작품] ID: ${widget.chapterId}');
       print('[최근에 본 작품] 작품 ID: ${widget.title}');
-      print('[최근에 본 작품] 제목: $_currentTitle');
+      print('[최근에 본 작품] 제목: $chapterTitle');
       print('[최근에 본 작품] 썸네일: ${widget.thumbnailUrl}');
 
       // 시크릿 모드 상태 확인
@@ -620,22 +625,26 @@ class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
           await _db.updateRecentChapter(
             chapterId: widget.chapterId,
             mangaId: widget.title,
-            chapterTitle: _currentTitle,
+            chapterTitle: chapterTitle,
             thumbnailUrl: thumbnailUrl,
             lastPage: _currentPage,
           );
-          print('[최근에 본 작품] 업데이트됨: ${widget.chapterId} - $_currentTitle');
+          print('[최근에 본 작품] 업데이트됨: ${widget.chapterId} - $chapterTitle');
         } else {
           // 새로운 데이터 추가
           await _db.addRecentChapter(
             chapterId: widget.chapterId,
             mangaId: widget.title,
-            chapterTitle: _currentTitle,
+            chapterTitle: chapterTitle,
             thumbnailUrl: widget.thumbnailUrl ?? '', // 전달받은 썸네일 사용
             lastPage: _currentPage,
           );
-          print('[최근에 본 작품] 추가됨: ${widget.chapterId} - $_currentTitle');
+          print('[최근에 본 작품] 추가됨: ${widget.chapterId} - $chapterTitle');
         }
+
+        // UI 즉시 반영
+        await ref.read(recentChaptersProvider.notifier).refresh();
+        await ref.read(recentChaptersPreviewProvider.notifier).refresh();
       } catch (e) {
         print('[최근에 본 작품] 저장 실패: $e');
       }

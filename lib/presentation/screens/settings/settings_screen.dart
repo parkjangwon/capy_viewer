@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,6 +16,7 @@ import '../../providers/keep_screen_on_provider.dart';
 import '../../../data/database/database_helper.dart';
 import '../../providers/recent_chapters_provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:path_provider/path_provider.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -110,10 +113,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (result == null || result.files.isEmpty) return;
 
       final file = result.files.first;
-      if (file.path == null) throw Exception('파일 경로를 찾을 수 없습니다.');
+      final fileName = (file.name).toLowerCase();
 
       // 파일 확장자 검사
-      if (!file.path!.toLowerCase().endsWith('.capy')) {
+      if (!fileName.endsWith('.capy')) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('.capy 확장자의 백업 파일만 복원할 수 있습니다.')),
@@ -124,17 +127,34 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
       setState(() => _isProcessing = true);
 
-      await _backupHelper.restoreBackup(file.path!);
+      // Android에서 SAF로 선택된 파일은 path가 null일 수 있으므로 임시 파일로 저장
+      String restorePath;
+      if (file.path != null) {
+        restorePath = file.path!;
+      } else if (file.bytes != null) {
+        final tempDir = await getTemporaryDirectory();
+        final tempFile = File(path.join(
+          tempDir.path,
+          'restore-${DateTime.now().millisecondsSinceEpoch}.capy',
+        ));
+        await tempFile.writeAsBytes(file.bytes!, flush: true);
+        restorePath = tempFile.path;
+      } else {
+        throw Exception('선택한 파일을 읽을 수 없습니다.');
+      }
 
-      // 데이터베이스 연결 재초기화
+      // 데이터베이스 연결 재초기화 (복원 전에 잠금 해제)
       final db = DatabaseHelper.instance;
       if (db.isOpen) {
         await db.close();
       }
-      await Future.delayed(
-          const Duration(milliseconds: 100)); // 데이터베이스가 완전히 닫힐 때까지 잠시 대기
-      DatabaseHelper.resetDatabase(); // 데이터베이스 인스턴스 초기화
-      await db.database; // 새로운 연결 생성
+      await Future.delayed(const Duration(milliseconds: 100));
+      DatabaseHelper.resetDatabase();
+
+      await _backupHelper.restoreBackup(restorePath);
+
+      // 새로운 연결 생성
+      await DatabaseHelper.instance.database;
 
       // 쿠키 초기화
       ref.invalidate(globalCookieJarProvider);

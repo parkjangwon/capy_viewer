@@ -595,12 +595,13 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
   }
 
   void _onItemTapped(int index) {
-    if (index != _selectedIndex) {
-      // 먼저 탭 상태를 변경
-      ref.read(selectedTabProvider.notifier).state = index;
-      // 그 다음 네비게이션 수행
-      Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-    }
+    if (index == _selectedIndex) return;
+
+    // 메인 탭 개수(0..4)와 맞추기
+    final targetIndex = index.clamp(0, 4);
+
+    ref.read(selectedTabProvider.notifier).state = targetIndex;
+    Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
   }
 
   // 회차의 이미지 URL 목록을 가져오는 함수
@@ -815,6 +816,16 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
     }
   }
 
+  String _sanitizeFileName(String name) {
+    final sanitized = name
+        .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')
+        .replaceAll(RegExp(r'[\r\n\t]'), ' ')
+        .trim();
+
+    if (sanitized.isEmpty) return 'untitled';
+    return sanitized.length > 120 ? sanitized.substring(0, 120) : sanitized;
+  }
+
   // PDF 파일 생성 함수
   Future<File?> _createPdf(String chapterId, String chapterTitle) async {
     try {
@@ -856,7 +867,8 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
 
       // PDF 파일 저장
       final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/$chapterTitle.pdf');
+      final safeChapterTitle = _sanitizeFileName(chapterTitle);
+      final file = File('${dir.path}/$safeChapterTitle.pdf');
       await file.writeAsBytes(await pdf.save());
       return file;
     } catch (e) {
@@ -884,7 +896,8 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
       if (zipData == null) return null;
 
       final tempDir = await getTemporaryDirectory();
-      final zipFile = File('${tempDir.path}/$title.zip');
+      final safeTitle = _sanitizeFileName(title);
+      final zipFile = File('${tempDir.path}/$safeTitle.zip');
       await zipFile.writeAsBytes(zipData);
 
       return zipFile;
@@ -1061,7 +1074,8 @@ class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
         }
 
         final dir = await getTemporaryDirectory();
-        final zipFile = File('${dir.path}/${_mangaDetail!.title}.zip');
+        final safeTitle = _sanitizeFileName(_mangaDetail!.title);
+        final zipFile = File('${dir.path}/$safeTitle.zip');
         await zipFile.writeAsBytes(ZipEncoder().encode(archive)!);
 
         await _showProgressNotification(

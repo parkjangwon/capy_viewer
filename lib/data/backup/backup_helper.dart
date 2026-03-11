@@ -3,16 +3,13 @@ import 'dart:convert';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../database/database_helper.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:cross_file/cross_file.dart';
 import 'package:flutter/foundation.dart';
 
 class BackupHelper {
   static const String backupVersion = '1.0.0';
-  final _db = DatabaseHelper.instance;
 
   Future<String> createBackup() async {
     try {
@@ -61,24 +58,17 @@ class BackupHelper {
       await backupFile.writeAsString(json.encode(archive));
       debugPrint('백업 파일 저장 완료');
 
-      // iOS의 경우 파일 공유 시트 표시
-      if (Platform.isIOS) {
-        debugPrint('iOS 공유 시트 표시 시도');
+      // 모바일 플랫폼은 공유 시트로 내보내기 (Android scoped storage 대응)
+      if (Platform.isIOS || Platform.isAndroid) {
+        debugPrint('${Platform.operatingSystem} 공유 시트 표시 시도');
         try {
           await Share.shareXFiles(
             [XFile(backupFile.path)],
             subject: '카피 뷰어 백업 파일',
-          ).then((_) async {
-            // 공유가 완료된 후 임시 파일 삭제
-            if (await backupFile.exists()) {
-              await backupFile.delete();
-              debugPrint('임시 백업 파일 삭제 완료');
-            }
-          });
-          debugPrint('iOS 공유 완료');
+          );
+          debugPrint('${Platform.operatingSystem} 공유 완료');
         } catch (e) {
-          debugPrint('iOS 공유 실패: $e');
-          rethrow;
+          debugPrint('${Platform.operatingSystem} 공유 실패: $e');
         }
       }
 
@@ -115,8 +105,13 @@ class BackupHelper {
         await dbFile.delete();
       }
 
+      final rawDb = archive['database'];
+      if (rawDb is! List) {
+        throw Exception('백업 파일의 데이터베이스 형식이 올바르지 않습니다.');
+      }
+
       // 새 데이터베이스 파일 생성
-      await dbFile.writeAsBytes(List<int>.from(archive['database']));
+      await dbFile.writeAsBytes(rawDb.cast<int>(), flush: true);
 
       // 4. 설정 복원
       await _restorePreferences(
@@ -162,12 +157,13 @@ class BackupHelper {
 
   Future<Directory> _getBackupDirectory() async {
     if (Platform.isAndroid) {
-      // Android의 경우 Download 폴더
-      final directory = Directory('/storage/emulated/0/Download');
-      if (!await directory.exists()) {
-        throw Exception('다운로드 폴더를 찾을 수 없습니다.');
+      // Android scoped storage 대응: 앱 전용 문서 폴더 사용
+      final appDocDir = await getApplicationDocumentsDirectory();
+      final backupDir = Directory(join(appDocDir.path, 'backups'));
+      if (!await backupDir.exists()) {
+        await backupDir.create(recursive: true);
       }
-      return directory;
+      return backupDir;
     } else if (Platform.isIOS) {
       // iOS의 경우 임시 디렉토리 사용 (공유 후 자동 삭제)
       return await getTemporaryDirectory();
