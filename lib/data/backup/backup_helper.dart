@@ -101,11 +101,14 @@ class BackupHelper {
         throw Exception('지원하지 않는 백업 버전입니다.');
       }
 
-      // 3. 데이터베이스 복원
-      final dbPath = await getDatabasesPath();
-      final dbFile = File(join(dbPath, 'capy_viewer.db'));
+      // 3. 데이터베이스 복원 (DatabaseHelper 실제 경로 기준)
+      final db = await DatabaseHelper.instance.database;
+      final dbFile = File(db.path);
 
-      // 데이터베이스 파일이 있다면 삭제
+      // 파일 교체 전 DB 핸들 닫기
+      await DatabaseHelper.instance.close();
+      DatabaseHelper.resetDatabase();
+
       if (await dbFile.exists()) {
         await dbFile.delete();
       }
