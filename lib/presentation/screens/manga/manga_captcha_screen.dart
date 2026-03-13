@@ -46,8 +46,6 @@ class _MangaCaptchaScreenState extends ConsumerState<MangaCaptchaScreen> {
             if (!_mounted) return;
             setState(() => _isLoading = false);
 
-            print('캡챠 화면 URL: $url');
-
             // 마나토키 사이트로 돌아왔는지 확인
             final baseUrl = ref.read(siteUrlServiceProvider);
 
@@ -67,7 +65,6 @@ class _MangaCaptchaScreenState extends ConsumerState<MangaCaptchaScreen> {
                   !htmlStr.contains('captcha_check.php') &&
                   !htmlStr.contains('captcha_key') &&
                   !htmlStr.contains('자동등록방지')) {
-                print('캡챠 인증 성공: 일반 페이지로 돌아왔습니다.');
                 _captchaVerified = true;
                 if (_mounted) {
                   // 지연을 추가하여 쿠키가 저장되고 적용될 시간 확보

@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:math';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -43,13 +42,7 @@ class MangaDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _MangaDetailScreenState extends ConsumerState<MangaDetailScreen> {
-  static const bool _verboseLog = false;
-
-  void _log(String message) {
-    if (_verboseLog && kDebugMode) {
-      debugPrint(message);
-    }
-  }
+  void _log(String message) {}
 
   late WebViewController _controller;
   bool _isLoading = true;

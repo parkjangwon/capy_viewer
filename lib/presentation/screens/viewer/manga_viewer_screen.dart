@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -22,7 +21,6 @@ import '../../providers/recent_chapters_provider.dart';
 import '../../../data/models/manga_viewer_state.dart';
 import '../captcha_page.dart';
 import 'comments_screen.dart';
-import '../../../utils/manga_detail_parser.dart';
 
 /// 만화 뷰어 화면
 /// 만화 페이지를 표시하고 캡차 처리를 담당합니다.
@@ -45,13 +43,7 @@ class MangaViewerScreen extends ConsumerStatefulWidget {
 }
 
 class _MangaViewerScreenState extends ConsumerState<MangaViewerScreen> {
-  static const bool _verboseLog = false;
-
-  void _log(String message) {
-    if (_verboseLog && kDebugMode) {
-      debugPrint(message);
-    }
-  }
+  void _log(String message) {}
 
   late WebViewController _controller;
   final _db = DatabaseHelper.instance;

@@ -10,4 +10,4 @@ final recentTitlesProvider = FutureProvider<List<MangaTitle>>((ref) async {
 final weeklyBestProvider = FutureProvider<List<MangaTitle>>((ref) async {
   final apiService = ref.watch(apiServiceProvider());
   return apiService.fetchWeeklyBest();
-}); 
+});

@@ -17,15 +17,15 @@ class SiteUrlService extends StateNotifier<String> {
   bool _isAutoMode = true;
   final _telegramChannelUrl = 'https://t.me/s/p48v267tsgubym7';
   final _defaultUrl = 'https://manatoki468.net';
-  
+
   bool get isAutoMode => _isAutoMode;
-  
+
   String get baseUrl => state;
-  
+
   Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
     _isAutoMode = prefs.getBool('auto_mode') ?? true;
-    
+
     // 저장된 URL이 있으면 우선 사용
     final savedUrl = prefs.getString('site_url');
     if (savedUrl != null && savedUrl.isNotEmpty) {
@@ -45,7 +45,7 @@ class SiteUrlService extends StateNotifier<String> {
     _isAutoMode = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('auto_mode', value);
-    
+
     if (value) {
       await refreshUrl();
     }
@@ -68,7 +68,8 @@ class SiteUrlService extends StateNotifier<String> {
       return;
     }
 
-    _logger.i('Starting URL refresh from Telegram channel: $_telegramChannelUrl');
+    _logger
+        .i('Starting URL refresh from Telegram channel: $_telegramChannelUrl');
     try {
       final response = await _dio.get<String>(_telegramChannelUrl);
       final html = response.data;
@@ -80,7 +81,7 @@ class SiteUrlService extends StateNotifier<String> {
       _logger.i('Successfully accessed Telegram channel');
       final regex = RegExp(r'<a[^>]*href="([^"]*manatoki[^"]*)"[^>]*>');
       final match = regex.firstMatch(html);
-      
+
       if (match != null && match.groupCount >= 1) {
         final url = match.group(1)!;
         _logger.i('Found new URL in Telegram channel: $url');
@@ -121,4 +122,4 @@ class SiteUrlService extends StateNotifier<String> {
       _logger.i('Updated site URL in auto mode: $url');
     }
   }
-} 
+}

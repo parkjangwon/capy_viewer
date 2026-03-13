@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 import 'dart:async';
-import 'package:cookie_jar/cookie_jar.dart';
-import 'package:webview_flutter/webview_flutter.dart';
 import '../../../data/models/manga_title.dart';
 
 import '../../../utils/html_manga_parser.dart';
@@ -12,7 +10,6 @@ import '../../widgets/manga/manga_list_item.dart';
 import '../../viewmodels/global_cookie_provider.dart';
 import '../../viewmodels/cookie_sync_utils.dart';
 import '../../../data/providers/site_url_provider.dart';
-import '../settings/settings_screen.dart';
 import '../manga/manga_navigation.dart';
 import '../../widgets/captcha/captcha_page.dart';
 
@@ -132,8 +129,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   }
 
   void _onSearch() {
-    print('[DEBUG] 검색 시작');
-
     // 현재 검색 상태 업데이트
     _currentSearch = _searchController.text.trim();
     _currentSearchType = _searchType;
@@ -145,14 +140,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       _currentGenre = _selectedGenres.join('|'); // 쉼표 대신 | 구분자 사용
     }
     _currentSort = _sortValue;
-
-    print('[DEBUG] 검색 파라미터:');
-    print('- 검색어: $_currentSearch');
-    print('- 검색 타입: $_currentSearchType');
-    print('- 발행 상태: $_currentPublish');
-    print('- 초성: $_currentJaum');
-    print('- 장르: $_currentGenre');
-    print('- 정렬: $_currentSort');
 
     // WebView 상태 초기화
     _webViewInitialized = false;
@@ -181,16 +168,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
   }
 
   Future<void> _fetchPage(int pageKey) async {
-    print('[DEBUG] 페이지 로드 시작: pageKey=$pageKey');
-
     if (!mounted) {
-      print('[DEBUG] 위젯이 dispose된 상태');
       return;
     }
 
     try {
       if (!_webViewInitialized) {
-        print('[DEBUG] WebView 초기화 시작');
         await _webViewHelper.initialize();
 
         // WebView 쿠키 → Dio 쿠키 동기화
@@ -199,13 +182,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
         await syncWebViewCookiesToDio(baseUrl, jar);
 
         _webViewInitialized = true;
-        print('[DEBUG] WebView 초기화 완료');
       }
 
       if (!mounted) return;
 
       final baseUrl = ref.read(siteUrlServiceProvider);
-      print('[DEBUG] 검색 요청 전송');
 
       await _webViewHelper.loadSearch(
         baseUrl,
@@ -218,9 +199,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
 
       if (!mounted) return;
 
-      print('[DEBUG] HTML 콘텐츠 가져오기');
       final html = await _webViewHelper.getHtml();
-      print('[DEBUG] HTML 길이: ${html.length}');
 
       // 캡차 감지 키워드 확장
       final captchaKeywords = [
@@ -238,7 +217,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
       ];
 
       if (captchaKeywords.any((k) => html.contains(k)) || html.length < 1000) {
-        print('[DEBUG] 캡차 감지됨 또는 비정상적인 응답');
         if (!mounted) return;
 
         final siteUrl = ref.read(siteUrlServiceProvider);
@@ -261,7 +239,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
         );
 
         if (result != null) {
-          print('[DEBUG] 캡차 인증 성공, 검색 재시도');
           // 캡차 인증 성공 후 WebView 재초기화
           _webViewInitialized = false;
           if (mounted) {
@@ -269,7 +246,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
           }
           return;
         } else {
-          print('[DEBUG] 캡차 인증 실패');
           if (mounted) {
             _pagingController?.error = Exception('캡차 인증이 필요합니다.');
           }
@@ -277,14 +253,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
         }
       }
 
-      print('[DEBUG] 검색 결과 파싱 시작');
       final parsed = parseMangaListFromHtml(html);
-      print('[DEBUG] 파싱된 결과 수: ${parsed.length}');
-
-      if (parsed.isEmpty && html.length > 1000) {
-        print('[DEBUG] 결과가 없지만 HTML이 존재함. HTML 내용 확인:');
-        print(html.substring(0, 500)); // 처음 500자만 출력
-      }
 
       final newItems = parsed
           .map((item) => MangaTitle(
@@ -297,14 +266,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen>
                 updateDate: item.updateDate,
               ))
           .toList();
-      print('[DEBUG] 변환된 아이템 수: ${newItems.length}');
 
       if (mounted) {
         _pagingController?.appendLastPage(newItems);
       }
-    } catch (e, stack) {
-      print('[ERROR] 검색 중 오류 발생: $e');
-      print(stack);
+    } catch (e) {
       if (mounted) {
         _pagingController?.error = e;
       }

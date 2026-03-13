@@ -27,4 +27,4 @@ class SearchResultItem extends StatelessWidget {
       onTap: onTap,
     );
   }
-} 
+}

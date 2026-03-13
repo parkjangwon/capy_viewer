@@ -6,4 +6,4 @@ class CacheFailure extends Failure {}
 
 class NetworkFailure extends Failure {}
 
-class CaptchaFailure extends Failure {} 
+class CaptchaFailure extends Failure {}

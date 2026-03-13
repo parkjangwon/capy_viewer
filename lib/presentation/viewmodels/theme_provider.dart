@@ -44,4 +44,4 @@ class ThemeNotifier extends StateNotifier<ThemeMode> {
         return 'system';
     }
   }
-} 
+}

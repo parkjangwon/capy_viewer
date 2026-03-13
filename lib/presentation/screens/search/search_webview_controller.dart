@@ -48,7 +48,6 @@ class SearchWebViewController {
       'artist': '',
     }).toString();
 
-    print('[DEBUG] Search URL: $searchUrl');
     await controller.loadRequest(Uri.parse(searchUrl));
   }
 

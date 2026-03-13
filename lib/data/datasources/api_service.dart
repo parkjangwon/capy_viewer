@@ -285,7 +285,8 @@ class ApiService extends _$ApiService {
 
       // Android에서 Cloudflare가 302로 바로 튕기는 케이스 처리
       if (isRedirect && isCaptchaRedirect) {
-        _logger.w('[REQUEST] 리다이렉트 캡차 감지: status=$statusCode, location=$location');
+        _logger
+            .w('[REQUEST] 리다이렉트 캡차 감지: status=$statusCode, location=$location');
         if (bypassCaptchaOnBlocked) {
           final success = await bypassCaptcha(url);
           if (success) {
@@ -420,7 +421,6 @@ class ApiService extends _$ApiService {
       _cookieJar = PersistCookieJar(
         storage: FileStorage(cookieDir),
       );
-      debugPrint('Cookie storage initialized at $cookieDir');
 
       // 쿠키 저장소가 변경되었으므로 interceptor도 업데이트
       _dio.interceptors.clear();

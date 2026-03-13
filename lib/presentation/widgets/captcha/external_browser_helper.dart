@@ -59,7 +59,6 @@ Future<void> launchUrlExternal(String url) async {
   if (await canLaunchUrl(uri)) {
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   } else {
-    debugPrint('[EXTERNAL_BROWSER][ERROR] Could not launch: $url');
     throw 'Could not launch $url';
   }
 }

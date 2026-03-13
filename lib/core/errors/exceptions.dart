@@ -4,4 +4,4 @@ class CacheException implements Exception {}
 
 class NetworkException implements Exception {}
 
-class CaptchaException implements Exception {} 
+class CaptchaException implements Exception {}

@@ -8,12 +8,8 @@ import '../../data/providers/site_url_provider.dart';
 final mangaDetailControllerProvider =
     Provider.autoDispose<MangaDetailWebViewController>((ref) {
   final navigationDelegate = NavigationDelegate(
-    onPageStarted: (url) {
-      print('페이지 로드 시작: $url');
-    },
-    onPageFinished: (url) {
-      print('페이지 로드 완료: $url');
-    },
+    onPageStarted: (url) {},
+    onPageFinished: (url) {},
     onNavigationRequest: (request) {
       return NavigationDecision.navigate;
     },

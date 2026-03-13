@@ -24,10 +24,10 @@ class _CaptchaModalState extends State<CaptchaModal> {
   String? _initialUrl;
 
   bool _isChallengeUrl(String url) {
-    return url.contains('challenge') || 
-           url.contains('cloudflare') ||
-           url.contains('captcha') ||
-           url.contains('cdn-cgi');
+    return url.contains('challenge') ||
+        url.contains('cloudflare') ||
+        url.contains('captcha') ||
+        url.contains('cdn-cgi');
   }
 
   @override
@@ -69,7 +69,8 @@ class _CaptchaModalState extends State<CaptchaModal> {
                   InAppWebView(
                     initialUrlRequest: URLRequest(url: WebUri(widget.url)),
                     initialSettings: InAppWebViewSettings(
-                      userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                      userAgent:
+                          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
                       javaScriptEnabled: true,
                       clearCache: true,
                     ),
@@ -94,9 +95,10 @@ class _CaptchaModalState extends State<CaptchaModal> {
                       _logger.i('[CAPTCHA] 페이지 로드 완료: $currentUrl');
 
                       // 챌린지를 만난 적이 있고, 현재 URL이 초기 URL과 같거나 챌린지가 아닌 경우
-                      if (_hasSeenChallenge && 
+                      if (_hasSeenChallenge &&
                           !_isChallengeUrl(currentUrl) &&
-                          (currentUrl == _initialUrl || currentUrl.startsWith(widget.url))) {
+                          (currentUrl == _initialUrl ||
+                              currentUrl.startsWith(widget.url))) {
                         _logger.i('[CAPTCHA] 인증 완료 감지');
                         widget.onCaptchaVerified();
                         Navigator.of(context).pop();
@@ -115,4 +117,4 @@ class _CaptchaModalState extends State<CaptchaModal> {
       ),
     );
   }
-} 
+}

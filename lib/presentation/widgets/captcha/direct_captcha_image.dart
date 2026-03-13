@@ -32,7 +32,6 @@ class _DirectCaptchaImageState extends ConsumerState<DirectCaptchaImage> {
   Uint8List? _imageBytes;
   bool _isLoading = true;
   String? _errorMessage;
-  String? manualCookieString;
 
   @override
   void initState() {
@@ -143,25 +142,6 @@ class _DirectCaptchaImageState extends ConsumerState<DirectCaptchaImage> {
           );
     }
 
-    // 이미지 데이터 디버깅
-    print(
-        '이미지 데이터 처음 20바이트: ${_imageBytes!.sublist(0, _imageBytes!.length > 20 ? 20 : _imageBytes!.length)}');
-
-    // JPEG 이미지 시그니처 확인 (FF D8 FF)
-    bool isJpeg = _imageBytes!.length > 3 &&
-        _imageBytes![0] == 0xFF &&
-        _imageBytes![1] == 0xD8 &&
-        _imageBytes![2] == 0xFF;
-
-    // PNG 이미지 시그니처 확인 (89 50 4E 47)
-    bool isPng = _imageBytes!.length > 4 &&
-        _imageBytes![0] == 0x89 &&
-        _imageBytes![1] == 0x50 &&
-        _imageBytes![2] == 0x4E &&
-        _imageBytes![3] == 0x47;
-
-    print('이미지 형식: ${isJpeg ? "JPEG" : isPng ? "PNG" : "알 수 없음"}');
-
     // 단순화된 이미지 표시 방법
     return Container(
       width: widget.width,
@@ -179,9 +159,6 @@ class _DirectCaptchaImageState extends ConsumerState<DirectCaptchaImage> {
           fit: widget.fit,
           gaplessPlayback: true, // 이미지 전환 시 깜빡임 방지
           errorBuilder: (context, error, stackTrace) {
-            print('이미지 렌더링 오류:');
-            print(error);
-            print(stackTrace);
             return Container(
               width: widget.width,
               height: widget.height,

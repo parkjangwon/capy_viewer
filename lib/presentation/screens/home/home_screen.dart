@@ -124,11 +124,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     padding: const EdgeInsets.only(right: 8),
                                     child: InkWell(
                                       onTap: () {
-                                        print('[홈] 최근 본 작품 클릭');
-                                        print(
-                                            '[홈] 작품 정보: ${chapter.toString()}');
-                                        print(
-                                            '[홈] 마지막 페이지: ${chapter['last_page']}');
                                         Navigator.push(
                                           context,
                                           MaterialPageRoute(
@@ -308,7 +303,6 @@ class _HorizontalCardList extends StatelessWidget {
                     final viewerUrl = item.url.startsWith('http')
                         ? item.url
                         : '$baseUrl${item.url}';
-                    debugPrint('[썸네일] 뷰어로 이동: url=$viewerUrl');
                     Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => MangaViewerScreen(

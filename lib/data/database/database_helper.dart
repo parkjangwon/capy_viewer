@@ -1,6 +1,5 @@
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
-import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 class DatabaseHelper {
@@ -274,7 +273,6 @@ class DatabaseHelper {
 
   // 최근에 본 작품 관련 메서드
   Future<List<Map<String, dynamic>>> getRecentChapters({int? limit}) async {
-    print('[데이터베이스] 최근 본 회차 조회 시작');
     final db = await database;
     final result = await db.query(
       'recent_chapters',
@@ -282,7 +280,6 @@ class DatabaseHelper {
       limit: limit,
       groupBy: 'manga_id', // 만화 ID로 그룹화하여 중복 제거
     );
-    print('[데이터베이스] 조회된 회차 수: ${result.length}');
     return result;
   }
 
@@ -415,13 +412,11 @@ class DatabaseHelper {
   }
 
   Future<void> deleteRecentChapter(String chapterId) async {
-    print('[데이터베이스] 최근 본 회차 삭제: $chapterId');
     final db = await database;
     await db.delete(
       'recent_chapters',
       where: 'id = ?',
       whereArgs: [chapterId],
     );
-    print('[데이터베이스] 회차 삭제 완료');
   }
 }

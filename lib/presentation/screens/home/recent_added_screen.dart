@@ -188,7 +188,6 @@ class _RecentAddedListItem extends ConsumerWidget {
           final baseUrl = ref.read(siteUrlServiceProvider);
           final viewerUrl =
               item.url.startsWith('http') ? item.url : '$baseUrl${item.url}';
-          debugPrint('[최근추가] 뷰어로 이동: url=$viewerUrl');
           Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => MangaViewerScreen(
@@ -336,8 +335,6 @@ class _RecentAddedListItem extends ConsumerWidget {
                     // 상세보기 버튼 클릭 시 전편보기 링크로 직접 이동
                     // 전체 URL을 전달하여 해당 페이지의 HTML에서 전편보기 링크 추출
                     if (item.url.isNotEmpty) {
-                      print(
-                          '상세보기 진입: item.fullViewUrl=${item.fullViewUrl}, item.title=${item.title}');
                       MangaNavigation.navigateToMangaDetail(
                         context,
                         item.fullViewUrl,

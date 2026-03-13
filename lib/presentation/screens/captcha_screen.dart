@@ -97,7 +97,6 @@ class _CaptchaScreenState extends State<CaptchaScreen> {
               iframeCheckboxes[j].click();
             }
           } catch (e) {
-            console.error('Error accessing iframe content:', e);
           }
         }
       }

@@ -32,14 +32,14 @@ List<ParsedMangaItem> parseMangaListFromHtml(String html) {
 
   // 검색 결과 목록 찾기
   final listItems = document.querySelectorAll('#webtoon-list-all > li');
-  print('[DEBUG] Found ${listItems.length} manga items');
 
   for (final item in listItems) {
     try {
       // 링크와 제목
       final titleElement = item.querySelector('.in-lable a');
       final href = titleElement?.attributes['href'] ?? '';
-      final title = _cleanText(titleElement?.querySelector('.title')?.text ?? '');
+      final title =
+          _cleanText(titleElement?.querySelector('.title')?.text ?? '');
 
       // 썸네일
       final imgElement = item.querySelector('.img-item img');
@@ -67,9 +67,8 @@ List<ParsedMangaItem> parseMangaListFromHtml(String html) {
           updateDate: updateDate,
         ));
       }
-    } catch (e, stack) {
-      print('[ERROR] Failed to parse manga item: $e');
-      print(stack);
+    } catch (_) {
+      // Skip malformed items and continue parsing the remaining results.
     }
   }
 

@@ -27,4 +27,4 @@ final darkTheme = ThemeData(
     seedColor: Colors.blue,
     brightness: Brightness.dark,
   ),
-); 
+);

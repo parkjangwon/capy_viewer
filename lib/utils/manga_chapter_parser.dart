@@ -52,7 +52,6 @@ class MangaChapterParser {
 
       return chapterList;
     } catch (e) {
-      print('회차 목록 파싱 오류: $e');
       return [];
     }
   }

@@ -54,8 +54,6 @@ class MangaNavigation {
       url = '$cleanBaseUrl/comic/$mangaId';
     }
 
-    print('만화 상세 페이지 네비게이션: $url');
-
     Navigator.of(context).push(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>

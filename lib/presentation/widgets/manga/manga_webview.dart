@@ -99,7 +99,6 @@ class _MangaWebViewState extends ConsumerState<MangaWebView> {
                   id: item['id'] as String,
                   title: item['title'] as String,
                   thumbnailUrl: item['thumbnailUrl'] as String,
-                  
                   author: item['author'] as String,
                   release: item['release'] as String,
                 ))
@@ -107,8 +106,8 @@ class _MangaWebViewState extends ConsumerState<MangaWebView> {
 
         widget.onTitlesLoaded(mangaTitles);
       }
-    } catch (e) {
-      debugPrint('Error extracting titles: $e');
+    } catch (_) {
+      // Ignore malformed results and keep the WebView usable.
     }
   }
 

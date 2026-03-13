@@ -36,14 +36,16 @@ class MangaListItem extends StatelessWidget {
                           width: 80,
                           height: 110,
                           color: Colors.grey[300],
-                          child: const Icon(Icons.broken_image, size: 40, color: Colors.grey),
+                          child: const Icon(Icons.broken_image,
+                              size: 40, color: Colors.grey),
                         ),
                       )
                     : Container(
                         width: 80,
                         height: 110,
                         color: Colors.grey[300],
-                        child: const Icon(Icons.photo, size: 40, color: Colors.grey),
+                        child: const Icon(Icons.photo,
+                            size: 40, color: Colors.grey),
                       ),
               ),
               const SizedBox(width: 16),
@@ -53,7 +55,10 @@ class MangaListItem extends StatelessWidget {
                   children: [
                     Text(
                       manga.title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -61,7 +66,8 @@ class MangaListItem extends StatelessWidget {
                     if (manga.author.isNotEmpty)
                       Row(
                         children: [
-                          const Icon(Icons.person, size: 16, color: Colors.grey),
+                          const Icon(Icons.person,
+                              size: 16, color: Colors.grey),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
@@ -78,7 +84,10 @@ class MangaListItem extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 6),
                         child: Text(
                           manga.release,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.deepPurple),
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(color: Colors.deepPurple),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -89,26 +98,35 @@ class MangaListItem extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 4),
                         child: Row(
                           children: [
-                            const Icon(Icons.calendar_today, size: 14, color: Colors.orange),
+                            const Icon(Icons.calendar_today,
+                                size: 14, color: Colors.orange),
                             const SizedBox(width: 4),
                             Text(
                               manga.period!,
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.orange[800]),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(color: Colors.orange[800]),
                             ),
                           ],
                         ),
                       ),
                     // 업데이트 날짜
-                    if (manga.updateDate != null && manga.updateDate!.isNotEmpty)
+                    if (manga.updateDate != null &&
+                        manga.updateDate!.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Row(
                           children: [
-                            const Icon(Icons.update, size: 14, color: Colors.teal),
+                            const Icon(Icons.update,
+                                size: 14, color: Colors.teal),
                             const SizedBox(width: 4),
                             Text(
                               manga.updateDate!,
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.teal[800]),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(color: Colors.teal[800]),
                             ),
                           ],
                         ),
@@ -122,4 +140,4 @@ class MangaListItem extends StatelessWidget {
       ),
     );
   }
-} 
+}

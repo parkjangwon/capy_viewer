@@ -14,4 +14,4 @@ class Title with _$Title {
   }) = _Title;
 
   factory Title.fromJson(Map<String, dynamic> json) => _$TitleFromJson(json);
-} 
+}

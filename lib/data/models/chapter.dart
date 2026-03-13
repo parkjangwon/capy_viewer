@@ -12,5 +12,6 @@ class Chapter with _$Chapter {
     required DateTime uploadDate,
   }) = _Chapter;
 
-  factory Chapter.fromJson(Map<String, dynamic> json) => _$ChapterFromJson(json);
-} 
+  factory Chapter.fromJson(Map<String, dynamic> json) =>
+      _$ChapterFromJson(json);
+}

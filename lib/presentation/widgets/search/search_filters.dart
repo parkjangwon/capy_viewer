@@ -34,4 +34,4 @@ class SearchFilters extends StatelessWidget {
       ],
     );
   }
-} 
+}

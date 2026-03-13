@@ -46,4 +46,4 @@ class TitleCard extends StatelessWidget {
       ),
     );
   }
-} 
+}

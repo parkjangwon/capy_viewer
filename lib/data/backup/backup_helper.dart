@@ -6,7 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:flutter/foundation.dart';
 import '../database/database_helper.dart';
 
 class BackupHelper {
@@ -14,11 +13,9 @@ class BackupHelper {
 
   Future<String> createBackup() async {
     try {
-      debugPrint('백업 생성 시작');
       // 1. SharedPreferences에서 모든 설정 가져오기
       final prefs = await SharedPreferences.getInstance();
       final prefsData = await _getPreferences();
-      debugPrint('설정 데이터 가져오기 완료');
 
       // 2. 백업 데이터 준비
       final backupData = {
@@ -32,22 +29,18 @@ class BackupHelper {
           ...prefsData,
         },
       };
-      debugPrint('백업 데이터 준비 완료');
 
       // 3. 백업 파일 생성
       final backupDir = await _getBackupDirectory();
-      debugPrint('백업 디렉토리 경로: ${backupDir.path}');
 
       final now = DateTime.now();
       final timestamp = DateFormat('yyyyMMddHHmm').format(now);
       final backupFileName = 'capy-viewer-backup-$timestamp.capy';
       final backupFile = File(join(backupDir.path, backupFileName));
-      debugPrint('백업 파일 경로: ${backupFile.path}');
 
       // 4. 데이터베이스 파일 경로 확인 (DatabaseHelper와 동일 경로 사용)
       final db = await DatabaseHelper.instance.database;
       final dbFile = File(db.path);
-      debugPrint('데이터베이스 파일 경로: ${dbFile.path}');
 
       if (!await dbFile.exists()) {
         throw Exception('데이터베이스 파일을 찾을 수 없습니다: ${dbFile.path}');
@@ -61,26 +54,21 @@ class BackupHelper {
 
       // 6. 백업 파일 저장
       await backupFile.writeAsString(json.encode(archive));
-      debugPrint('백업 파일 저장 완료');
 
       // iOS는 기존처럼 공유 시트 사용
       if (Platform.isIOS) {
-        debugPrint('iOS 공유 시트 표시 시도');
         try {
           await Share.shareXFiles(
             [XFile(backupFile.path)],
             subject: '카피 뷰어 백업 파일',
           );
-          debugPrint('iOS 공유 완료');
-        } catch (e) {
-          debugPrint('iOS 공유 실패: $e');
+        } catch (_) {
+          // Ignore share-sheet dismissal and platform handoff failures.
         }
       }
 
       return backupFile.path;
-    } catch (e, stackTrace) {
-      debugPrint('백업 생성 중 오류 발생: $e');
-      debugPrint('스택 트레이스: $stackTrace');
+    } catch (e) {
       throw Exception('백업 생성 중 오류 발생: $e');
     }
   }

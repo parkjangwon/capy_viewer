@@ -9,7 +9,7 @@ class ManatokiCaptchaHelper {
     required String redirectUrl,
   }) async {
     String? result;
-    
+
     await showDialog(
       context: context,
       barrierDismissible: false,
@@ -36,4 +36,4 @@ class ManatokiCaptchaHelper {
     final wrId = uri.queryParameters['wr_id'];
     return wrId ?? '';
   }
-} 
+}

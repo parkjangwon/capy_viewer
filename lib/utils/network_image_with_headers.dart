@@ -35,21 +35,15 @@ class NetworkImageWithHeaders extends ConsumerWidget {
       if (url.startsWith('/')) {
         // 상대 경로인 경우 동적 기본 도메인 추가
         imageUrl = '$siteBaseUrl$url';
-        print('상대 경로 URL 변환: $url -> $imageUrl');
       }
 
       // URL에 http/https가 없는 경우 추가
       if (!imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
         imageUrl = 'https://$imageUrl';
-        print('프로토콜 추가: $imageUrl');
       }
 
       final uri = Uri.parse(imageUrl);
       final baseUrl = '${uri.scheme}://${uri.host}';
-
-      print('이미지 로딩 시도: $imageUrl');
-      print('베이스 URL: $baseUrl');
-      print('호스트: ${uri.host}');
 
       // 모든 쿠키 수집
       List<Cookie> allCookies = [];
@@ -125,18 +119,12 @@ class NetworkImageWithHeaders extends ConsumerWidget {
           ? allCookies.map((c) => '${c.name}=${c.value}').join('; ')
           : null;
 
-      print('이미지 요청에 사용되는 쿠키 개수: ${allCookies.length}');
-      if (isCaptchaImage) {
-        print('캡챠 이미지 쿠키 이름들: ${allCookies.map((c) => c.name).join(', ')}');
-      }
-
       // 캐시 방지를 위한 타임스탬프 추가
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       // 캡챠 이미지인 경우 _direct 파라미터도 추가
       final String urlWithTimestamp = isCaptchaImage
           ? '$imageUrl${uri.hasQuery ? '&' : '?'}_t=$timestamp&_direct=1'
           : '$imageUrl${uri.hasQuery ? '&' : '?'}_t=$timestamp';
-      print('타임스탬프 추가된 URL: $urlWithTimestamp');
 
       // 헤더 설정 (브라우저 네트워크 탭 정보 기반)
       final headers = {
@@ -165,21 +153,6 @@ class NetworkImageWithHeaders extends ConsumerWidget {
         headers['Cookie'] = cookieString;
       }
 
-      // 이미지가 캡챠인 경우 상세 로깅
-      if (isCaptchaImage) {
-        print('\n=== NetworkImageWithHeaders 캡챠 이미지 요청 정보 ===');
-        print('요청 URL: $urlWithTimestamp');
-        print('\n=== 요청 헤더 ===');
-        headers.forEach((key, value) {
-          print('$key: $value');
-        });
-        print('\n=== 쿠키 상세 정보 ===');
-        for (var cookie in allCookies) {
-          print('${cookie.name}: ${cookie.value}');
-        }
-        print('===============================\n');
-      }
-
       // http 패키지를 사용하여 이미지 요청 (Dio 대신)
       try {
         // 첫 번째 시도: 타임스탬프가 있는 URL로 요청
@@ -190,15 +163,8 @@ class NetworkImageWithHeaders extends ConsumerWidget {
 
         if (httpResponse.statusCode == 200 &&
             httpResponse.bodyBytes.isNotEmpty) {
-          print('HTTP 이미지 로드 성공: $urlWithTimestamp');
-          print('HTTP 이미지 크기: ${httpResponse.bodyBytes.length} 바이트');
-          print('HTTP 응답 헤더: ${httpResponse.headers}');
-          print('HTTP 응답 콘텐츠 타입: ${httpResponse.headers['content-type']}');
           return httpResponse.bodyBytes;
         } else {
-          print(
-              'HTTP 이미지 로드 실패: $urlWithTimestamp, 상태 코드: ${httpResponse.statusCode}');
-
           // 두 번째 시도: 원본 URL로 요청
           final secondResponse = await http.get(
             Uri.parse(imageUrl),
@@ -207,20 +173,14 @@ class NetworkImageWithHeaders extends ConsumerWidget {
 
           if (secondResponse.statusCode == 200 &&
               secondResponse.bodyBytes.isNotEmpty) {
-            print('두 번째 HTTP 이미지 로드 성공: $imageUrl');
-            print('두 번째 HTTP 이미지 크기: ${secondResponse.bodyBytes.length} 바이트');
             return secondResponse.bodyBytes;
-          } else {
-            print(
-                '두 번째 HTTP 이미지 로드 실패: $imageUrl, 상태 코드: ${secondResponse.statusCode}');
           }
         }
-      } catch (httpError) {
-        print('HTTP 요청 오류: $httpError');
+      } catch (_) {
+        // Fall back to Dio below.
       }
 
       // HTTP 요청이 실패하면 Dio로 시도
-      print('HTTP 요청 실패, Dio로 시도');
       final dio = Dio();
 
       // 첫 번째 시도 - 기본 URL로 요청
@@ -234,24 +194,10 @@ class NetworkImageWithHeaders extends ConsumerWidget {
         ),
       );
 
-      // 응답 데이터 디버깅
-      if (response.statusCode == 200 && response.data != null) {
-        print('Dio 응답 헤더: ${response.headers}');
-        print('Dio 응답 데이터 크기: ${response.data!.length}');
-        if (response.data!.isNotEmpty) {
-          // 데이터의 처음 몇 바이트 출력 (디버깅용)
-          final previewSize =
-              response.data!.length > 20 ? 20 : response.data!.length;
-          print(
-              '데이터 미리보기 (처음 $previewSize 바이트): ${response.data!.sublist(0, previewSize)}');
-        }
-      }
-
       // 첫 번째 시도가 실패하면 원본 URL로 다시 시도
       if (response.statusCode != 200 ||
           response.data == null ||
           response.data!.isEmpty) {
-        print('Dio 첫 번째 시도 실패, 원본 URL로 재시도: $imageUrl');
         response = await dio.get<List<int>>(
           imageUrl,
           options: Options(
@@ -266,17 +212,10 @@ class NetworkImageWithHeaders extends ConsumerWidget {
       if (response.statusCode == 200 &&
           response.data != null &&
           response.data!.isNotEmpty) {
-        print('Dio 이미지 로드 성공: ${response.requestOptions.uri}');
-        print('Dio 이미지 크기: ${response.data!.length} 바이트');
         return Uint8List.fromList(response.data!);
       } else {
-        print(
-            'Dio 이미지 로드 실패: ${response.requestOptions.uri}, 상태 코드: ${response.statusCode}');
-        print('Dio 응답 데이터 크기: ${response.data?.length ?? 0} 바이트');
-
         // 마지막 시도: 직접 URL 요청 (이미지가 캡챠인 경우 특별 처리)
         if (imageUrl.contains('captcha') || imageUrl.contains('kcaptcha')) {
-          print('캡챠 이미지 특별 처리 시도');
           // 캡챠 이미지에 대한 특별 처리
           final directResponse = await http.get(
             Uri.parse('$imageUrl?_direct=1&t=$timestamp'),
@@ -290,7 +229,6 @@ class NetworkImageWithHeaders extends ConsumerWidget {
 
           if (directResponse.statusCode == 200 &&
               directResponse.bodyBytes.isNotEmpty) {
-            print('직접 요청 성공: ${directResponse.bodyBytes.length} 바이트');
             return directResponse.bodyBytes;
           }
         }
@@ -298,7 +236,6 @@ class NetworkImageWithHeaders extends ConsumerWidget {
         return null;
       }
     } catch (e) {
-      print('이미지 로드 오류: $url, 예외: ${e.toString()}');
       return null;
     }
   }
@@ -313,7 +250,6 @@ class NetworkImageWithHeaders extends ConsumerWidget {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.done &&
             snapshot.data != null) {
-          print('[NetworkImageWithHeaders] 이미지 로딩 성공: $url');
           return Image.memory(
             snapshot.data!,
             width: width,
@@ -324,7 +260,6 @@ class NetworkImageWithHeaders extends ConsumerWidget {
           // Diagnostic error widget for debugging black screen issues
           final errorMsg =
               '이미지 로딩 실패!\nURL: $url\n에러: ${(snapshot.error ?? 'Unknown error').toString()}';
-          print('[NetworkImageWithHeaders] $errorMsg');
           return errorWidget ??
               Container(
                 width: width,

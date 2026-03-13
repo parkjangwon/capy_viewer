@@ -20,7 +20,6 @@ Future<String?> getCookieString(CookieJar jar, String url) async {
     if (cookies.isEmpty) return null;
     return cookies.map((c) => '${c.name}=${c.value}').join('; ');
   } catch (e) {
-    print('쿠키 로드 오류: $e');
     return null;
   }
 }

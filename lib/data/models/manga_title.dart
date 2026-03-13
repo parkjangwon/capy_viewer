@@ -17,4 +17,4 @@ class MangaTitle with _$MangaTitle {
 
   factory MangaTitle.fromJson(Map<String, dynamic> json) =>
       _$MangaTitleFromJson(json);
-} 
+}

@@ -6,4 +6,4 @@ part 'navigator_provider.g.dart';
 @riverpod
 GlobalKey<NavigatorState> navigatorKey(NavigatorKeyRef ref) {
   return GlobalKey<NavigatorState>();
-} 
+}

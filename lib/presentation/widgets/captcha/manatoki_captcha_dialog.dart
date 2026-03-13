@@ -42,7 +42,8 @@ class _ManatokiCaptchaDialogState extends State<ManatokiCaptchaDialog> {
               child: Stack(
                 children: [
                   InAppWebView(
-                    initialUrlRequest: URLRequest(url: WebUri(widget.captchaUrl)),
+                    initialUrlRequest:
+                        URLRequest(url: WebUri(widget.captchaUrl)),
                     initialOptions: InAppWebViewGroupOptions(
                       crossPlatform: InAppWebViewOptions(
                         useShouldOverrideUrlLoading: true,
@@ -53,7 +54,7 @@ class _ManatokiCaptchaDialogState extends State<ManatokiCaptchaDialog> {
                     ),
                     onWebViewCreated: (controller) {
                       _webViewController = controller;
-                      
+
                       // 캡차 제출 핸들러 등록
                       controller.addJavaScriptHandler(
                         handlerName: 'submitCaptcha',
@@ -83,11 +84,6 @@ class _ManatokiCaptchaDialogState extends State<ManatokiCaptchaDialog> {
                         _isLoading = false;
                       });
 
-                      // 캡차 이미지 URL 추출
-                      final imageUrl = await controller.evaluateJavascript(
-                        source: "document.querySelector('.captcha_img').src",
-                      );
-
                       // 새로고침 버튼 이벤트 리스너 추가
                       await controller.evaluateJavascript(
                         source: """
@@ -108,9 +104,7 @@ class _ManatokiCaptchaDialogState extends State<ManatokiCaptchaDialog> {
                         """,
                       );
                     },
-                    onConsoleMessage: (controller, consoleMessage) {
-                      debugPrint(consoleMessage.message);
-                    },
+                    onConsoleMessage: (_, __) {},
                   ),
                   if (_isLoading)
                     const Center(
@@ -176,15 +170,15 @@ class _ManatokiCaptchaDialogState extends State<ManatokiCaptchaDialog> {
 
       if (response != null) {
         // response가 JSON 문자열인 경우 파싱
-        final Map<String, dynamic> jsonResponse = 
+        final Map<String, dynamic> jsonResponse =
             response is String ? {} : response as Map<String, dynamic>;
-        
+
         if (jsonResponse.containsKey('url')) {
           widget.onSuccess(jsonResponse['url'] as String);
         }
       }
-    } catch (e) {
-      debugPrint('캡차 제출 오류: $e');
+    } catch (_) {
+      // Ignore submission bridge failures and let the user retry.
     }
   }
-} 
+}

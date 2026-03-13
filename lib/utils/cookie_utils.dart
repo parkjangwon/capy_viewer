@@ -10,7 +10,6 @@ Future<void> syncDioCookiesToWebView(
 
     // WebView에 쿠키 설정
     for (final cookie in cookies) {
-      final cookieString = '${cookie.name}=${cookie.value}';
       await WebViewCookieManager().setCookie(
         WebViewCookie(
           name: cookie.name,
@@ -19,10 +18,9 @@ Future<void> syncDioCookiesToWebView(
           path: cookie.path ?? '/',
         ),
       );
-      print('WebView에 쿠키 설정: $cookieString');
     }
-  } catch (e) {
-    print('쿠키 동기화 오류: $e');
+  } catch (_) {
+    // Ignore cookie sync failures; callers can continue without WebView cookies.
   }
 }
 
@@ -36,9 +34,7 @@ Future<void> syncWebViewCookiesToDio(
 
     // 현재 구현에서는 WebView에서 Dio로 쿠키를 동기화하지 않음
     // 필요한 경우 JavaScript를 사용하여 document.cookie를 가져오는 방식으로 구현 가능
-
-    print('WebView에서 Dio로 쿠키 동기화 (더미 구현)');
-  } catch (e) {
-    print('쿠키 동기화 오류: $e');
+  } catch (_) {
+    // WebView -> Dio sync is best-effort and currently unsupported.
   }
 }

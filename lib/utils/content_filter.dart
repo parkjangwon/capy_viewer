@@ -17,7 +17,8 @@ class ContentFilter {
 
   static bool shouldFilterContent(String title, String tags) {
     final combinedText = '$title $tags'.toLowerCase();
-    return _restrictedTags.any((tag) => combinedText.contains(tag.toLowerCase()));
+    return _restrictedTags
+        .any((tag) => combinedText.contains(tag.toLowerCase()));
   }
 
   static Future<bool> isContentAllowed(String title, String tags) async {
@@ -25,4 +26,4 @@ class ContentFilter {
     if (!isSafeMode) return true;
     return !shouldFilterContent(title, tags);
   }
-} 
+}

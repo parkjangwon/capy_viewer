@@ -24,4 +24,4 @@ class SearchBar extends StatelessWidget {
       onSubmitted: onSearch,
     );
   }
-} 
+}

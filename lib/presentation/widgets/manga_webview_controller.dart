@@ -23,11 +23,8 @@ class MangaWebViewController {
 
       if (globalController != null) {
         // 기존 전역 컨트롤러 사용
-        print('MangaWebViewController: 전역 WebViewController 재사용');
         controller = globalController;
       } else {
-        print('MangaWebViewController: 새 WebViewController 생성 및 전역 저장');
-
         // 새 컨트롤러 생성
         controller = WebViewController()
           ..setJavaScriptMode(JavaScriptMode.unrestricted)
@@ -35,12 +32,8 @@ class MangaWebViewController {
           ..setUserAgent(_userAgent)
           ..setNavigationDelegate(
             NavigationDelegate(
-              onPageStarted: (String url) {
-                print('WebView 페이지 로드 시작: $url');
-              },
+              onPageStarted: (String url) {},
               onPageFinished: (String url) async {
-                print('WebView 페이지 로드 완료: $url');
-
                 try {
                   // 쿠키 추출 및 저장
                   final cookieList =
@@ -49,19 +42,16 @@ class MangaWebViewController {
                   ) as String;
 
                   if (cookieList.isNotEmpty) {
-                    print('WebView 쿠키 추출: $cookieList');
                     cookieStore.setCookies(cookieList.split('; '));
                   }
-                } catch (e) {
-                  print('WebView 쿠키 추출 중 오류: $e');
+                } catch (_) {
+                  // Ignore cookie extraction failures and continue loading.
                 }
 
                 // 현재 URL 저장
                 _lastUrl = url;
               },
-              onWebResourceError: (WebResourceError error) {
-                print('WebView 리소스 오류: ${error.description}');
-              },
+              onWebResourceError: (WebResourceError error) {},
             ),
           );
 
@@ -70,9 +60,7 @@ class MangaWebViewController {
       }
 
       _isInitialized = true;
-      print('MangaWebViewController 초기화 완료');
     } catch (e) {
-      print('MangaWebViewController 초기화 중 오류: $e');
       // 오류가 발생해도 초기화 상태를 true로 설정하여 무한 재시도 방지
       _isInitialized = true;
 
@@ -93,7 +81,6 @@ class MangaWebViewController {
   // 현재 URL 가져오기
   Future<String?> currentUrl() async {
     if (!_isInitialized) {
-      print('[에러] WebViewController가 초기화되지 않았습니다');
       return null;
     }
 
@@ -106,7 +93,6 @@ class MangaWebViewController {
       // 현재 URL 가져오기
       return await controller.currentUrl();
     } catch (e) {
-      print('[에러] 현재 URL 가져오기 오류: $e');
       return null;
     }
   }
@@ -114,7 +100,6 @@ class MangaWebViewController {
   // HTML 콘텐츠 가져오기
   Future<String?> getHtmlContent() async {
     if (!_isInitialized) {
-      print('[에러] WebViewController가 초기화되지 않았습니다');
       return null;
     }
 
@@ -125,13 +110,11 @@ class MangaWebViewController {
       );
 
       if (result == null) {
-        print('[에러] HTML 콘텐츠가 비어 있습니다');
         return null;
       }
 
       final String html = result.toString();
       if (html.isEmpty) {
-        print('[에러] HTML 콘텐츠가 비어 있습니다');
         return null;
       }
 
@@ -148,7 +131,6 @@ class MangaWebViewController {
 
       return html;
     } catch (e) {
-      print('[에러] HTML 콘텐츠 가져오기 오류: $e');
       return null;
     }
   }
@@ -157,20 +139,17 @@ class MangaWebViewController {
   Future<void> submitForm(
       String formActionUrl, Map<String, String> formData) async {
     if (!_isInitialized) {
-      print('[에러] WebViewController가 초기화되지 않았습니다');
       return;
     }
 
     try {
       // JavaScript 폼 제출 코드 생성
       final jsCode = _generateFormSubmitJsCode(formActionUrl, formData);
-      print('[디버그] 폼 제출 JavaScript: $jsCode');
 
       // JavaScript 실행
       await controller.runJavaScript(jsCode);
-      print('[성공] 폼 제출 완료');
-    } catch (e) {
-      print('[에러] 폼 제출 오류: $e');
+    } catch (_) {
+      // Form submission is best-effort in the embedded WebView.
     }
   }
 
@@ -201,8 +180,6 @@ class MangaWebViewController {
   Future<void> setCookies(Uri uri, Map<String, String> cookies) async {
     final cookieManager = WebViewCookieManager();
     for (final entry in cookies.entries) {
-      print(
-          '[WebView 쿠키 세팅] ${entry.key}=${entry.value}; domain=${uri.host}; path=/');
       await cookieManager.setCookie(
         WebViewCookie(
           name: entry.key,
@@ -212,12 +189,10 @@ class MangaWebViewController {
         ),
       );
     }
-    print('[WebView 쿠키 세팅 완료] ${cookies.length}개');
   }
 
   Future<void> setCustomHeaders(Map<String, String> headers) async {
     _customHeaders = headers;
-    print('[WebView 헤더 세팅] $_customHeaders');
   }
 
   // 폼 데이터 제출 메서드 참고 주석
@@ -254,9 +229,8 @@ class MangaWebViewController {
         for (var c in cookies) c.name: c.value
       };
       await setCookies(uri, cookieMap);
-      print('[WebView] 쿠키 동기화 완료: ${cookieMap.length}개');
-    } catch (e) {
-      print('[WebView] 쿠키 동기화 실패: $e');
+    } catch (_) {
+      // Cookie sync is best-effort and should not break navigation.
     }
   }
 }
